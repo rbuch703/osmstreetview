@@ -1,0 +1,8 @@
+
+body *{
+    font-family: Verdana,Calibri,"Liberation Sans",Verdana,Arial,sans,sans-serif;
+}
+
+.mandatory { color:#f6931f; font-weight:bold}
+
+.myTable * {  vertical-align:text-top; }

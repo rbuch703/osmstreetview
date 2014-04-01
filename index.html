@@ -1,0 +1,78 @@
+ <!DOCTYPE html> 
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no">
+
+    <link   type="text/css" rel="stylesheet" href="styles/global.css" media="screen" />
+    <link   type="text/css" rel="stylesheet" href="styles/leaflet.css" />
+    <script type="text/javascript" src="leaflet.js"></script>
+    <script type="text/javascript" src="metatile.js"></script>
+	
+    <script type="text/javascript">
+    
+   
+    
+    function init()
+    {
+        map = L.map('map_div').setView([52.15, 11.63], 14); //global 
+
+        map.on("click", onMapClick);
+
+        /*L.tileLayer('http://ipsum4.rbuch703.de/osm/{z}/{x}/{y}.png', {
+            attribution: 'OpenStreetMap',
+            maxZoom: 19, minZoom:1
+        }).addTo(map);*/
+        L.tileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: 'OpenStreetMap',
+            maxZoom: 19, minZoom:1
+        }).addTo(map);
+
+        L.control.scale({imperial:false, position:"topright"}).addTo(map);
+    }    
+    
+    function onMetaTileLoaded(metatile)
+    {
+        console.log("Metatile completed!", this, metatile, this === metatile);
+        //var im = document.createElement("IMG");
+        //im.src = metatile.img.src;
+        tile_div.appendChild(metatile.img);
+
+    }
+    
+    function onMapClick(e)
+    {
+        console.log("map clicked on %s: with zoom %s", e.latlng, map.getZoom() );
+
+    
+        for (var zoom = map.getZoom(); zoom > 5; zoom--)
+        {
+            tile = new MetaTile(e.latlng, zoom);
+            tile.onload = onMetaTileLoaded;
+        }
+    }   
+
+    </script>
+    <title>Mietwohnungen in Magdeburg</title>
+</head>
+
+<body onload="init()"  > <!-- style ="padding: 0px; margin: 0px;" -->
+<h2 style="text-align:center">OSM Street View</h2>
+
+
+<div id="content" style="position:absolute; right:10px; top:50px; bottom:0px">
+    <div id="map_div" style="position:fixed; top:50px; left:0px; bottom:0px; width:50%"> </div>
+
+    <div id="nav" style="background-color:#EEE; position:fixed; width:50%; top:50px; bottom:0px; right: 0px; overflow-y:scroll">
+        <h3>Suchkriterien</h3>
+        <div id="tile_div"> </div>
+    </div>
+    
+    
+</div> 
+
+
+</body>
+
+
+</html>
