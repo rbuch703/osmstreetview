@@ -64,6 +64,16 @@ MetaTile.prototype.onImageLoad = function(e)
     	ctx.drawImage(metatile.b,  256*1, 256*2);
     	ctx.drawImage(metatile.br, 256*2, 256*2);
 
+        delete metatile.tl;
+        delete metatile.t;
+        delete metatile.tr;
+        delete metatile.l;
+        delete metatile.c;
+        delete metatile.r;
+        delete metatile.bl;
+        delete metatile.b;
+        delete metatile.br;
+        
         var canvas2 = document.createElement("CANVAS");
 	    canvas2.width = 256*2;
     	canvas2.height = 256*2;
@@ -72,8 +82,9 @@ MetaTile.prototype.onImageLoad = function(e)
     	//console.log("px/py: (%s,%s)", px, py);
         canvas2.getContext("2d").drawImage(canvas, px, py, 512, 512, 0, 0, 512, 512);
         
-        metatile.img = new Image();
-        metatile.img.src = canvas2.toDataURL("image/png");
+        metatile.canvas = canvas2;
+        /*metatile.img = new Image();
+        metatile.img.src = canvas2.toDataURL("image/png");*/
         //console.log("Image is ", metatile.src);
 
         if (metatile.onload)    //call user-defined event handler

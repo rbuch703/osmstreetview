@@ -1,4 +1,5 @@
- <!DOCTYPE html> 
+<!DOCTYPE html> 
+
 <html>
 <head>
     <meta charset="UTF-8">
@@ -8,10 +9,42 @@
     <link   type="text/css" rel="stylesheet" href="styles/leaflet.css" />
     <script type="text/javascript" src="leaflet.js"></script>
     <script type="text/javascript" src="metatile.js"></script>
+
+	<script type="text/javascript" src="gl-matrix.js" ></script>
+    <script src="webgl-debug.js"></script>
+    
+	<script id="shader-fs" type="x-shader/x-fragment">
+		precision mediump float;
+        varying vec2 texCoordV;
+        uniform sampler2D tex;
+		void main(void) {
+		    
+    		gl_FragColor =
+    		    texture2D(tex, texCoordV.st);// + 
+    		    //0.5 * vec4(texCoordV.s, texCoordV.t , 0.0, 1);
+    		//;
+    		//texture2D(tex, texCoordV.st) + vec4(0.1, 0.1, 0.1, 0.0);
+    		
+		}
+	</script>
+
+	<script id="shader-vs" type="x-shader/x-vertex">
+		attribute vec3 vertexPosition;
+        attribute vec2 vertexTexCoords;  			
+		
+		uniform mat4 modelViewMatrix;
+		uniform mat4 perspectiveMatrix;
+
+        varying vec2 texCoordV;
+
+		void main(void) {
+			gl_Position = perspectiveMatrix * modelViewMatrix * vec4(vertexPosition, 1.0);
+			texCoordV = vertexTexCoords;
+		}
+	</script>
+
 	
     <script type="text/javascript">
-    
-   
     
     function init()
     {
@@ -29,29 +62,229 @@
         }).addTo(map);
 
         L.control.scale({imperial:false, position:"topright"}).addTo(map);
+        
+	    initGl();  //initialize webGL canvas
     }    
     
     function onMetaTileLoaded(metatile)
     {
-        console.log("Metatile completed!", this, metatile, this === metatile);
-        //var im = document.createElement("IMG");
-        //im.src = metatile.img.src;
-        tile_div.appendChild(metatile.img);
+        //console.log("Metatile completed!", this, metatile, this === metatile);
 
+        tex = gl.createTexture();   //global
+        //console.log(metatile);
+        gl.activeTexture(gl.TEXTURE0);
+                
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        //gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+        //console.log(metatile.img);
+        
+        var test_im = document.createElement("CANVAS");
+        test_im.width = 512;
+        test_im.height = 512;
+        var ctx = test_im.getContext("2d");
+        //tile_div.appendChild(metatile.tl);
+        //var ctx = metatile.img.getContext("2d");
+        
+        ctx.fillStyle = "#FF0077";
+        ctx.fillRect(100,100,200,200);
+        //ctx.drawImage(metatile.img, 0, 0);  //FIXME: this does not work
+        //console.log(metatile.img);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, metatile.canvas);
+        //gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, test_im);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); //Prevents s-coordinate wrapping (repeating). Required for NPOT-textures
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); //Prevents t-coordinate wrapping (repeating). Required for NPOT-textures              
+        gl.generateMipmap(gl.TEXTURE_2D);
+        
+        // enable anisotrophic filtering for this texture of available.
+        // without anisotrophy, textures on triangles close to parallel to the view direction
+        // would appear extremely blurry
+        var ext = gl.getExtension("EXT_texture_filter_anisotropic"); //check for anisotropy support
+        var max_anisotropy = gl.getParameter(ext.MAX_TEXTURE_MAX_ANISOTROPY_EXT);
+        if (ext)
+             gl.texParameterf(gl.TEXTURE_2D, ext.TEXTURE_MAX_ANISOTROPY_EXT, max_anisotropy);
+         console.log("Maximum anisotropy level is %s", max_anisotropy);
+        
+        //console.log("shaderProgram.samplerUniform", shaderProgram.samplerUniform);
+        gl.uniform1i(shaderProgram.samplerUniform, 0);
+        
+
+                //gl.bindTexture(gl.TEXTURE_2D, null);
+        //tile_div.appendChild(metatile.img);
+        renderScene();
     }
     
     function onMapClick(e)
     {
-        console.log("map clicked on %s: with zoom %s", e.latlng, map.getZoom() );
-
-    
-        for (var zoom = map.getZoom(); zoom > 5; zoom--)
+        for (var zoom = map.getZoom(); zoom == map.getZoom()/*zoom > 5*/; zoom--)
         {
             tile = new MetaTile(e.latlng, zoom);
             tile.onload = onMetaTileLoaded;
         }
     }   
 
+			/**
+			 * Initialises WebGL and creates the 3D scene.
+			 */
+	function initGl()
+	{
+		canvasGl = document.getElementById("webGlCanvas");
+		//register event handler
+		canvasGl.onclick = renderScene;
+		/*canvasGl.onmousedown = onMouseDown;
+		canvasGl.onmouseup   = onMouseUp;
+		canvasGl.onmouseout  = onMouseUp;
+		canvasGl.onmousemove = onMouseMove;*/
+
+        //create context
+		gl = canvasGl.getContext("webgl") || canvasGl.getContext("experimental-webgl");
+		if(!gl)
+		{
+			alert("Your browser does not support 3D views (WebGL)");
+			return;
+		}
+		//console.log(gl.getSupportedExtensions());
+		gl = WebGLDebugUtils.makeDebugContext(gl);
+		
+		gl.clearColor(0.0, 0.5, 0.0, 1.0);
+		gl.clearDepth(1.0);
+		gl.enable(gl.DEPTH_TEST);
+		gl.depthFunc(gl.LEQUAL);
+		/*
+		gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);*/
+		//gl.enable(gl.CULL_FACE);
+        onResize();
+		
+		//compile and link shader program
+		var vertexShader   = glu.compileShader( document.getElementById("shader-vs").text, gl.VERTEX_SHADER);
+		var fragmentShader = glu.compileShader( document.getElementById("shader-fs").text, gl.FRAGMENT_SHADER);
+		shaderProgram  = glu.createProgram( vertexShader, fragmentShader);
+		gl.useProgram(shaderProgram);   //    Install the program as part of the current rendering state
+
+        //get location of variables inshader program (to later bind them to values);
+		shaderProgram.vertexPosAttribLocation = gl.getAttribLocation(shaderProgram, "vertexPosition"); 
+		shaderProgram.texCoordAttribLocation = gl.getAttribLocation(shaderProgram, "vertexTexCoords"); 
+        shaderProgram.modelViewMatrixLocation = gl.getUniformLocation(shaderProgram, "modelViewMatrix")
+		shaderProgram.perspectiveMatrixLocation = gl.getUniformLocation(shaderProgram, "perspectiveMatrix");
+		shaderProgram.samplerUniform = gl.getUniformLocation(shaderProgram, "tex");
+	    
+		gl.enableVertexAttribArray(shaderProgram.vertexPosAttribLocation); // setup vertex coordinate buffer
+		gl.enableVertexAttribArray(shaderProgram.texCoordAttribLocation); //setup texcoord buffer
+
+        //setup 
+        eye = [393, -608, 120];
+        lookDir = [-0.41759445514800125, 0.9086334100609345, 0];
+
+        //setup projection matrix
+	    var projectionMatrix = mat4.create();
+	    mat4.perspective(projectionMatrix, 45.0, canvasGl.width / canvasGl.height, 1.0, 10000.0);
+        gl.uniformMatrix4fv(shaderProgram.perspectiveMatrixLocation, false, projectionMatrix);
+        /*
+        layoutImage = new Image(); //global
+        layoutImage.onload = function() { var tmp = loadLayout(this); processLayout(tmp);}
+        layoutImage.src = "out.png";*/
+        renderScene();
+	}
+	
+	glu = {};
+
+	glu.compileShader = function (src_str, type)
+	{
+        var shader = gl.createShader(type); //create abstract shader object
+        gl.shaderSource(shader, src_str);   //set its GLSL source
+        gl.compileShader(shader);           //Compile it
+        //    Check for errors
+        if(!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+            console.log("Couldn't compile the vertex shader: " + gl.getShaderInfoLog(shader) );
+            //    Clean up
+            gl.deleteShader(shader);
+            return null;
+        }
+        return shader;
+	}
+	
+	glu.createProgram = function (vShader, fShader)
+	{
+        var shaderProgram = gl.createProgram();
+		
+		gl.attachShader(shaderProgram, vShader); 
+		gl.attachShader(shaderProgram, fShader); 
+		gl.linkProgram(shaderProgram);           
+		if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+			alert("Unable to initialise shaders");
+			//    Clean up
+			gl.deleteProgram(shaderProgram);
+			gl.deleteProgram(vertexShader);
+			gl.deleteProgram(fragmentShader);
+			return null;
+		}			   
+		return shaderProgram 
+	}
+
+	
+	glu.createArrayBuffer = function(data)
+	{
+		    
+	    var buffer = gl.createBuffer(); //    create a buffer to store our data in
+	    gl.bindBuffer(gl.ARRAY_BUFFER, buffer); //    Bind the buffer object to the ARRAY_BUFFER target.
+	    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW); //fill the bound array buffer
+		return buffer;
+	}
+	
+	function onResize()
+	{
+	    canvasGl.height = canvasGl.clientHeight;
+	    canvasGl.width  = canvasGl.clientWidth;
+	    if (gl)
+			gl.viewport(0, 0, canvasGl.width, canvasGl.height);
+	}	
+	
+	var tex;
+	
+	function renderScene()
+	{
+	    var lookAt = vec3.create();
+        vec3.add(lookAt, eye, lookDir);
+	
+		var modelViewMatrix = mat4.create();//initialize to identity matrix;
+		mat4.lookAt(modelViewMatrix, eye,  lookAt,[0, 0, 1]);
+		mat4.scale(modelViewMatrix, modelViewMatrix, [1,-1,1]);//negate y coordinate to make positive y go downward
+		gl.uniformMatrix4fv(shaderProgram.modelViewMatrixLocation, false, modelViewMatrix);
+
+	
+		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        var vertices = [0,0,0, 500,0,0, 500,500,0, 0,0,0, 500,500,0, 0,500,0];
+	    vertices = glu.createArrayBuffer(vertices); //convert to webgl array buffer
+	    
+	    var texCoords= [0,0, 1,0, 1,1, 0,0, 1,1, 0,1];
+	    texCoords=glu.createArrayBuffer(texCoords);
+	    
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertices);   //select the vertex buffer as the currrently active ARRAY_BUFFER (for subsequent calls)
+		gl.vertexAttribPointer(shaderProgram.vertexPosAttribLocation, 3, gl.FLOAT, false, 0, 0);  //assigns the currently bound ARRAY_BUFFER to the vertex attribute at the passed index			    
+		gl.bindBuffer(gl.ARRAY_BUFFER, texCoords);
+		gl.vertexAttribPointer(shaderProgram.texCoordAttribLocation, 2, gl.FLOAT, false, 0, 0);  
+
+        //console.log("Texture is ", tex);
+        //console.log("Error is ", gl.getError() );
+        gl.activeTexture(gl.TEXTURE0);
+        //console.log("Error is ", gl.getError() );
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        //console.log("Error is ", gl.getError() );
+		
+		/*for (var i = 0; i < numVertices; i+=6)
+		{
+            gl.activeTexture(gl.TEXTURE0);				
+            gl.bindTexture(gl.TEXTURE_2D, textures[i/6]);
+		    gl.drawArrays(gl.TRIANGLES, i, 6);
+	    }*/
+	    gl.drawArrays(gl.TRIANGLES, 0, 6);
+		gl.flush();
+        //console.log("Frame rendered, last error was ", gl.getError() );
+	}
+	
     </script>
     <title>Mietwohnungen in Magdeburg</title>
 </head>
@@ -64,6 +297,9 @@
     <div id="map_div" style="position:fixed; top:50px; left:0px; bottom:0px; width:50%"> </div>
 
     <div id="nav" style="background-color:#EEE; position:fixed; width:50%; top:50px; bottom:0px; right: 0px; overflow-y:scroll">
+		<canvas id="webGlCanvas" style="width:800px; height:600px" ></canvas>
+
+
         <h3>Suchkriterien</h3>
         <div id="tile_div"> </div>
     </div>
