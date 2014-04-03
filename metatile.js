@@ -96,7 +96,8 @@ MetaTile.prototype.createSubImage = function(x, y, zoom)
 {
     var im = new Image();
     im.metatile = this;
-    im.crossOrigin = "anonymous";   //required to get CORS approval, and thus to be able create another image from this one (which we will do with toDataURL() )
+    //required to get CORS approval, and thus to be able to draw this on a canvas without tainting that
+    im.crossOrigin = "anonymous";   
     im.onload = this.onImageLoad;
     im.src = MetaTile.basePath + zoom + "/" + x + "/" + y + ".png";
     return im;
