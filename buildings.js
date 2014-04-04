@@ -14,13 +14,51 @@ function Buildings(gl, position)
     this.gl = gl;
     this.mapCenter = position;//{lat:52.13850380245244, lng:11.64003610610962};
 
+    var earthCircumference = 2 * Math.PI * (6378.1 * 1000);
+    //FIXME: find out why the final correction factor of 2.0 is necessary
+    var physicalTileLength = earthCircumference* Math.cos(position.lat/180*Math.PI) / Math.pow(2, /*zoom=*/19);
+
+    var numTilesPer500m = 500 / physicalTileLength;
+    console.log("numTilesPer500m: %s", numTilesPer500m);
+
+    var x = long2tile(position.lng,19);
+    var y = lat2tile( position.lat,19);
+    
+    
+    var lng_min = tile2long(x - numTilesPer500m, 19);
+    var lng_max = tile2long(x + numTilesPer500m, 19);
+    
+    var lat_min = tile2lat( y + numTilesPer500m, 19);
+    var lat_max = tile2lat( y - numTilesPer500m, 19);
+
+    console.log("lat: %s-%s; lon: %s-%s", lat_min, lat_max, lng_min, lng_max);
+    var query = '[out:json][timeout:25];way["building"]('+lat_min+","+lng_min+","+lat_max+","+lng_max+');out body;>;out skel qt;';
+    console.log("query: %s", query);
     var bldgs = this;
     var oReq = new XMLHttpRequest();
     oReq.onload = function() { bldgs.onDataLoaded(this); }
-    oReq.open("get", "http://overpass-api.de/api/interpreter?data=%5Bout%3Ajson%5D%5Btimeout%3A25%5D%3Bway%5B%22building%22%5D%2852%2E1360%2C11%2E6356%2C52%2E1418%2C11%2E6416%29%3Bout%20body%3B%3E%3Bout%20skel%20qt%3B", true);
+    //oReq.open("get", "http://overpass-api.de/api/interpreter?data=" + encodeURIComponent('[out:json][timeout:25];way["building"](52.1360,11.6356,52.1418,11.6416);out body;>;out skel qt;'), true);
+    oReq.open("get", "http://overpass-api.de/api/interpreter?data=" + encodeURIComponent(query), true);
     oReq.send();
+    
+    
     /*QL query: <bbox-query e="11.6416" n="52.1418" s="52.1360" w="11.6356"/> */
     /*corresponding "get" string:  [out:json][timeout:25];way["building"](52.1360,11.6356,52.1418,11.6416);out body;>;out skel qt;; */
+
+	//compile and link shader program
+	var vertexShader   = glu.compileShader( document.getElementById("shader-vs").text, gl.VERTEX_SHADER);
+	var fragmentShader = glu.compileShader( document.getElementById("building-shader-fs").text, gl.FRAGMENT_SHADER);
+	this.shaderProgram  = glu.createProgram( vertexShader, fragmentShader);
+	gl.useProgram(this.shaderProgram);   //    Install the program as part of the current rendering state
+
+    //get location of variables in shader program (to later bind them to values);
+	this.shaderProgram.vertexPosAttribLocation =   gl.getAttribLocation( this.shaderProgram, "vertexPosition"); 
+	this.shaderProgram.texCoordAttribLocation =    gl.getAttribLocation( this.shaderProgram, "vertexTexCoords"); 
+    this.shaderProgram.modelViewMatrixLocation =   gl.getUniformLocation(this.shaderProgram, "modelViewMatrix")
+	this.shaderProgram.perspectiveMatrixLocation = gl.getUniformLocation(this.shaderProgram, "perspectiveMatrix");
+	this.shaderProgram.hasHeightLocation =         gl.getUniformLocation(this.shaderProgram, "hasHeight");
+	//this.shaderProgram.heightLocation =            gl.getUniformLocation(this.shaderProgram, "height");
+	this.shaderProgram.texLocation =               gl.getUniformLocation(this.shaderProgram, "tex");
     
 }    
     
@@ -52,7 +90,7 @@ Buildings.prototype.onDataLoaded = function(response) {
         var building = { outline: [] };
         
         if (way.tags.height)
-            building.height = way.tags.height;
+            building.height = parseFloat(way.tags.height);    //FIXME: currently assumed that all values are in meters (even if other unit is present)
         else if (way.tags["building:levels"])
             building.height = parseInt(way.tags["building:levels"])*3.5;
         
@@ -94,11 +132,12 @@ Buildings.prototype.buildGlGeometry = function() {
         pos += (bldg.outline.length-1)*6;
         
         if (bldg.outline[0].dx != bldg.outline[bldg.outline.length-1].dx || bldg.outline[0].dy != bldg.outline[bldg.outline.length-1].dy)
-            console.log("[WARN] buildigns outline does not form a closed loop");
+            console.log("[WARN] buildings outline does not form a closed loop");
         
         for (var j = 0; j < bldg.outline.length - 1; j++) //loop does not include the final vertex, as we in each case access the successor vertex as well
         {
-            var height = bldg.height ? bldg.height : 10;
+            //FIXME: find out why the 2.0 is necessary
+            var height = bldg.height ? bldg.height/2.0 : 10/2.0;
         
             var A = [bldg.outline[j  ].dx, bldg.outline[j  ].dy, 0];
             var B = [bldg.outline[j+1].dx, bldg.outline[j+1].dy, 0];
@@ -124,9 +163,9 @@ Buildings.prototype.buildGlGeometry = function() {
             this.vertices = this.vertices.concat(D);
             
             var tc = [0,0, 1,0, 1,1, 0,0, 1,1, 0,1];
-            for (var k = 0; k < 6*2; k++)   //six vertices, each needs two texCoords
-                this.texCoords.push(0.5);
-            //this.texCoords = this.texCoords.concat(tc);
+            //for (var k = 0; k < 6*2; k++)   //six vertices, each needs two texCoords
+            //    this.texCoords.push(0.5);
+            this.texCoords = this.texCoords.concat(tc);
         }
     }
     
@@ -135,16 +174,24 @@ Buildings.prototype.buildGlGeometry = function() {
     this.texCoords= glu.createArrayBuffer(this.texCoords);
 }
 
-Buildings.prototype.render = function() {
+Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
     if (! this.lengths)
         return;
+        
     var gl = this.gl;
+	gl.useProgram(this.shaderProgram);   //    Install the program as part of the current rendering state
+	gl.enableVertexAttribArray(this.shaderProgram.vertexPosAttribLocation); // setup vertex coordinate buffer
+	gl.enableVertexAttribArray(this.shaderProgram.texCoordAttribLocation); //setup texcoord buffer
+
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vertices);   //select the vertex buffer as the currrently active ARRAY_BUFFER (for subsequent calls)
-	gl.vertexAttribPointer(shaderProgram.vertexPosAttribLocation, 3, this.gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
+	gl.vertexAttribPointer(this.shaderProgram.vertexPosAttribLocation, 3, this.gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
     
 	gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoords);
-	gl.vertexAttribPointer(shaderProgram.texCoordAttribLocation, 2, this.gl.FLOAT, false, 0, 0);  //assigns array "texCoords" bound above as the vertex attribute "vertexTexCoords"
+	gl.vertexAttribPointer(this.shaderProgram.texCoordAttribLocation, 2, this.gl.FLOAT, false, 0, 0);  //assigns array "texCoords" bound above as the vertex attribute "vertexTexCoords"
 
+    gl.uniform1i(this.shaderProgram.texLocation, 0); //select texture unit 0 as the source for the shader variable "tex" 
+	gl.uniformMatrix4fv(this.shaderProgram.modelViewMatrixLocation, false, modelViewMatrix);
+    gl.uniformMatrix4fv(this.shaderProgram.perspectiveMatrixLocation, false, projectionMatrix);
 
     gl.activeTexture(gl.TEXTURE0);  //successive commands (here 'gl.bindTexture()') apply to texture unit 0
     gl.bindTexture(gl.TEXTURE_2D, null); //render geometry without texture
@@ -155,6 +202,8 @@ Buildings.prototype.render = function() {
     {
 	    //gl.drawArrays(gl.LINE_LOOP, this.indices[i], this.lengths[i]);
         //console.log("rendering %d vertices starting from index %d", this.lengths[i], this.indices[i]);
+        
+        gl.uniform1i(this.shaderProgram.hasHeightLocation, this.buildings[i].height ? 1 : 0); //select texture unit 0 as the source for the shader variable "tex" 
 	    
 	    gl.drawArrays(gl.TRIANGLES, this.indices[i], this.lengths[i]);
 	    //gl.drawArrays(gl.TRIANGLE_FAN, this.indices[i], this.lengths[i]);

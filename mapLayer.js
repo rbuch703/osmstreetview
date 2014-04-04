@@ -40,6 +40,20 @@ function MapLayer(gl, position) {
     this.textures = [];
     this.numTiles = geometry.length/(3*6); //six vertices per tile, three coordinates per vertex
     this.numTilesLoaded = 0;
+    
+	//compile and link shader program
+	var vertexShader   = glu.compileShader( document.getElementById("shader-vs").text, gl.VERTEX_SHADER);
+	var fragmentShader = glu.compileShader( document.getElementById("map-shader-fs").text, gl.FRAGMENT_SHADER);
+	this.shaderProgram  = glu.createProgram( vertexShader, fragmentShader);
+	gl.useProgram(this.shaderProgram);   //    Install the program as part of the current rendering state
+
+    //get location of variables in shader program (to later bind them to values);
+	this.shaderProgram.vertexPosAttribLocation =   gl.getAttribLocation( this.shaderProgram, "vertexPosition"); 
+	this.shaderProgram.texCoordAttribLocation =    gl.getAttribLocation( this.shaderProgram, "vertexTexCoords"); 
+    this.shaderProgram.modelViewMatrixLocation =   gl.getUniformLocation(this.shaderProgram, "modelViewMatrix")
+	this.shaderProgram.perspectiveMatrixLocation = gl.getUniformLocation(this.shaderProgram, "perspectiveMatrix");
+	this.shaderProgram.texLocation =               gl.getUniformLocation(this.shaderProgram, "tex");
+    
 }
 
 MapLayer.prototype.createTile = function(position, zoom)
@@ -98,14 +112,23 @@ MapLayer.prototype.onMetaTileLoaded = function(metatile)
     //this.render();
 }
 
-MapLayer.prototype.render = function() 
+MapLayer.prototype.render = function(modelViewMatrix, projectionMatrix) 
 {
     var gl = this.gl;
+    
+	gl.useProgram(this.shaderProgram);   //    Install the program as part of the current rendering state
+	gl.enableVertexAttribArray(this.shaderProgram.vertexPosAttribLocation); // setup vertex coordinate buffer
+	gl.enableVertexAttribArray(this.shaderProgram.texCoordAttribLocation); //setup texcoord buffer
+
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vertices);   //select the vertex buffer as the currrently active ARRAY_BUFFER (for subsequent calls)
-	gl.vertexAttribPointer(shaderProgram.vertexPosAttribLocation, 3, this.gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
+	gl.vertexAttribPointer(this.shaderProgram.vertexPosAttribLocation, 3, this.gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
     
 	gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoords);
-	gl.vertexAttribPointer(shaderProgram.texCoordAttribLocation, 2, this.gl.FLOAT, false, 0, 0);  //assigns array "texCoords" bound above as the vertex attribute "vertexTexCoords"
+	gl.vertexAttribPointer(this.shaderProgram.texCoordAttribLocation, 2, this.gl.FLOAT, false, 0, 0);  //assigns array "texCoords" bound above as the vertex attribute "vertexTexCoords"
+
+    gl.uniform1i(this.shaderProgram.texLocation, 0); //select texture unit 0 as the source for the shader variable "tex" 
+	gl.uniformMatrix4fv(this.shaderProgram.modelViewMatrixLocation, false, modelViewMatrix);
+    gl.uniformMatrix4fv(this.shaderProgram.perspectiveMatrixLocation, false, projectionMatrix);
 
 
     gl.activeTexture(gl.TEXTURE0);  //successive commands (here 'gl.bindTexture()') apply to texture unit 0

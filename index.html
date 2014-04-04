@@ -17,7 +17,7 @@
 
     <script src="webgl-debug.js"></script>
     
-	<script id="shader-fs" type="x-shader/x-fragment">
+	<script id="map-shader-fs" type="x-shader/x-fragment">
 		precision mediump float;
         varying vec2 texCoordV;
         uniform sampler2D tex;
@@ -37,6 +37,23 @@
 		}
 	</script>
 
+	<script id="building-shader-fs" type="x-shader/x-fragment">
+		precision mediump float;
+        varying vec2 texCoordV;
+        uniform sampler2D tex;
+        uniform int hasHeight;
+        //uniform float height;
+		void main(void) {
+		    const float c = 0.02;
+		    if ( texCoordV.s < c || texCoordV.s > 1.0 - c || texCoordV.t < c || texCoordV.t > 1.0 - c)
+		        gl_FragColor = vec4( 0.0, 0.0, 0.0, 1.0);
+	        else if (hasHeight == 0)
+	            gl_FragColor = vec4( 0.7, 0.4, 0.4, 1.0);
+            else
+                gl_FragColor = vec4( 0.5, 0.5, 0.5, 1.0);
+		}
+	</script>
+	
 	<script id="shader-vs" type="x-shader/x-vertex">
 		attribute vec3 vertexPosition;
         attribute vec2 vertexTexCoords;  			
@@ -164,32 +181,10 @@
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
         onResize();
-		
-		//compile and link shader program
-		var vertexShader   = glu.compileShader( document.getElementById("shader-vs").text, gl.VERTEX_SHADER);
-		var fragmentShader = glu.compileShader( document.getElementById("shader-fs").text, gl.FRAGMENT_SHADER);
-		shaderProgram  = glu.createProgram( vertexShader, fragmentShader);
-		gl.useProgram(shaderProgram);   //    Install the program as part of the current rendering state
-
-        //get location of variables in shader program (to later bind them to values);
-		shaderProgram.vertexPosAttribLocation = gl.getAttribLocation(shaderProgram, "vertexPosition"); 
-		shaderProgram.texCoordAttribLocation = gl.getAttribLocation(shaderProgram, "vertexTexCoords"); 
-        shaderProgram.modelViewMatrixLocation = gl.getUniformLocation(shaderProgram, "modelViewMatrix")
-		shaderProgram.perspectiveMatrixLocation = gl.getUniformLocation(shaderProgram, "perspectiveMatrix");
-		shaderProgram.texLocation = gl.getUniformLocation(shaderProgram, "tex");
-	    
-		gl.enableVertexAttribArray(shaderProgram.vertexPosAttribLocation); // setup vertex coordinate buffer
-		gl.enableVertexAttribArray(shaderProgram.texCoordAttribLocation); //setup texcoord buffer
-        gl.uniform1i(shaderProgram.texLocation, 0); //select texture unit 0 as the source for the shader variable "tex" 
-		
+	
         //view setup 
-        eye = [0,0,20];
+        eye = [0,0,20/2.0];
         lookDir = [-0.41759445514800125, 0.9086334100609345, 0];
-
-        //setup projection matrix (model-view will be set up on a per-frame basis in renderScene() )
-	    var projectionMatrix = mat4.create();
-	    mat4.perspective(projectionMatrix, 45.0, webGlCanvas.width / webGlCanvas.height, 1.0, 10000.0);
-        gl.uniformMatrix4fv(shaderProgram.perspectiveMatrixLocation, false, projectionMatrix);
 
         renderScene();
 	}
@@ -214,13 +209,18 @@
 		var modelViewMatrix = mat4.create();
 		mat4.lookAt(modelViewMatrix, eye,  lookAt,[0, 0, 1]);
 		mat4.scale(modelViewMatrix, modelViewMatrix, [1,-1,1]);//negate y coordinate to make positive y go downward
-		gl.uniformMatrix4fv(shaderProgram.modelViewMatrixLocation, false, modelViewMatrix);
+
+        //setup projection matrix (model-view will be set up on a per-frame basis in renderScene() )
+	    
+	    var projectionMatrix = mat4.create();
+	    mat4.perspective(projectionMatrix, 45.0, webGlCanvas.width / webGlCanvas.height, 1.0, 10000.0);
+
         
         if (mapPlane)
-            mapPlane.render();
+            mapPlane.render(modelViewMatrix, projectionMatrix);
         
         if (mapBuildings)
-            mapBuildings.render();
+            mapBuildings.render(modelViewMatrix, projectionMatrix);
         
 		gl.flush();
 	}
