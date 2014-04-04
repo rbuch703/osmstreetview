@@ -78,9 +78,11 @@ MapLayer.prototype.onMetaTileLoaded = function(metatile)
     // without anisotrophy, textures on triangles close to parallel to the view direction
     // would appear extremely blurry
     var ext = gl.getExtension("EXT_texture_filter_anisotropic"); //check for anisotropy support
-    var max_anisotropy = gl.getParameter(ext.MAX_TEXTURE_MAX_ANISOTROPY_EXT);
     if (ext)
-         gl.texParameterf(gl.TEXTURE_2D, ext.TEXTURE_MAX_ANISOTROPY_EXT, max_anisotropy);
+    {
+        var max_anisotropy = gl.getParameter(ext.MAX_TEXTURE_MAX_ANISOTROPY_EXT);
+        gl.texParameterf(gl.TEXTURE_2D, ext.TEXTURE_MAX_ANISOTROPY_EXT, max_anisotropy);
+    }
 
     this.textures[metatile.zoom] = tex;
 

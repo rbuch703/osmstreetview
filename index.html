@@ -10,6 +10,7 @@
     <script type="text/javascript" src="leaflet.js"></script>
     <script type="text/javascript" src="metatile.js"></script>
     <script type="text/javascript" src="mapLayer.js"></script>
+    <script type="text/javascript" src="buildings.js"></script>
 
 	<script type="text/javascript" src="gl-matrix.js" ></script>
 	<script type="text/javascript" src="glu.js" ></script>
@@ -83,12 +84,18 @@
     }    
     
     var mapPlane;
+    var mapBuildings;
     
     function onMapClick(e)
     {
-        mapPlane = new MapLayer(gl, e.latlng);
-        mapPlane.onLoaded = renderScene;
         position = e.latlng;
+
+        mapPlane = new MapLayer(gl, position);
+        mapPlane.onLoaded = renderScene;
+        
+        mapBuildings = new Buildings(gl, position);
+        mapBuildings.onLoaded = renderScene;
+        
         console.log("Setting map center to %o", position);
         
     }   
@@ -211,6 +218,9 @@
         
         if (mapPlane)
             mapPlane.render();
+        
+        if (mapBuildings)
+            mapBuildings.render();
         
 		gl.flush();
 	}
