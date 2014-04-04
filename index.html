@@ -9,6 +9,7 @@
     <link   type="text/css" rel="stylesheet" href="styles/leaflet.css" />
     <script type="text/javascript" src="leaflet.js"></script>
     <script type="text/javascript" src="metatile.js"></script>
+    <script type="text/javascript" src="mapLayer.js"></script>
 
 	<script type="text/javascript" src="gl-matrix.js" ></script>
 	<script type="text/javascript" src="glu.js" ></script>
@@ -71,91 +72,72 @@
         L.control.scale({imperial:false, position:"topright"}).addTo(map);
         
 	    initGl();  //initialize webGL canvas
+
+		//register event handlers
+		webGlCanvas.onclick = renderScene;
+		webGlCanvas.onmousedown = onMouseDown;
+		webGlCanvas.onmouseup   = onMouseUp;
+		webGlCanvas.onmouseout  = onMouseUp;
+		webGlCanvas.onmousemove = onMouseMove;
+
     }    
     
-    function onMetaTileLoaded(metatile)
-    {
-        var tex = gl.createTexture();
-        gl.activeTexture(gl.TEXTURE0);
-                
-        gl.bindTexture(gl.TEXTURE_2D, tex);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, metatile.canvas); //load texture data
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);                  //set zoom-in filter to linear interpolation
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);    //set zoom-out filter to linear interpolation between pixels and mipmap levels
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); // texCords are clamped 
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); // to range [0..1]
-        gl.generateMipmap(gl.TEXTURE_2D);                                     // automatic mipmap generation
-        
-        // enable anisotropic filtering for this texture of available.
-        // without anisotrophy, textures on triangles close to parallel to the view direction
-        // would appear extremely blurry
-        var ext = gl.getExtension("EXT_texture_filter_anisotropic"); //check for anisotropy support
-        var max_anisotropy = gl.getParameter(ext.MAX_TEXTURE_MAX_ANISOTROPY_EXT);
-        if (ext)
-             gl.texParameterf(gl.TEXTURE_2D, ext.TEXTURE_MAX_ANISOTROPY_EXT, max_anisotropy);
-
-        textures[metatile.zoom] = tex;
-
-        renderScene();
-    }
-    
-    var position;
-    var numTiles = 0;
-    var textures = [];
-    var vertices = [];
-    var texCoords= [];
+    var mapPlane;
     
     function onMapClick(e)
     {
+        mapPlane = new MapLayer(gl, e.latlng);
+        mapPlane.onLoaded = renderScene;
         position = e.latlng;
-        // request OSM tiles for texturing
-        for (var zoom = 13; zoom <= 19; zoom++)
-        {
-            tile = new MetaTile(e.latlng, zoom);
-            tile.onload = onMetaTileLoaded;
-        }
-        
-        //construct geometry (including texture coordinates) to render the tiles on
-        var geometry = [];
-        var tc = [];
-        var tcPerTile = [0,0, 1,0, 1,1, 0,0, 1,1, 0,1];
-        for (var zoom = 13; zoom <= 19; zoom++)
-        {
-            // formulas taken from http://wiki.openstreetmap.org/wiki/Zoom_levels 
-            var earthCircumference = 2 * Math.PI * (6378.1 * 1000);
-            var physicalTileLength = earthCircumference* Math.cos(position.lat/180*Math.PI) / Math.pow(2, zoom);
-            
-            var halfWidth = 0.5 * physicalTileLength;
-            //tile rectangle, specified as two triangles
-            geometry = geometry.concat([-halfWidth, -halfWidth, zoom/100,
-                                         halfWidth, -halfWidth, zoom/100,
-                                         halfWidth,  halfWidth, zoom/100,
-                                        -halfWidth, -halfWidth, zoom/100,
-                                         halfWidth,  halfWidth, zoom/100,
-                                        -halfWidth,  halfWidth, zoom/100]);
-            tc = tc.concat(tcPerTile);
-        }
-        
-        
-        vertices = glu.createArrayBuffer(geometry);
-	    texCoords=glu.createArrayBuffer(tc);
-	    textures = [];
-        numTiles = geometry.length/(3*6); //six vertices per tile, three coordinates per vertex
+        console.log("Setting map center to %o", position);
         
     }   
 
-			/**
-			 * Initialises WebGL and creates the 3D scene.
-			 */
+	var x,y;
+    var down = false;	
+    		
+	function onMouseDown(e)
+	{
+	    if (e.button != 0) 
+	        return;
+
+	    x = e.clientX;
+	    y = e.clientY;
+	    down = true;
+	}
+	
+	function onMouseUp(e)
+	{
+	    if (e.button != 0) 
+	        return;
+	    down = false;
+	    //renderScene();
+	}
+	
+    function onMouseMove(e)
+	{
+	   if (! down) return;
+	   var dx = e.clientX - x;
+	   var dy = e.clientY - y;
+	   x = e.clientX;
+	   y = e.clientY;
+	   
+	   var rotMat = mat4.create();
+	   mat4.rotateZ(rotMat, rotMat, -dx/100);
+	   vec3.transformMat4(lookDir, lookDir, rotMat);
+	   
+	   /*var tmp = vec3.create();
+	   vec3.scale(tmp, lookDir, -dy);
+	   vec3.add(eye, eye, tmp);*/
+	   
+	   renderScene();
+	}	
+	
+	/**
+	 * Initialises WebGL and creates the 3D scene.
+	 */
 	function initGl()
 	{
-		//register event handler
-		webGlCanvas.onclick = renderScene;
-		/*webGlCanvas.onmousedown = onMouseDown;
-		webGlCanvas.onmouseup   = onMouseUp;
-		webGlCanvas.onmouseout  = onMouseUp;
-		webGlCanvas.onmousemove = onMouseMove;*/
-
         //create context
 		gl = webGlCanvas.getContext("webgl") || webGlCanvas.getContext("experimental-webgl");
 		if(!gl)
@@ -226,21 +208,10 @@
 		mat4.lookAt(modelViewMatrix, eye,  lookAt,[0, 0, 1]);
 		mat4.scale(modelViewMatrix, modelViewMatrix, [1,-1,1]);//negate y coordinate to make positive y go downward
 		gl.uniformMatrix4fv(shaderProgram.modelViewMatrixLocation, false, modelViewMatrix);
-
-	
-        gl.bindBuffer(gl.ARRAY_BUFFER, vertices);   //select the vertex buffer as the currrently active ARRAY_BUFFER (for subsequent calls)
-		gl.vertexAttribPointer(shaderProgram.vertexPosAttribLocation, 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
-
-		gl.bindBuffer(gl.ARRAY_BUFFER, texCoords);
-		gl.vertexAttribPointer(shaderProgram.texCoordAttribLocation, 2, gl.FLOAT, false, 0, 0);  //assigns array "texCoords" bound above as the vertex attribute "vertexTexCoords"
-
-
-        gl.activeTexture(gl.TEXTURE0);  //successive commands (here 'gl.bindTexture()') apply to texture unit 0
-	    for (var i = 0; i < numTiles; i++)
-	    {
-	        gl.bindTexture(gl.TEXTURE_2D, textures[i+13]); //render geometry using texture "texture[i]" in texture unit 0
-    	    gl.drawArrays(gl.TRIANGLES, i*6, 6);
-	    }
+        
+        if (mapPlane)
+            mapPlane.render();
+        
 		gl.flush();
 	}
 	
