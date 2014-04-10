@@ -11,6 +11,7 @@
     <script type="text/javascript" src="metatile.js"></script>
     <script type="text/javascript" src="mapLayer.js"></script>
     <script type="text/javascript" src="buildings.js"></script>
+    <script type="text/javascript" src="skydome.js"></script>
 
 	<script type="text/javascript" src="gl-matrix.js" ></script>
 	<script type="text/javascript" src="glu.js" ></script>
@@ -34,6 +35,15 @@
             gl_FragColor = texture2D(tex, texCoordV.st);
             gl_FragColor[3] = clamp(alpha, 0.0, 1.0);
 		        
+		}
+	</script>
+
+	<script id="texture-shader-fs" type="x-shader/x-fragment">
+		precision mediump float;
+        varying vec2 texCoordV;
+        uniform sampler2D tex;
+		void main(void) {
+            gl_FragColor = texture2D(tex, texCoordV.st);
 		}
 	</script>
 
@@ -102,6 +112,7 @@
     
     var mapPlane;
     var mapBuildings;
+    var mapSkyDome;
     
     function onMapClick(e)
     {
@@ -112,6 +123,9 @@
         
         mapBuildings = new Buildings(gl, position);
         mapBuildings.onLoaded = renderScene;
+        
+        mapSkyDome = new SkyDome(gl);
+        mapSkyDome.onLoaded = renderScene;
         
         console.log("Setting map center to %o", position);
         
@@ -222,6 +236,9 @@
         if (mapBuildings)
             mapBuildings.render(modelViewMatrix, projectionMatrix);
         
+        if (mapSkyDome)
+            mapSkyDome.render(modelViewMatrix, projectionMatrix);
+            
 		gl.flush();
 	}
 	
