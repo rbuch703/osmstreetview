@@ -197,7 +197,7 @@
         onResize();
 	
         //view setup 
-        eye = [0,0,20/2.0];
+        eye = [0,0,2/2.0];
         lookDir = [-0.41759445514800125, 0.9086334100609345, 0];
 
         renderScene();
@@ -227,7 +227,7 @@
         //setup projection matrix (model-view will be set up on a per-frame basis in renderScene() )
 	    
 	    var projectionMatrix = mat4.create();
-	    mat4.perspective(projectionMatrix, 45.0, webGlCanvas.width / webGlCanvas.height, 1.0, 10000.0);
+	    mat4.perspective(projectionMatrix, 45/180*Math.PI, webGlCanvas.width / webGlCanvas.height, 1.0, 10000.0);
 
         
         if (mapPlane)
@@ -253,8 +253,8 @@
 
 <div id="content" style="position:absolute; right:10px; top:50px; bottom:0px">
 
-    <div id="nav" style="background-color:#EEE; position:fixed; width:66%; top:50px; bottom:0px; right: 0px; overflow-y:scroll">
-		<canvas id="webGlCanvas" style="width:1024px; height:768px;background:black" ></canvas>
+    <div id="nav" style="background-color:#EEE; position:fixed; width:75%; top:50px; bottom:0px; right: 0px; overflow-y:scroll">
+		<canvas id="webGlCanvas" style="width:1280px; height:720px;background:black" ></canvas>
 
 
         <h3>Suchkriterien</h3>

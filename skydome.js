@@ -14,31 +14,18 @@ function SkyDome(gl)
 	this.shaderProgram.texCoordAttribLocation =    gl.getAttribLocation( this.shaderProgram, "vertexTexCoords"); 
     this.shaderProgram.modelViewMatrixLocation =   gl.getUniformLocation(this.shaderProgram, "modelViewMatrix")
 	this.shaderProgram.perspectiveMatrixLocation = gl.getUniformLocation(this.shaderProgram, "perspectiveMatrix");
-	//this.shaderProgram.hasHeightLocation =         gl.getUniformLocation(this.shaderProgram, "hasHeight");
-	//this.shaderProgram.heightLocation =            gl.getUniformLocation(this.shaderProgram, "height");
 	this.shaderProgram.texLocation =               gl.getUniformLocation(this.shaderProgram, "tex");
 
     this.buildGlGeometry();
 }    
-    
-/*
-SkyDome.prototype.onDataLoaded = function(response) {
-
-    if (this.onLoaded)
-        this.onLoaded();
-    
-    //console.log("Buildings: %o", this.buildings);
-}*/
 
 function onTextureLoaded(im, dome) {
-	console.log("dome is %o; this is %o", dome, this);
+	//console.log("dome is %o; this is %o", dome, this);
 	var gl = dome.gl;
 
     dome.tex = gl.createTexture();
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, dome.tex);
-	//gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-    //console.log("now loading texture %o of tile %o", metatile.canvas, metatile);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, im); //load texture data
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);                  //set zoom-in filter to linear interpolation
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);    //set zoom-out filter to linear interpolation between pixels and mipmap levels
@@ -46,6 +33,8 @@ function onTextureLoaded(im, dome) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); // ... but t coordinate does not (top != bottom)
     gl.generateMipmap(gl.TEXTURE_2D);                                     // automatic mipmap generation
 	
+	if (dome.onLoaded)
+        dome.onLoaded();
 }
 
 SkyDome.prototype.buildGlGeometry = function() {
@@ -62,33 +51,45 @@ SkyDome.prototype.buildGlGeometry = function() {
 	var base = [];
 	var top = [];
 		
-	var NUM_SLICES = 10;
-	for (var i = 0; i < NUM_SLICES; i++)
+	var NUM_H_SLICES = 20;
+	var NUM_V_SLICES = 5;
+	for (var i = 0; i < NUM_H_SLICES; i++)
 	{
-		var azimuth = i / NUM_SLICES * 2 * Math.PI;
-		//var altitude= Math.PI * 0.3;
+		var azimuth1 = i / NUM_H_SLICES * 2 * Math.PI;    //convert to radiants in  [0...2*PI]
+		var x1 = Math.cos(azimuth1) * SkyDome.RADIUS;
+		var y1 = Math.sin(azimuth1) * SkyDome.RADIUS;
+
+		var azimuth2 = (i+1) / NUM_H_SLICES * 2 * Math.PI;
+		var x2 = Math.cos(azimuth2) * SkyDome.RADIUS;
+		var y2 = Math.sin(azimuth2) * SkyDome.RADIUS;
+
+
+	    for (var j = 0; j+1 < NUM_V_SLICES; j++)
+    	{
+    	    var polar1 = j/ NUM_V_SLICES * Math.PI / 2.0; //convert to radiants in [0..1/2*PI]
+    	    var polar2 = (j+1)/ NUM_V_SLICES * Math.PI / 2.0;
+
+            
+		    //console.log(x1, y1, azimuth);
+		    var A = [x1 * Math.cos(polar1), y1 * Math.cos(polar1), SkyDome.RADIUS * Math.sin(polar1)];
+		    var B = [x2 * Math.cos(polar1), y2 * Math.cos(polar1), SkyDome.RADIUS * Math.sin(polar1)];
+		    var C = [x2 * Math.cos(polar2), y2 * Math.cos(polar2), SkyDome.RADIUS * Math.sin(polar2)];
+		    var D = [x1 * Math.cos(polar2), y1 * Math.cos(polar2), SkyDome.RADIUS * Math.sin(polar2)];
+
+		    /*var D = [0,0, SkyDome.RADIUS];
+		    var C = [0,0, SkyDome.RADIUS];*/
 		
-		var x1 = Math.cos(azimuth) * SkyDome.RADIUS;
-		var y1 = Math.sin(azimuth) * SkyDome.RADIUS;
-		//console.log(x1, y1, azimuth);
-		var A = [x1,y1, 0];
-		var D = [0,0, SkyDome.RADIUS];
+		    var verts = [].concat([], A, B, C, A, C, D);
+		    this.vertices.push.apply( this.vertices, verts);
 		
-		var azimuth = (i+1) / NUM_SLICES * 2 * Math.PI;
-		var x2 = Math.cos(azimuth) * SkyDome.RADIUS;
-		var y2 = Math.sin(azimuth) * SkyDome.RADIUS;
-		
-		var B = [x2, y2, 0];
-		var C = [0,0, SkyDome.RADIUS];
-		
-		var verts = [].concat([], A, B, C, A, C, D);
-		this.vertices.push.apply( this.vertices, verts);
-		
-		var tc_left = i/NUM_SLICES;
-		var tc_right= (i+1)/NUM_SLICES;
-		console.log("i: %s, left: %s, right: %s", i, tc_left, tc_right);
-		var tcs = [tc_left,1, tc_right,1, tc_right,0, tc_left,1, tc_right,0, tc_left,0];
-		this.texCoords.push.apply( this.texCoords, tcs);
+		    var tc_left = i/NUM_H_SLICES;
+		    var tc_right= (i+1)/NUM_H_SLICES;
+		    var tc_top  = 1 - (j+1)/NUM_V_SLICES;
+		    var tc_bottom=1 - j/ NUM_V_SLICES;
+		    console.log("i: %s, left: %s, right: %s", i, tc_left, tc_right);
+		    var tcs = [tc_left,tc_bottom, tc_right,tc_bottom, tc_right,tc_top, tc_left,tc_bottom, tc_right,tc_top, tc_left,tc_top];
+		    this.texCoords.push.apply( this.texCoords, tcs);
+		}
 	}
 	
     

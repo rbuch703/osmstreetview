@@ -32,7 +32,8 @@ function Buildings(gl, position)
     var lat_max = tile2lat( y - numTilesPer500m, 19);
 
     console.log("lat: %s-%s; lon: %s-%s", lat_min, lat_max, lng_min, lng_max);
-    var query = '[out:json][timeout:25];way["building"]('+lat_min+","+lng_min+","+lat_max+","+lng_max+');out body;>;out skel qt;';
+    //var query = '[out:json][timeout:25];way["building"]('+lat_min+","+lng_min+","+lat_max+","+lng_max+');out body;>;out skel qt;';
+    var query = '[out:json][timeout:25];(way["building"]('+lat_min+","+lng_min+","+lat_max+","+lng_max+');way["building:part"]('+lat_min+","+lng_min+","+lat_max+","+lng_max+'));out body;>;out skel qt;';
     console.log("query: %s", query);
     var bldgs = this;
     var oReq = new XMLHttpRequest();
@@ -90,9 +91,19 @@ Buildings.prototype.onDataLoaded = function(response) {
         var building = { outline: [] };
         
         if (way.tags.height)
-            building.height = parseFloat(way.tags.height);    //FIXME: currently assumed that all values are in meters (even if other unit is present)
+            building.height = parseFloat(way.tags.height);    //FIXME: currently assumes that all values are in meters (even if other unit is present)
         else if (way.tags["building:levels"])
             building.height = parseInt(way.tags["building:levels"])*3.5;
+        //else
+        //    building.height = 10.0; //FIXME: just a guess, replace by more educated guess
+
+            
+        if (way.tags.min_height)
+            building.min_height = parseFloat(way.tags.min_height); //FIXME: currently assumes that all values are in meters (even if other unit is present)
+        else if (way.tags["building:min_level"])
+            building.min_height = parseInt(way.tags["building:min_level"])*3.5;
+        else
+            building.min_height = 0.0;
         
         for (var j = 0; j < way.nodes.length; j++)
         {
@@ -142,9 +153,10 @@ Buildings.prototype.buildGlGeometry = function() {
         {
             //FIXME: find out why the 2.0 is necessary
             var height = bldg.height ? bldg.height/2.0 : 10/2.0;
-        
-            var A = [bldg.outline[j  ].dx, bldg.outline[j  ].dy, 0];
-            var B = [bldg.outline[j+1].dx, bldg.outline[j+1].dy, 0];
+            var min_height= bldg.min_height / 2.0;
+                    
+            var A = [bldg.outline[j  ].dx, bldg.outline[j  ].dy, min_height];
+            var B = [bldg.outline[j+1].dx, bldg.outline[j+1].dy, min_height];
             var C = [bldg.outline[j+1].dx, bldg.outline[j+1].dy, height];
             var D = [bldg.outline[j  ].dx, bldg.outline[j  ].dy, height];
             
