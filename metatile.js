@@ -99,13 +99,18 @@ MetaTile.prototype.createSubImage = function(x, y, zoom)
     //required to get CORS approval, and thus to be able to draw this on a canvas without tainting that
     im.crossOrigin = "anonymous";   
     im.onload = this.onImageLoad;
-    im.src = MetaTile.basePath + zoom + "/" + x + "/" + y + ".png";
+    im.src = MetaTile.basePath + zoom + "/" + x + "/" + y + "." + MetaTile.fileExtension;
     return im;
 }
 
 
 MetaTile.prototype.numLoaded = 0;//.test = function() { alert('OK'); } // OK
 MetaTile.basePath = "http://tile.openstreetmap.org/";   // attached to the constructor to be shared globally
+MetaTile.fileExtension = "png";
+
+//MetaTile.basePath = "http://otile1.mqcdn.com/tiles/1.0.0/sat/";   // attached to the constructor to be shared globally
+//MetaTile.fileExtension = "jpg";
+
 //MetaTile.basePath = "http://ipsum4.rbuch703.de/osm/";   // attached to the constructor to be shared globally
 
 

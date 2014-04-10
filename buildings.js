@@ -124,7 +124,10 @@ Buildings.prototype.buildGlGeometry = function() {
     this.texCoords=[];
     
     var pos = 0;
-    for (var i in this.buildings)
+    var vertexArrays = [];
+    var texCoordArrays = [];
+
+    for (var i = 0; i < this.buildings.length; i++)
     {
         var bldg = this.buildings[i];
         this.indices.push(pos);
@@ -133,6 +136,7 @@ Buildings.prototype.buildGlGeometry = function() {
         
         if (bldg.outline[0].dx != bldg.outline[bldg.outline.length-1].dx || bldg.outline[0].dy != bldg.outline[bldg.outline.length-1].dy)
             console.log("[WARN] buildings outline does not form a closed loop");
+        
         
         for (var j = 0; j < bldg.outline.length - 1; j++) //loop does not include the final vertex, as we in each case access the successor vertex as well
         {
@@ -155,19 +159,18 @@ Buildings.prototype.buildGlGeometry = function() {
              * A-B
              */
             
-            this.vertices = this.vertices.concat(A);
-            this.vertices = this.vertices.concat(B);
-            this.vertices = this.vertices.concat(C);
-            this.vertices = this.vertices.concat(A);
-            this.vertices = this.vertices.concat(C);
-            this.vertices = this.vertices.concat(D);
+            //flatten array of 3-element-arrays to a single array
+            var coords = [].concat.apply([], [A, B, C, A, C, D]);
+            this.vertices.push.apply(this.vertices, coords);
             
             var tc = [0,0, 1,0, 1,1, 0,0, 1,1, 0,1];
-            //for (var k = 0; k < 6*2; k++)   //six vertices, each needs two texCoords
-            //    this.texCoords.push(0.5);
-            this.texCoords = this.texCoords.concat(tc);
+            this.texCoords.push.apply( this.texCoords, tc); //this 'hack' is way faster than concat()
         }
     }
+    //flatten array of arrays to a single array
+    //this.vertices = [].concat.apply([], vertexArrays);
+    console.log("vertices has %s elements; %o", this.vertices.length, this.vertices);
+    //alert(this.texCoords.length + "; " + this.vertices.length);
     
     console.log("total elements: %d vertex coordinates, %d texCoords", this.vertices.length, this.texCoords.length);
     this.vertices = glu.createArrayBuffer(this.vertices);
