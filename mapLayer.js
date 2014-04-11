@@ -1,6 +1,6 @@
 
 function MapLayer(gl, position) {
-    console.log("MapLayer created");
+    //console.log("MapLayer created");
     this.gl = gl;
     // request OSM tiles for texturing
     //var map = this;

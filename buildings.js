@@ -19,7 +19,7 @@ function Buildings(gl, position)
     var physicalTileLength = earthCircumference* Math.cos(position.lat/180*Math.PI) / Math.pow(2, /*zoom=*/19);
 
     var numTilesPer500m = 500 / physicalTileLength;
-    console.log("numTilesPer500m: %s", numTilesPer500m);
+    //console.log("numTilesPer500m: %s", numTilesPer500m);
 
     var x = long2tile(position.lng,19);
     var y = lat2tile( position.lat,19);
@@ -31,10 +31,10 @@ function Buildings(gl, position)
     var lat_min = tile2lat( y + numTilesPer500m, 19);
     var lat_max = tile2lat( y - numTilesPer500m, 19);
 
-    console.log("lat: %s-%s; lon: %s-%s", lat_min, lat_max, lng_min, lng_max);
+    //console.log("lat: %s-%s; lon: %s-%s", lat_min, lat_max, lng_min, lng_max);
     //var query = '[out:json][timeout:25];way["building"]('+lat_min+","+lng_min+","+lat_max+","+lng_max+');out body;>;out skel qt;';
     var query = '[out:json][timeout:25];(way["building"]('+lat_min+","+lng_min+","+lat_max+","+lng_max+');way["building:part"]('+lat_min+","+lng_min+","+lat_max+","+lng_max+'));out body;>;out skel qt;';
-    console.log("query: %s", query);
+    //console.log("query: %s", query);
     var bldgs = this;
     var oReq = new XMLHttpRequest();
     oReq.onload = function() { bldgs.onDataLoaded(this); }
@@ -62,11 +62,84 @@ function Buildings(gl, position)
 	this.shaderProgram.texLocation =               gl.getUniformLocation(this.shaderProgram, "tex");
     
 }    
+
+function vec(a) { return [a.dx, a.dy];}
+function sub(a, b) { return [a[0] - b[0], a[1]-b[1]]; }
+function norm(a) { var len = Math.sqrt(a[0]*a[0] + a[1]*a[1]); return [a[0]/len, a[1]/len];}
+function dot(a,b) { return a[0]*b[0] + a[1]*b[1];}
     
+    
+function simplifyOutline(building)
+{
+    var outline = building.outline;
+    if (outline.length < 3) return;
+    /*
+    for (var i in building.outline)
+        console.log("%s,%s", building.outline[i].dx, building.outline[i].dy);
+    */
+    var res = [];
+    res[0] = outline[0];
+    var prev = outline[0];
+    var curr = outline[1];
+    for (var i = 2; i < outline.length; i++)
+    {
+        var next = outline[i];
+        //console.log(prev, curr, next);
+        var v1 = norm(sub(vec(next), vec(prev)));   //v1 = norm( next - prev);
+        var v2 = norm(sub(vec(next), vec(curr)));   //v2 = norm( next - curr);
+        var cosArc = dot(v1, v2);
+        
+        //console.log("%s;%s;%s;%s;%s;%s;%s", prev.dx, prev.dy, curr.dx, curr.dy, next.dx, next.dy, cosArc);
+
+        if (cosArc > 0.999)    //almost colinear (deviation < 2.6°) --> ignore 'curr' vertex
+        {
+            curr = next;
+            continue;
+        }
+        
+        res.push(curr);
+        prev = curr;
+        curr = next;
+        //console.log("#", vec(prev));
+        //console.log("v1: %o, v2: %o", v1, v2, prev, curr, next);
+    } 
+    res.push(outline[outline.length-1]);
+
+
+    // Handle edge case: vertex 0 lies on a colienar line segment and should be remove
+    // N.B.: in OSM data, the first and last vertex of an area are identical
+    //       thus, the following algorithm skips the last vertex in the colinearity check
+    //       and in case of colinearity removes the first *and* last vertex ( and 
+    //       replicates the new first vertex as the new last one).
+    /*console.log("---");
+    for (var i in res)
+        console.log("%s,%s", res[i].dx, res[i].dy);
+
+    console.log("---");*/
+    
+    prev = res[res.length-2];
+    
+    curr = res[0];
+    next = res[1];
+    
+    var v1 = norm(sub(vec(next), vec(prev)));   //v1 = norm( next - prev);
+    var v2 = norm(sub(vec(next), vec(curr)));   //v2 = norm( next - curr);
+    var cosArc = dot(v1, v2);
+    //console.log("%s;%s;%s;%s;%s;%s;%s", prev.dx, prev.dy, curr.dx, curr.dy, next.dx, next.dy, cosArc);
+
+
+    if (cosArc > 0.999)    //almost colinear (deviation < 2.6°) --> ignore 'curr' vertex
+    {
+        res = res.slice(1, res.length-1);
+        res.push(res[0]);
+    }    
+
+    building.outline = res;
+}
     
 Buildings.prototype.onDataLoaded = function(response) {
     var res = JSON.parse(response.responseText);
-    console.log(res);
+    //console.log(res);
     var nodes = {};
     
     this.buildings = [];
@@ -113,6 +186,8 @@ Buildings.prototype.onDataLoaded = function(response) {
             else
                 console.log("[WARN] Way %o contains node %d, but server response does not include node data. Skipping.", way, id);
         }
+        //simplifyOutline(building);
+        
         this.buildings.push(building);
     }
     
@@ -120,6 +195,9 @@ Buildings.prototype.onDataLoaded = function(response) {
     //console.log("map center is lat/lng: %s%s; x/y: (%s,%s)", mapCenter.lat, mapCenter.lon , x, y);
     //console.log("Buildings set: %o", this);
     this.buildings = convertToLocalCoordinates(this.buildings, this.mapCenter);
+    for (var i in this.buildings)
+        simplifyOutline(this.buildings[i]);
+        
     this.buildGlGeometry();
     
     if (this.onLoaded)
@@ -181,10 +259,10 @@ Buildings.prototype.buildGlGeometry = function() {
     }
     //flatten array of arrays to a single array
     //this.vertices = [].concat.apply([], vertexArrays);
-    console.log("vertices has %s elements; %o", this.vertices.length, this.vertices);
+    //console.log("vertices has %s elements; %o", this.vertices.length, this.vertices);
     //alert(this.texCoords.length + "; " + this.vertices.length);
     
-    console.log("total elements: %d vertex coordinates, %d texCoords", this.vertices.length, this.texCoords.length);
+    console.log("Buildings total to %d vertex coordinates, %d texCoords", this.vertices.length, this.texCoords.length);
     this.vertices = glu.createArrayBuffer(this.vertices);
     this.texCoords= glu.createArrayBuffer(this.texCoords);
 }

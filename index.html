@@ -124,10 +124,7 @@
         mapBuildings = new Buildings(gl, position);
         mapBuildings.onLoaded = renderScene;
         
-        mapSkyDome = new SkyDome(gl);
-        mapSkyDome.onLoaded = renderScene;
-        
-        console.log("Setting map center to %o", position);
+        //console.log("Setting map center to %o", position);
         
     }   
 
@@ -199,6 +196,9 @@
         //view setup 
         eye = [0,0,2/2.0];
         lookDir = [-0.41759445514800125, 0.9086334100609345, 0];
+
+        mapSkyDome = new SkyDome(gl);
+        mapSkyDome.onLoaded = renderScene;
 
         renderScene();
 	}

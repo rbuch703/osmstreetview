@@ -86,7 +86,7 @@ SkyDome.prototype.buildGlGeometry = function() {
 		    var tc_right= (i+1)/NUM_H_SLICES;
 		    var tc_top  = 1 - (j+1)/NUM_V_SLICES;
 		    var tc_bottom=1 - j/ NUM_V_SLICES;
-		    console.log("i: %s, left: %s, right: %s", i, tc_left, tc_right);
+		    //console.log("i: %s, left: %s, right: %s", i, tc_left, tc_right);
 		    var tcs = [tc_left,tc_bottom, tc_right,tc_bottom, tc_right,tc_top, tc_left,tc_bottom, tc_right,tc_top, tc_left,tc_top];
 		    this.texCoords.push.apply( this.texCoords, tcs);
 		}
@@ -94,8 +94,8 @@ SkyDome.prototype.buildGlGeometry = function() {
 	
     
     
-    console.log("total elements: %d vertex coordinates, %d texCoords", this.vertices.length, this.texCoords.length);
-	console.log("verts: %o, texCoords: %o", this.vertices, this.texCoords);
+    console.log("skydome totals to %d vertex coordinates, %d texCoords", this.vertices.length, this.texCoords.length);
+	//console.log("verts: %o, texCoords: %o", this.vertices, this.texCoords);
 	this.numVertices = this.vertices.length / 3;
     this.vertices = glu.createArrayBuffer(this.vertices);
     this.texCoords= glu.createArrayBuffer(this.texCoords);
