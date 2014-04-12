@@ -1,4 +1,4 @@
-
+"use strict"
 function MapLayer(gl, position) {
     //console.log("MapLayer created");
     this.gl = gl;

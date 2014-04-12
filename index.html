@@ -12,6 +12,7 @@
     <script type="text/javascript" src="mapLayer.js"></script>
     <script type="text/javascript" src="buildings.js"></script>
     <script type="text/javascript" src="skydome.js"></script>
+    <script type="text/javascript" src="poly2tri.js"></script>
 
 	<script type="text/javascript" src="gl-matrix.js" ></script>
 	<script type="text/javascript" src="glu.js" ></script>
@@ -34,7 +35,6 @@
 
             gl_FragColor = texture2D(tex, texCoordV.st);
             gl_FragColor[3] = clamp(alpha, 0.0, 1.0);
-		        
 		}
 	</script>
 
@@ -49,7 +49,7 @@
 
 	<script id="building-shader-fs" type="x-shader/x-fragment">
 		precision mediump float;
-        varying vec2 texCoordV;
+        varying vec3 texCoordV;
         uniform sampler2D tex;
         uniform int hasHeight;
         //uniform float height;
@@ -57,7 +57,7 @@
 		    const float c = 0.02;
 		    if ( texCoordV.s < c || texCoordV.s > 1.0 - c || texCoordV.t < c || texCoordV.t > 1.0 - c)
 		        gl_FragColor = vec4( 0.0, 0.0, 0.0, 1.0);
-	        else if (hasHeight == 0)
+	        else if (texCoordV.z == 0.0)
 	            gl_FragColor = vec4( 0.7, 0.4, 0.4, 1.0);
             else
                 gl_FragColor = vec4( 0.5, 0.5, 0.5, 1.0);
@@ -79,9 +79,24 @@
 		}
 	</script>
 
+	<script id="building-shader-vs" type="x-shader/x-vertex">
+		attribute vec3 vertexPosition;
+        attribute vec3 vertexTexCoords;  			
+		
+		uniform mat4 modelViewMatrix;
+		uniform mat4 perspectiveMatrix;
+
+        varying vec3 texCoordV;
+
+		void main(void) {
+			gl_Position = perspectiveMatrix * modelViewMatrix * vec4(vertexPosition, 1.0);
+			texCoordV = vertexTexCoords;
+		}
+	</script>
+
 	
     <script type="text/javascript">
-    
+    "use strict"    
     function init()
     {
         map = L.map('map_div').setView([52.15, 11.63], 14); //global 
@@ -109,10 +124,12 @@
 		webGlCanvas.onmousemove = onMouseMove;
 
     }    
-    
+    var map;
     var mapPlane;
     var mapBuildings;
     var mapSkyDome;
+    var gl;
+    var eye,lookDir,position;
     
     function onMapClick(e)
     {
@@ -182,7 +199,7 @@
 		}
 		gl = WebGLDebugUtils.makeDebugContext(gl);
 		
-		gl.clearColor(136/255, 211/255, 239/255, 1.0);
+		gl.clearColor(0.5, 0.5, 0.5, 1.0);
 
 		gl.clearDepth(1.0);
 		gl.enable(gl.DEPTH_TEST);
@@ -194,13 +211,13 @@
         onResize();
 	
         //view setup 
-        eye = [0,0,2/2.0];
+        eye = [0,0,4/2.0];
         lookDir = [-0.41759445514800125, 0.9086334100609345, 0];
 
         mapSkyDome = new SkyDome(gl);
         mapSkyDome.onLoaded = renderScene;
 
-        renderScene();
+        //renderScene();
 	}
 	
 
@@ -243,11 +260,11 @@
 	}
 	
     </script>
-    <title>Mietwohnungen in Magdeburg</title>
+    <title>Open Street View</title>
 </head>
 
 <body onload="init()"  > <!-- style ="padding: 0px; margin: 0px;" -->
-<h2 style="text-align:center">OSM Street View</h2>
+<h2 style="text-align:center">Open Street View</h2>
 
     <div id="map_div" style="width:400px; height:300px"> </div>
 

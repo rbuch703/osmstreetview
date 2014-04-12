@@ -1,3 +1,5 @@
+"use strict"
+
 function long2tile(lon,zoom) { return ((lon+180)/360*Math.pow(2,zoom)); }
 function lat2tile(lat,zoom)  { return ((1-Math.log(Math.tan(lat*Math.PI/180) + 1/Math.cos(lat*Math.PI/180))/Math.PI)/2 *Math.pow(2,zoom)); }
 
@@ -47,7 +49,7 @@ function Buildings(gl, position)
     /*corresponding "get" string:  [out:json][timeout:25];way["building"](52.1360,11.6356,52.1418,11.6416);out body;>;out skel qt;; */
 
 	//compile and link shader program
-	var vertexShader   = glu.compileShader( document.getElementById("shader-vs").text, gl.VERTEX_SHADER);
+	var vertexShader   = glu.compileShader( document.getElementById("building-shader-vs").text, gl.VERTEX_SHADER);
 	var fragmentShader = glu.compileShader( document.getElementById("building-shader-fs").text, gl.FRAGMENT_SHADER);
 	this.shaderProgram  = glu.createProgram( vertexShader, fragmentShader);
 	gl.useProgram(this.shaderProgram);   //    Install the program as part of the current rendering state
@@ -60,7 +62,8 @@ function Buildings(gl, position)
 	this.shaderProgram.hasHeightLocation =         gl.getUniformLocation(this.shaderProgram, "hasHeight");
 	//this.shaderProgram.heightLocation =            gl.getUniformLocation(this.shaderProgram, "height");
 	this.shaderProgram.texLocation =               gl.getUniformLocation(this.shaderProgram, "tex");
-    
+    this.numVertices = 0;
+ 
 }    
 
 function vec(a) { return [a.dx, a.dy];}
@@ -198,6 +201,8 @@ Buildings.prototype.onDataLoaded = function(response) {
     for (var i in this.buildings)
         simplifyOutline(this.buildings[i]);
         
+    
+        
     this.buildGlGeometry();
     
     if (this.onLoaded)
@@ -206,9 +211,39 @@ Buildings.prototype.onDataLoaded = function(response) {
     //console.log("Buildings: %o", this.buildings);
 }
 
+function triangulate(outline)
+{
+    //console.log("triangulating outline %o", outline);
+    var points = [];
+    //skip final vertex (which duplicates the first one)
+    //as poly2tri closes polygons implicitly
+    //console.log("polygon has %s vertices", outline.length-1);
+    for (var i = 0; i < outline.length-1; i++) 
+    {
+        points.push(new poly2tri.Point( outline[i].dx, outline[i].dy));
+    }
+    
+    var ctx = new poly2tri.SweepContext(points);
+    poly2tri.triangulate(ctx);
+    var triangles = ctx.getTriangles();
+    var vertexData = [];
+    for (var i in triangles)
+    {
+        var tri = triangles[i];
+        //console.log(tri);
+        vertexData.push( tri.points_[0].x, tri.points_[0].y);
+        vertexData.push( tri.points_[1].x, tri.points_[1].y);
+        vertexData.push( tri.points_[2].x, tri.points_[2].y);
+    }
+    return vertexData;
+    //console.log(vertexData);
+    //sdkfjhk();
+    
+}
+
 Buildings.prototype.buildGlGeometry = function() {
-    this.indices = [];
-    this.lengths = [];
+    //this.indices = [];
+    //this.lengths = [];
     this.vertices= [];
     this.texCoords=[];
     
@@ -218,19 +253,23 @@ Buildings.prototype.buildGlGeometry = function() {
 
     for (var i = 0; i < this.buildings.length; i++)
     {
+        //console.log("processing building %s/%s", i, this.buildings.length);
         var bldg = this.buildings[i];
-        this.indices.push(pos);
-        this.lengths.push( (bldg.outline.length-1)*6 );
+        var height = bldg.height ? bldg.height/2.0 : 10/2.0;
+        var hf = bldg.height? 1 : 0;
+
+        //triangulate(bldg.outline);
+        //this.indices.push(pos);
+        //this.lengths.push( (bldg.outline.length-1)*6 );
         pos += (bldg.outline.length-1)*6;
         
         if (bldg.outline[0].dx != bldg.outline[bldg.outline.length-1].dx || bldg.outline[0].dy != bldg.outline[bldg.outline.length-1].dy)
             console.log("[WARN] buildings outline does not form a closed loop");
         
-        
+        //step 1: build geometry for walls;
         for (var j = 0; j < bldg.outline.length - 1; j++) //loop does not include the final vertex, as we in each case access the successor vertex as well
         {
             //FIXME: find out why the 2.0 is necessary
-            var height = bldg.height ? bldg.height/2.0 : 10/2.0;
             var min_height= bldg.min_height / 2.0;
                     
             var A = [bldg.outline[j  ].dx, bldg.outline[j  ].dy, min_height];
@@ -238,37 +277,57 @@ Buildings.prototype.buildGlGeometry = function() {
             var C = [bldg.outline[j+1].dx, bldg.outline[j+1].dy, height];
             var D = [bldg.outline[j  ].dx, bldg.outline[j  ].dy, height];
             
-            /*this.vertices.push( bldg.outline[j].dx);
-            this.vertices.push( bldg.outline[j].dy);
-            this.vertices.push( 0.2); //FIXME: replace this z value by actual building height
-            
-            this.texCoords.push( Math.random());
-            this.texCoords.push( Math.random());*/
-            /* D-C
-             * |/|
-             * A-B
-             */
+            // D-C
+            // |/|
+            // A-B
+            //
             
             //flatten array of 3-element-arrays to a single array
             var coords = [].concat.apply([], [A, B, C, A, C, D]);
             this.vertices.push.apply(this.vertices, coords);
-            
-            var tc = [0,0, 1,0, 1,1, 0,0, 1,1, 0,1];
+            var tc = [0,0,hf, 1,0,hf, 1,1,hf, 0,0,hf, 1,1,hf, 0,1,hf];
             this.texCoords.push.apply( this.texCoords, tc); //this 'hack' is way faster than concat()
         }
+        
+        //step 2: build roof geometry:
+        //console.log("triangulating building (%o) %s/%s", bldg, i, this.buildings.length);
+        var coords = triangulate(bldg.outline);
+        //console.log("triangulated coords: %o", coords);
+        //console.log("\t has %s vertices at height %s", coords.length/2.0, height);
+        for (var j = 0; j < coords.length; j+=2)
+        {
+            //console.log("vertex (%s, %s, %s)", coords[j], coords[j+1], height);
+            this.vertices.push(coords[j], coords[j+1], height);
+            this.texCoords.push(0.5, 0.5,hf);
+        }
+        
+        if (bldg.min_height > 0)
+        {
+            for (var j = 0; j < coords.length; j+=2)
+            {
+                //console.log("vertex (%s, %s, %s)", coords[j], coords[j+1], height);
+                this.vertices.push(coords[j], coords[j+1], min_height);
+                this.texCoords.push(0.5, 0.5,hf);
+            }
+
+        }
+        
     }
     //flatten array of arrays to a single array
     //this.vertices = [].concat.apply([], vertexArrays);
     //console.log("vertices has %s elements; %o", this.vertices.length, this.vertices);
     //alert(this.texCoords.length + "; " + this.vertices.length);
+    this.numVertices = this.vertices.length/3.0;    // 3 coordinates per vertex
     
-    console.log("Buildings total to %d vertex coordinates, %d texCoords", this.vertices.length, this.texCoords.length);
+    console.log("'Buildings' totals to %d vertices", this.numVertices);
+    var verts = this.vertices;
+    console.log("vertices: %o", verts);
     this.vertices = glu.createArrayBuffer(this.vertices);
     this.texCoords= glu.createArrayBuffer(this.texCoords);
 }
 
 Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
-    if (! this.lengths)
+    if (! this.numVertices)
         return;
         
     var gl = this.gl;
@@ -280,7 +339,7 @@ Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
 	gl.vertexAttribPointer(this.shaderProgram.vertexPosAttribLocation, 3, this.gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
     
 	gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoords);
-	gl.vertexAttribPointer(this.shaderProgram.texCoordAttribLocation, 2, this.gl.FLOAT, false, 0, 0);  //assigns array "texCoords" bound above as the vertex attribute "vertexTexCoords"
+	gl.vertexAttribPointer(this.shaderProgram.texCoordAttribLocation, 3, this.gl.FLOAT, false, 0, 0);  //assigns array "texCoords" bound above as the vertex attribute "vertexTexCoords"
 
     gl.uniform1i(this.shaderProgram.texLocation, 0); //select texture unit 0 as the source for the shader variable "tex" 
 	gl.uniformMatrix4fv(this.shaderProgram.modelViewMatrixLocation, false, modelViewMatrix);
@@ -288,10 +347,10 @@ Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
 
     gl.activeTexture(gl.TEXTURE0);  //successive commands (here 'gl.bindTexture()') apply to texture unit 0
     gl.bindTexture(gl.TEXTURE_2D, null); //render geometry without texture
-    gl.lineWidth(5.0);
+    //gl.lineWidth(5.0);
     //console.log("starting rendering of buildings")
 
-    for (var i in this.lengths)
+    /*for (var i in this.lengths)
     {
 	    //gl.drawArrays(gl.LINE_LOOP, this.indices[i], this.lengths[i]);
         //console.log("rendering %d vertices starting from index %d", this.lengths[i], this.indices[i]);
@@ -300,7 +359,10 @@ Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
 	    
 	    gl.drawArrays(gl.TRIANGLES, this.indices[i], this.lengths[i]);
 	    //gl.drawArrays(gl.TRIANGLE_FAN, this.indices[i], this.lengths[i]);
-    }
+    }*/
+    //var last = this.indices.length-1;
+    //console.log("rendering %s vertices", this.numVertices);
+    gl.drawArrays(gl.TRIANGLES, 0, this.numVertices);
 
 }
 
