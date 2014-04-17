@@ -35,7 +35,12 @@ function Buildings(gl, position)
 
     //console.log("lat: %s-%s; lon: %s-%s", lat_min, lat_max, lng_min, lng_max);
     //var query = '[out:json][timeout:25];way["building"]('+lat_min+","+lng_min+","+lat_max+","+lng_max+');out body;>;out skel qt;';
-    var query = '[out:json][timeout:25];(way["building"]('+lat_min+","+lng_min+","+lat_max+","+lng_max+');way["building:part"]('+lat_min+","+lng_min+","+lat_max+","+lng_max+'));out body;>;out skel qt;';
+    var bbox = '('+lat_min+","+lng_min+","+lat_max+","+lng_max+')';
+    
+    
+    var query = '[out:json][timeout:25];(way["building"]'+bbox+
+                                       ';way["building:part"]'+bbox+
+                                       ';relation["building"]'+bbox+');out body;>;out skel qt;';
     //console.log("query: %s", query);
     var bldgs = this;
     var oReq = new XMLHttpRequest();
@@ -57,9 +62,12 @@ function Buildings(gl, position)
     //get location of variables in shader program (to later bind them to values);
 	this.shaderProgram.vertexPosAttribLocation =   gl.getAttribLocation( this.shaderProgram, "vertexPosition"); 
 	this.shaderProgram.texCoordAttribLocation =    gl.getAttribLocation( this.shaderProgram, "vertexTexCoords"); 
+	this.shaderProgram.normalAttribLocation   =    gl.getAttribLocation( this.shaderProgram, "vertexNormal"); 
+	
+	
     this.shaderProgram.modelViewMatrixLocation =   gl.getUniformLocation(this.shaderProgram, "modelViewMatrix")
 	this.shaderProgram.perspectiveMatrixLocation = gl.getUniformLocation(this.shaderProgram, "perspectiveMatrix");
-	this.shaderProgram.hasHeightLocation =         gl.getUniformLocation(this.shaderProgram, "hasHeight");
+	//this.shaderProgram.hasHeightLocation =         gl.getUniformLocation(this.shaderProgram, "hasHeight");
 	//this.shaderProgram.heightLocation =            gl.getUniformLocation(this.shaderProgram, "height");
 	this.shaderProgram.texLocation =               gl.getUniformLocation(this.shaderProgram, "tex");
     this.numVertices = 0;
@@ -158,30 +166,21 @@ Buildings.prototype.onDataLoaded = function(response) {
     //console.log("Nodes : %o",nodes);
     
     //step 2: read all ways and replace their node IDs by the actual node data
+    var bldgs = {};
     for (var i = 0; i < res.elements.length; i++)
     {
         if (res.elements[i].type != "way")
             continue;
             
         var way = res.elements[i];
-        var building = { outline: [] };
-        
-        if (way.tags.height)
-            building.height = parseFloat(way.tags.height);    //FIXME: currently assumes that all values are in meters (even if other unit is present)
-        else if (way.tags["building:levels"])
-            building.height = parseInt(way.tags["building:levels"])*3.5;
-        //else
-        //    building.height = 10.0; //FIXME: just a guess, replace by more educated guess
 
-            
-        if (way.tags.min_height)
-            building.min_height = parseFloat(way.tags.min_height); //FIXME: currently assumes that all values are in meters (even if other unit is present)
-        else if (way.tags["building:min_level"])
-            building.min_height = parseInt(way.tags["building:min_level"])*3.5;
-        else
-            building.min_height = 0.0;
+        var building = { outline: [], tags: way.tags };
+        /*if (way.tags)   
+        {            
+            //hkjhkl
+        }*/
         
-        for (var j = 0; j < way.nodes.length; j++)
+        for (var j in way.nodes)
         {
             var id = way.nodes[j];
             if (id in nodes)
@@ -189,17 +188,80 @@ Buildings.prototype.onDataLoaded = function(response) {
             else
                 console.log("[WARN] Way %o contains node %d, but server response does not include node data. Skipping.", way, id);
         }
-        //simplifyOutline(building);
+        //console.log("buildings %s has shape %o", way.id, building);
+        bldgs[way.id] = building;
         
-        this.buildings.push(building);
+        //this.buildings.push(building);
     }
+
+    //console.log("Buildings: %o", bldgs);
     
+    //step 3: parse relations;
+    for (var i in res.elements)
+    {
+        if (res.elements[i].type != "relation")
+            continue;
+            
+        var rel = res.elements[i];
+        
+        //var tags = rel.tags;
+        var num_outer = 0;
+        var outer = [];
+        var inner = [];
+        
+        for (var j in rel.members)
+        {
+            var member = rel.members[j];
+            //console.log("scanning member %s of relation %s", member.ref, rel.id);
+            if (member.type != "way")
+                console.log("invalid member type %s on relation %s", member.type, rel.id);
+            else
+            {
+                //console.log("INFO: rel %s references way %s/%o", rel.id, member.ref, bldgs[member.ref]);
+                //console.log("member %s, %o: %o", member.ref, member, bldgs);
+                if ((member.role == "outer") && (bldgs[member.ref]))
+                    outer.push(  bldgs[member.ref] );
+
+                if ((member.role == "inner") && (bldgs[member.ref]))
+                    inner.push(  bldgs[member.ref] );
+            }
+            delete bldgs[member.ref];
+        }
+        //console.log("outers: %o, inners: %o", outer, inner);
+        
+        //console.log("relation with inner: %o, outer: %o", inner, outer);
+        if (outer.length == 1)
+        {
+            outer = outer[0];
+            if (!outer.tags) outer.tags = {};
+            
+            for (var key in rel.tags)
+            {
+                var relevant_tags = ["building", "building:part", "height", "min_height", 
+                                     "roof:height", "building:level", "building:min_level"];
+                if (key in relevant_tags)
+                    outer.tags[key] = rel.tags[key];
+            }
+            
+            //for (var j in outer.outline)
+            //    console.log("%s, %s, %o", outer.outline[j].lon, outer.outline[j].lat, outer.outline[j]);
+                
+            bldgs["r"+rel.id] = outer;
+            //console.log(outer);
+        } else
+        {
+            console.log("relation %s/%o has multiple 'outer' members, skippping", rel, rel);
+        }
+        //sdfds();
+        //console.log(res.elements[i]);
+        
+    }
     
     //console.log("map center is lat/lng: %s%s; x/y: (%s,%s)", mapCenter.lat, mapCenter.lon , x, y);
     //console.log("Buildings set: %o", this);
-    this.buildings = convertToLocalCoordinates(this.buildings, this.mapCenter);
-    for (var i in this.buildings)
-        simplifyOutline(this.buildings[i]);
+    this.buildings = convertToLocalCoordinates(bldgs, this.mapCenter);
+    //for (var i in this.buildings)
+    //    simplifyOutline(this.buildings[i]);
         
     
         
@@ -241,30 +303,57 @@ function triangulate(outline)
     
 }
 
+function norm(v)
+{
+    var len = Math.sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
+    return [ v[0]/len, v[1]/len, v[2]/len];
+}
+
 Buildings.prototype.buildGlGeometry = function() {
     //this.indices = [];
     //this.lengths = [];
     this.vertices= [];
     this.texCoords=[];
+    this.normals  =[];
     
-    var pos = 0;
+    //var pos = 0;
     var vertexArrays = [];
     var texCoordArrays = [];
 
-    for (var i = 0; i < this.buildings.length; i++)
+    for (var i in this.buildings)
     {
-        //console.log("processing building %s/%s", i, this.buildings.length);
+        //if (i[0] != "r") continue;
         var bldg = this.buildings[i];
+        //console.log("processing building %s with %s vertices", i, bldg.outline.length);
+        
+        if (bldg.tags.height)
+            bldg.height = parseFloat(bldg.tags.height);    //FIXME: currently assumes that all values are in meters (even if other unit is present)
+        else if (bldg.tags["building:levels"])
+            bldg.height = parseInt(bldg.tags["building:levels"])*3.5;
+        //else
+        //    building.height = 10.0; //FIXME: just a guess, replace by more educated guess
+
+            
+        if (bldg.tags.min_height)
+            bldg.min_height = parseFloat(bldg.tags.min_height); //FIXME: currently assumes that all values are in meters (even if other unit is present)
+        else if (bldg.tags["building:min_level"])
+            bldg.min_height = parseInt(bldg.tags["building:min_level"])*3.5;
+        else
+            bldg.min_height = 0.0;
+        
+        
+        
         var height = bldg.height ? bldg.height/2.0 : 10/2.0;
         var hf = bldg.height? 1 : 0;
+        //console.log(bldg, bldg.height, height, hf);
 
         //triangulate(bldg.outline);
         //this.indices.push(pos);
         //this.lengths.push( (bldg.outline.length-1)*6 );
-        pos += (bldg.outline.length-1)*6;
+        //pos += (bldg.outline.length-1)*6;
         
         if (bldg.outline[0].dx != bldg.outline[bldg.outline.length-1].dx || bldg.outline[0].dy != bldg.outline[bldg.outline.length-1].dy)
-            console.log("[WARN] buildings outline does not form a closed loop");
+            console.log("[WARN] outline of building %s does not form a closed loop (%o)", i, this.buildings);
         
         //step 1: build geometry for walls;
         for (var j = 0; j < bldg.outline.length - 1; j++) //loop does not include the final vertex, as we in each case access the successor vertex as well
@@ -277,20 +366,31 @@ Buildings.prototype.buildGlGeometry = function() {
             var C = [bldg.outline[j+1].dx, bldg.outline[j+1].dy, height];
             var D = [bldg.outline[j  ].dx, bldg.outline[j  ].dy, height];
             
+            var dx = bldg.outline[j+1].dx - bldg.outline[j].dx;
+            var dy = bldg.outline[j+1].dy - bldg.outline[j].dy;
+
+            var N = norm( [dy, -dx, 0] );
             // D-C
             // |/|
             // A-B
             //
             
             //flatten array of 3-element-arrays to a single array
-            var coords = [].concat.apply([], [A, B, C, A, C, D]);
+            //var coords = [].concat.apply([], [A, B, C, A, C, D]);
+            var coords = [].concat(A, B, C, A, C, D);
             this.vertices.push.apply(this.vertices, coords);
+            
             var tc = [0,0,hf, 1,0,hf, 1,1,hf, 0,0,hf, 1,1,hf, 0,1,hf];
             this.texCoords.push.apply( this.texCoords, tc); //this 'hack' is way faster than concat()
+            
+            var norms = [].concat(N,N,N,N,N,N);
+            this.normals.push.apply( this.normals, norms);
+            //console.log(coords, tc, norms);
+            //var norms = [].concat.apply(
         }
         
         //step 2: build roof geometry:
-        //console.log("triangulating building (%o) %s/%s", bldg, i, this.buildings.length);
+        /*
         var coords = triangulate(bldg.outline);
         //console.log("triangulated coords: %o", coords);
         //console.log("\t has %s vertices at height %s", coords.length/2.0, height);
@@ -299,6 +399,8 @@ Buildings.prototype.buildGlGeometry = function() {
             //console.log("vertex (%s, %s, %s)", coords[j], coords[j+1], height);
             this.vertices.push(coords[j], coords[j+1], height);
             this.texCoords.push(0.5, 0.5,hf);
+            this.normals.push( 0,0,1 ); //roof --> normal is pointing straight up
+            
         }
         
         if (bldg.min_height > 0)
@@ -308,9 +410,10 @@ Buildings.prototype.buildGlGeometry = function() {
                 //console.log("vertex (%s, %s, %s)", coords[j], coords[j+1], height);
                 this.vertices.push(coords[j], coords[j+1], min_height);
                 this.texCoords.push(0.5, 0.5,hf);
+                this.normals.push( 0,0,-1 ); //floor --> normal is pointing straight down
             }
 
-        }
+        }*/
         
     }
     //flatten array of arrays to a single array
@@ -319,11 +422,12 @@ Buildings.prototype.buildGlGeometry = function() {
     //alert(this.texCoords.length + "; " + this.vertices.length);
     this.numVertices = this.vertices.length/3.0;    // 3 coordinates per vertex
     
-    console.log("'Buildings' totals to %d vertices", this.numVertices);
-    var verts = this.vertices;
-    console.log("vertices: %o", verts);
+    console.log("'Buildings' totals to %s vertices and %s normals", this.numVertices, this.normals.length/3);
+    //var norms = this.normals;
+    //console.log("normals: %o", norms);
     this.vertices = glu.createArrayBuffer(this.vertices);
     this.texCoords= glu.createArrayBuffer(this.texCoords);
+    this.normals  = glu.createArrayBuffer(this.normals);
 }
 
 Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
@@ -336,10 +440,14 @@ Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
 	gl.enableVertexAttribArray(this.shaderProgram.texCoordAttribLocation); //setup texcoord buffer
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vertices);   //select the vertex buffer as the currrently active ARRAY_BUFFER (for subsequent calls)
-	gl.vertexAttribPointer(this.shaderProgram.vertexPosAttribLocation, 3, this.gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
+	gl.vertexAttribPointer(this.shaderProgram.vertexPosAttribLocation, 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
     
 	gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoords);
-	gl.vertexAttribPointer(this.shaderProgram.texCoordAttribLocation, 3, this.gl.FLOAT, false, 0, 0);  //assigns array "texCoords" bound above as the vertex attribute "vertexTexCoords"
+	gl.vertexAttribPointer(this.shaderProgram.texCoordAttribLocation, 3, gl.FLOAT, false, 0, 0);  //assigns array "texCoords" bound above as the vertex attribute "vertexTexCoords"
+
+	gl.bindBuffer(gl.ARRAY_BUFFER, this.normals);
+	gl.vertexAttribPointer(this.shaderProgram.normalAttribLocation, 3, gl.FLOAT, false, 0, 0);  //assigns array "texCoords" bound above as the vertex attribute "vertexTexCoords"
+
 
     gl.uniform1i(this.shaderProgram.texLocation, 0); //select texture unit 0 as the source for the shader variable "tex" 
 	gl.uniformMatrix4fv(this.shaderProgram.modelViewMatrixLocation, false, modelViewMatrix);
@@ -377,7 +485,8 @@ function convertToLocalCoordinates(buildings,  mapCenter)
     //FIXME: find out why the final correction factor of 2.0 is necessary
     var physicalTileLength = earthCircumference* Math.cos(mapCenter.lat/180*Math.PI) / Math.pow(2, /*zoom=*/19) / 2.0;
 
-    for (var i = 0; i < buildings.length; i++)
+    //for (var i = 0; i < buildings.length; i++)
+    for (var i in buildings)
     {
         var bld = buildings[i];
         for (var j = 0; j < bld.outline.length; j++)
