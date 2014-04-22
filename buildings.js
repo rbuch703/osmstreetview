@@ -234,14 +234,17 @@ Buildings.prototype.onDataLoaded = function(response) {
         {
             outer = outer[0];
             if (!outer.tags) outer.tags = {};
+
+            var relevant_tags = ["building", "building:part", "height", "min_height", 
+                                 "roof:height", "building:levels", "building:min_level"];
             
-            for (var key in rel.tags)
+            for (var k in relevant_tags)
             {
-                var relevant_tags = ["building", "building:part", "height", "min_height", 
-                                     "roof:height", "building:level", "building:min_level"];
-                if (key in relevant_tags)
-                    outer.tags[key] = rel.tags[key];
+                var tag = relevant_tags[k];
+                if (tag in rel.tags)
+                    outer.tags[tag] = rel.tags[tag];
             }
+            //console.log("outer: %o, rel: %o", outer, rel);
             
             //for (var j in outer.outline)
             //    console.log("%s, %s, %o", outer.outline[j].lon, outer.outline[j].lat, outer.outline[j]);
@@ -445,8 +448,12 @@ Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
 	gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoords);
 	gl.vertexAttribPointer(this.shaderProgram.texCoordAttribLocation, 3, gl.FLOAT, false, 0, 0);  //assigns array "texCoords" bound above as the vertex attribute "vertexTexCoords"
 
-	gl.bindBuffer(gl.ARRAY_BUFFER, this.normals);
-	gl.vertexAttribPointer(this.shaderProgram.normalAttribLocation, 3, gl.FLOAT, false, 0, 0);  //assigns array "texCoords" bound above as the vertex attribute "vertexTexCoords"
+    // can apparently be -1 if the variable is not used inside the shader
+    if (this.shaderProgram.normalAttribLocation > -1)
+    {
+	    gl.bindBuffer(gl.ARRAY_BUFFER, this.normals);
+	    gl.vertexAttribPointer(this.shaderProgram.normalAttribLocation, 3, gl.FLOAT, false, 0, 0);  //assigns array "texCoords" bound above as the vertex attribute "vertexTexCoords"
+	}
 
 
     gl.uniform1i(this.shaderProgram.texLocation, 0); //select texture unit 0 as the source for the shader variable "tex" 

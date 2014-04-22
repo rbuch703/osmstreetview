@@ -57,10 +57,14 @@
 		    const float c = 0.02;
 		    if ( texCoordV.s < c || texCoordV.s > 1.0 - c || texCoordV.t < c || texCoordV.t > 1.0 - c)
 		        gl_FragColor = vec4( 0.0, 0.0, 0.0, 1.0);
-	        else //if (texCoordV.z == 0.0)
+	        else if (texCoordV.z == 0.0)
 	        {
-	            vec3 scaled = 0.5*(normal + vec3(1.0, 1.0, 1.0));
-	            gl_FragColor = vec4( scaled , 1.0);//vec4( 0.7, 0.4, 0.4, 1.0);
+	            gl_FragColor = vec4(0.6, 0.5, 0.5, 1.0);
+	            //vec3 scaled = 0.5*(normal + vec3(1.0, 1.0, 1.0));
+	            //gl_FragColor = vec4( scaled , 1.0);//vec4( 0.7, 0.4, 0.4, 1.0);
+            } else
+            {
+                gl_FragColor = vec4(0.5, 0.5, 0.5, 1.0);
             }
             //else
             //    gl_FragColor = vec4(normal + vec3(0.2, 0.0, 0.0), 1.0);//vec4( 0.5, 0.5, 0.5, 1.0);
@@ -129,6 +133,50 @@
 		webGlCanvas.onmouseout  = onMouseUp;
 		webGlCanvas.onmousemove = onMouseMove;
 
+
+        var url = document.URL;
+        if (url.indexOf("?") >= 0)
+        {
+            var query = url.substring(url.indexOf("?")+1);
+            //console.log("query is '%s'", query);
+            var parts = query.split("&");
+            var res = {};
+            for (var i in parts)
+            {
+                var part = parts[i];
+                var kv = part.split("=");
+                if (kv.length == 2)
+                {
+                    res[kv[0]] = parseFloat(kv[1]);
+                }
+            }
+            
+            if (res.lat && res.lng)
+            {
+                var e = {};
+                e.latlng = {lat:res.lat, lng:res.lng};
+                
+                if (res.lookx && res.looky) //if look direction is also given
+                {
+                    //console.log("contains eye position");
+                    lookDir[0] = res.lookx;
+                    lookDir[1] = res.looky;
+                    var len = lookDir[0]*lookDir[0] + lookDir[1]*lookDir[1] + lookDir[2]*lookDir[2];
+                    lookDir[0]/=len;
+                    lookDir[1]/=len;
+                    lookDir[2]/=len;
+                }
+                
+                map.panTo(L.latLng(res.lat, res.lng));
+                onMapClick(e);
+            }
+            
+
+            //console.log("res: %o", res);
+        //url += "?lat="+position.lat+"&lng="+position.lng;//+"+&lookx="+lookDir[0]+"&looky="+lookDir[1];
+        }
+
+
     }    
     var map;
     var mapPlane;
@@ -136,19 +184,37 @@
     var mapSkyDome;
     var gl;
     var eye,lookDir,position;
+    var positionMarker;
+    
+    function updateHistoryState()
+    {
+        var url = document.URL;
+        if (url.indexOf("?") >= 0) // already contains a query string
+            url = url.substring(0, url.indexOf("?"));
+        
+        url += "?lat="+position.lat+"&lng="+position.lng+"+&lookx="+lookDir[0]+"&looky="+lookDir[1];
+        history.replaceState(null, document.title, url);
+    }
     
     function onMapClick(e)
     {
         position = e.latlng;
-
+        map.panTo(e.latlng);
+        
         mapPlane = new MapLayer(gl, position);
         mapPlane.onLoaded = renderScene;
         
         mapBuildings = new Buildings(gl, position);
         mapBuildings.onLoaded = renderScene;
         
-        //console.log("Setting map center to %o", position);
+        if (positionMarker)
+            map.removeLayer(positionMarker);
         
+        positionMarker = L.marker([position.lat, position.lng])
+        
+        positionMarker.addTo(map).bindPopup("You are here");
+        //console.log("Setting map center to %o", position);
+        updateHistoryState();
     }   
 
 	var x,y;
@@ -187,7 +253,8 @@
 	   /*var tmp = vec3.create();
 	   vec3.scale(tmp, lookDir, -dy);
 	   vec3.add(eye, eye, tmp);*/
-	   
+
+       updateHistoryState();	   
 	   renderScene();
 	}	
 	
@@ -237,6 +304,7 @@
 	
 	function renderScene()
 	{
+	    console.log("?lat="+position.lat+"&lng="+position.lng+"&lookx="+lookDir[0]+"&looky="+lookDir[1]);
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         //determine look-at point
@@ -270,18 +338,38 @@
 </head>
 
 <body onload="init()"  > <!-- style ="padding: 0px; margin: 0px;" -->
-<h2 style="text-align:center">Open Street View</h2>
+<h2 style="">Open Street View</h2>
 
-    <div id="map_div" style="width:400px; height:300px"> </div>
+<div id="explanation" style="width:400px"> 
+<p>Click on any location on the map to see a 3D view of the world as seen from that position. Then click and drag the 3D view with your mouse to look around.</p>
+<p>Example locations:
+<ul>
+
+    <li><a href="index.html?lat=51.49792127437513&lng=-0.12039899826049805+&lookx=-0.828674009800797&looky=0.5597454542471598">London (House of Parliament)</a></li>
+    <li><a href="index.html?lat=40.76622259343548&lng=-73.97189140319824+&lookx=-0.9463230728925572&looky=-0.32320061171669856">New York City (Central Park)</a></li>
+    <li><a href="index.html?lat=38.90011502071927&lng=-77.0364761352539+&lookx=-0.12454456879248807&looky=-0.9922077921439103">Washington (The White House)</a></li>
+
+    <li><a href="index.html?lat=52.50918106676593&lng=13.376015424728394&lookx=-0.843616861360829&looky=0.5369484419008503">Berlin (Potsdamer Platz)</a></li>
+    <li><a href="index.html?lat=52.518542911605294&lng=13.372035026550293&lookx=0.9991195257047053&looky=-0.04202442195745082">Berlin (Bundestag, Brandenburger Tor)</a></li>
+
+    <li><a href="index.html?lat=52.1287154086716&lng=11.639156341552734&lookx=0.6587858472956456&looky=0.7523306025598197">Magdeburg (Prämonstratenserberg)</a></li>
+    <li><a href="index.html?lat=52.13942567533446&lng=11.639671325683594&lookx=-0.2771210999768672&looky=-0.9608356743971576">Magdeburg (Universitätsplatz)</a></li>
+</ul>
+</p>
+</div>
+
+<div id="map_div" style="width:400px; height:300px"> </div>
+
+<div id="explanation2" style="width:400px;font-size:80%; font-style:italic">
+The map and building geometry are &copy;OpenStreetMap contributors and are <a href="http://www.openstreetmap.org/copyright">licensed</a> under the Creative Commons BY-SA (map) and Open Database License (buildings) licenses.
+</div>
+
+
 
 <div id="content" style="position:absolute; right:10px; top:50px; bottom:0px">
 
     <div id="nav" style="background-color:#EEE; position:fixed; width:75%; top:50px; bottom:0px; right: 0px; overflow-y:scroll">
 		<canvas id="webGlCanvas" style="width:1280px; height:720px;background:black" ></canvas>
-
-
-        <h3>Suchkriterien</h3>
-        <div id="tile_div"> </div>
     </div>
 </div> 
 
