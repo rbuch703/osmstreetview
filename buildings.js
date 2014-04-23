@@ -236,7 +236,7 @@ Buildings.prototype.onDataLoaded = function(response) {
             if (!outer.tags) outer.tags = {};
 
             var relevant_tags = ["building", "building:part", "height", "min_height", 
-                                 "roof:height", "building:levels", "building:min_level"];
+                                 "roof:height", "roof:levels", "building:levels", "building:min_level"];
             
             for (var k in relevant_tags)
             {
@@ -332,7 +332,11 @@ Buildings.prototype.buildGlGeometry = function() {
         if (bldg.tags.height)
             bldg.height = parseFloat(bldg.tags.height);    //FIXME: currently assumes that all values are in meters (even if other unit is present)
         else if (bldg.tags["building:levels"])
+        {
             bldg.height = parseInt(bldg.tags["building:levels"])*3.5;
+            if (bldg.tags["roof:levels"])
+                bldg.height += parseInt(bldg.tags["roof:levels"])*3.5;
+        }
         //else
         //    building.height = 10.0; //FIXME: just a guess, replace by more educated guess
 
