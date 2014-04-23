@@ -7,6 +7,22 @@
 
     <link   type="text/css" rel="stylesheet" href="styles/global.css" media="screen" />
     <link   type="text/css" rel="stylesheet" href="styles/leaflet.css" />
+
+    <style>
+        @media (min-width: 1440px) {
+              #leftnav { float:left; margin-right:20px; width:400px}
+              #content { margin-left: 420px; margin-right:10px; }
+              #map_div { width:400px; height:300px }
+          }
+
+        @media (max-width: 1440px) {
+              #leftnav { margin-left: 10px; margin-right:50px; } /*leave a 50px bar on the right to */
+              #content { margin-left: 10px; margin-right:50px; } /*allow for mouse and touch scrolling */
+              #map_div { width:100%; height:600px }
+          }
+
+    </style>
+
     <script type="text/javascript" src="leaflet.js"></script>
     <script type="text/javascript" src="metatile.js"></script>
     <script type="text/javascript" src="mapLayer.js"></script>
@@ -132,6 +148,7 @@
 		webGlCanvas.onmouseup   = onMouseUp;
 		webGlCanvas.onmouseout  = onMouseUp;
 		webGlCanvas.onmousemove = onMouseMove;
+		document.body.onresize = onResize;
 
 
         var url = document.URL;
@@ -243,6 +260,9 @@
 	   if (! down) return;
 	   var dx = e.clientX - x;
 	   var dy = e.clientY - y;
+	   
+	   if (Math.abs(dx) < 3 && Math.abs(dy) < 3)
+	    return;
 	   x = e.clientX;
 	   y = e.clientY;
 	   
@@ -296,15 +316,29 @@
 
 	function onResize()
 	{
-	    webGlCanvas.height = webGlCanvas.clientHeight;
-	    webGlCanvas.width  = webGlCanvas.clientWidth;
+	    //console.log("resize triggered");
+	    //webGlCanvas.clientHeight = webGlCanvas.clientWidth / 16 * 9;
+        webGlCanvas.height = webGlCanvas.clientHeight;
+        webGlCanvas.width  = webGlCanvas.clientWidth;
+	    /*if (webGlCanvas.clientWidth > 1000)
+	    {
+	        webGlCanvas.height /= 1.5;
+	        webGlCanvas.width /=1.5;
+	    } */
+	    
 	    if (gl)
+	    {
+	        //console.log("redraw triggered");
 			gl.viewport(0, 0, webGlCanvas.width, webGlCanvas.height);
+			renderScene();
+		}
 	}	
 	
 	function renderScene()
 	{
-	    console.log("?lat="+position.lat+"&lng="+position.lng+"&lookx="+lookDir[0]+"&looky="+lookDir[1]);
+	    if (!gl || !eye || !lookDir) //not yet initialized
+	        return;
+	    //console.log("?lat="+position.lat+"&lng="+position.lng+"&lookx="+lookDir[0]+"&looky="+lookDir[1]);
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         //determine look-at point
@@ -340,15 +374,15 @@
 <body onload="init()"  > <!-- style ="padding: 0px; margin: 0px;" -->
 <h2 style="">Open Street View</h2>
 
-<div id="explanation" style="width:400px"> 
-<p>Click on any location on the map to see a 3D view of the world as seen from that position. Then click and drag the 3D view with your mouse to look around.</p>
-<p>Buildings missing or inaccurate? <a href="howToEdit.html" target="_blank">Add them yourself</a>!</p>
 
+<div id="leftnav" style="">
+<div id="explanation"> 
+    <p>Click on any location on the map to see a 3D view of the world as seen from that position. Then click and drag the 3D view with your mouse to look around.</p>
+    <p>Buildings missing or inaccurate? <a href="howToEdit.html" target="_blank">Add them yourself</a>!</p>
 </div>
+<div id="map_div"> </div>
 
-<div id="map_div" style="width:400px; height:300px"> </div>
-
-<div id="explanation2" style="width:400px">
+<div id="explanation2" >
 <p>Example locations:
 <ul>
 
@@ -365,14 +399,11 @@
 </ul>
 </p>
 </div>
+</div>
 
-
-
-
-<div id="content" style="position:absolute; right:10px; top:50px; bottom:0px">
-
-    <div id="nav" style="background-color:#EEE; position:fixed; width:75%; top:50px; bottom:0px; right: 0px; overflow-y:scroll">
-		<canvas id="webGlCanvas" style="width:1280px; height:720px;background:black" ></canvas>
+<div id="content" >
+    <!-- <div id="nav" style="background-color:#EEE; position:fixed; width:75%; top:50px; bottom:0px; right: 0px; overflow-y:scroll">-->
+		<canvas id="webGlCanvas" style="width:100%; height:auto;background:black" ></canvas>
         <div style="font-size:80%; font-style:italic">
 The map and building geometry are &copy;OpenStreetMap contributors and are <a href="http://www.openstreetmap.org/copyright">licensed</a> under the Creative Commons BY-SA (map) and Open Database License (buildings) licenses.</div>
 
