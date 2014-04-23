@@ -430,8 +430,8 @@ Buildings.prototype.buildGlGeometry = function() {
     this.numVertices = this.vertices.length/3.0;    // 3 coordinates per vertex
     
     console.log("'Buildings' totals to %s vertices and %s normals", this.numVertices, this.normals.length/3);
-    //var norms = this.normals;
-    //console.log("normals: %o", norms);
+    var norms = this.normals;
+    console.log("normals: %o", norms);
     this.vertices = glu.createArrayBuffer(this.vertices);
     this.texCoords= glu.createArrayBuffer(this.texCoords);
     this.normals  = glu.createArrayBuffer(this.normals);
@@ -445,6 +445,7 @@ Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
 	gl.useProgram(this.shaderProgram);   //    Install the program as part of the current rendering state
 	gl.enableVertexAttribArray(this.shaderProgram.vertexPosAttribLocation); // setup vertex coordinate buffer
 	gl.enableVertexAttribArray(this.shaderProgram.texCoordAttribLocation); //setup texcoord buffer
+	gl.enableVertexAttribArray(this.shaderProgram.normalAttribLocation); //setup texcoord buffer
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vertices);   //select the vertex buffer as the currrently active ARRAY_BUFFER (for subsequent calls)
 	gl.vertexAttribPointer(this.shaderProgram.vertexPosAttribLocation, 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
@@ -456,7 +457,7 @@ Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
     if (this.shaderProgram.normalAttribLocation > -1)
     {
 	    gl.bindBuffer(gl.ARRAY_BUFFER, this.normals);
-	    gl.vertexAttribPointer(this.shaderProgram.normalAttribLocation, 3, gl.FLOAT, false, 0, 0);  //assigns array "texCoords" bound above as the vertex attribute "vertexTexCoords"
+	    gl.vertexAttribPointer(this.shaderProgram.normalAttribLocation, 3, gl.FLOAT, false, 0, 0);  //assigns array "normals"
 	}
 
 
