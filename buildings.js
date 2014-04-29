@@ -350,7 +350,8 @@ Buildings.prototype.buildGlGeometry = function() {
         
         
         
-        var height = bldg.height ? bldg.height/2.0 : 10/2.0;
+        //var height = bldg.height ? bldg.height/2.0 : 10/2.0;
+        var height = bldg.height ? bldg.height : 10;
         var hf = bldg.height? 1 : 0;
         //console.log(bldg, bldg.height, height, hf);
 
@@ -365,8 +366,7 @@ Buildings.prototype.buildGlGeometry = function() {
         //step 1: build geometry for walls;
         for (var j = 0; j < bldg.outline.length - 1; j++) //loop does not include the final vertex, as we in each case access the successor vertex as well
         {
-            //FIXME: find out why the 2.0 is necessary
-            var min_height= bldg.min_height / 2.0;
+            var min_height= bldg.min_height;
                     
             var A = [bldg.outline[j  ].dx, bldg.outline[j  ].dy, min_height];
             var B = [bldg.outline[j+1].dx, bldg.outline[j+1].dy, min_height];
@@ -429,9 +429,9 @@ Buildings.prototype.buildGlGeometry = function() {
     //alert(this.texCoords.length + "; " + this.vertices.length);
     this.numVertices = this.vertices.length/3.0;    // 3 coordinates per vertex
     
-    console.log("'Buildings' totals to %s vertices and %s normals", this.numVertices, this.normals.length/3);
-    var norms = this.normals;
-    console.log("normals: %o", norms);
+    console.log("'Buildings' total to %s vertices and %s normals", this.numVertices, this.normals.length/3);
+    //var norms = this.normals;
+    //console.log("normals: %o", norms);
     this.vertices = glu.createArrayBuffer(this.vertices);
     this.texCoords= glu.createArrayBuffer(this.texCoords);
     this.normals  = glu.createArrayBuffer(this.normals);

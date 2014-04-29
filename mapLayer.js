@@ -5,7 +5,7 @@ function MapLayer(gl, position) {
     // request OSM tiles for texturing
     //var map = this;
 
-    this.MIN_ZOOM = 13;
+    this.MIN_ZOOM = 10;
     this.MAX_ZOOM = 19;
 
     for (var zoom = this.MIN_ZOOM; zoom <= this.MAX_ZOOM; zoom++)
@@ -134,6 +134,7 @@ MapLayer.prototype.render = function(modelViewMatrix, projectionMatrix)
     gl.activeTexture(gl.TEXTURE0);  //successive commands (here 'gl.bindTexture()') apply to texture unit 0
     for (var i = 0; i < this.numTiles; i++)
     {
+        //console.log("Texture for zoom level %s is %o", this.MIN_ZOOM + i, this.textures[this.MIN_ZOOM + i]);
         gl.bindTexture(gl.TEXTURE_2D, this.textures[this.MIN_ZOOM + i]); //render geometry using texture "texture[i]" in texture unit 0
 	    gl.drawArrays(gl.TRIANGLES, i*6, 6);
     }

@@ -261,8 +261,8 @@
 	   var dx = e.clientX - x;
 	   var dy = e.clientY - y;
 	   
-	   if (Math.abs(dx) < 3 && Math.abs(dy) < 3)
-	    return;
+	   if (Math.abs(dx) < 5 && Math.abs(dy) < 5)
+	        return;
 	   x = e.clientX;
 	   y = e.clientY;
 	   
@@ -304,7 +304,7 @@
         onResize();
 	
         //view setup 
-        eye = [0,0,4/2.0];
+        eye = [0,0,75.0];  //100m high
         lookDir = [-0.41759445514800125, 0.9086334100609345, 0];
 
         mapSkyDome = new SkyDome(gl);
