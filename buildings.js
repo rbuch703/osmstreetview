@@ -476,6 +476,9 @@ Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
         return;
         
     var gl = this.gl;
+
+
+    //draw faces
 	gl.useProgram(this.shaderProgram);   //    Install the program as part of the current rendering state
 	gl.enableVertexAttribArray(this.shaderProgram.vertexPosAttribLocation); // setup vertex coordinate buffer
 	gl.enableVertexAttribArray(this.shaderProgram.texCoordAttribLocation); //setup texcoord buffer
@@ -502,9 +505,15 @@ Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
     gl.activeTexture(gl.TEXTURE0);  //successive commands (here 'gl.bindTexture()') apply to texture unit 0
     gl.bindTexture(gl.TEXTURE_2D, null); //render geometry without texture
     
+    gl.enable(gl.POLYGON_OFFSET_FILL);  //to prevent z-fighting between rendered edges and faces
+    gl.polygonOffset(1,1);
+
     gl.drawArrays(gl.TRIANGLES, 0, this.numVertices);
+
+    gl.disable(gl.POLYGON_OFFSET_FILL);
     // ===
     
+
     //step 2: draw outline
     gl.useProgram(this.edgeShaderProgram);   //    Install the program as part of the current rendering state
 	gl.enableVertexAttribArray(this.edgeShaderProgram.vertexPosAttribLocation); // setup vertex coordinate buffer
