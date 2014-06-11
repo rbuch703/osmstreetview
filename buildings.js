@@ -48,7 +48,7 @@ function Buildings(gl, position)
     oReq.open("get", "http://overpass-api.de/api/interpreter?data=" + encodeURIComponent(query), true);
     oReq.send();
     
-	//compile and link shader program
+	//compile and link building shader program
 	var vertexShader   = glu.compileShader( document.getElementById("building-shader-vs").text, gl.VERTEX_SHADER);
 	var fragmentShader = glu.compileShader( document.getElementById("building-shader-fs").text, gl.FRAGMENT_SHADER);
 	this.shaderProgram  = glu.createProgram( vertexShader, fragmentShader);
@@ -65,8 +65,22 @@ function Buildings(gl, position)
 	//this.shaderProgram.hasHeightLocation =         gl.getUniformLocation(this.shaderProgram, "hasHeight");
 	//this.shaderProgram.heightLocation =            gl.getUniformLocation(this.shaderProgram, "height");
 	this.shaderProgram.texLocation =               gl.getUniformLocation(this.shaderProgram, "tex");
+
+    
+    //compile and link edge shader program
+    
+	var vertexShader   = glu.compileShader( document.getElementById("edge-shader-vs").text, gl.VERTEX_SHADER);
+	var fragmentShader = glu.compileShader( document.getElementById("edge-shader-fs").text, gl.FRAGMENT_SHADER);
+	this.edgeShaderProgram  = glu.createProgram( vertexShader, fragmentShader);
+	gl.useProgram(this.edgeShaderProgram);   //    Install the program as part of the current rendering state
+
+    //get location of variables in shader program (to later bind them to values);
+	this.edgeShaderProgram.vertexPosAttribLocation =   gl.getAttribLocation( this.edgeShaderProgram, "vertexPosition"); 
+    this.edgeShaderProgram.modelViewMatrixLocation =   gl.getUniformLocation(this.edgeShaderProgram, "modelViewMatrix")
+	this.edgeShaderProgram.perspectiveMatrixLocation = gl.getUniformLocation(this.edgeShaderProgram, "perspectiveMatrix");
+
     this.numVertices = 0;
- 
+    this.numEdgeVertices = 0;
 }    
 
 function vec(a) { return [a.dx, a.dy];}
@@ -301,12 +315,42 @@ function triangulate(outline)
     
 }
 
+function getLengthInMeters(len_str) {
+    // matches a float (including optional fractional part and optional 
+    // exponent) followed by an optional unit of measurement
+    var re = /^((\+|-)?\d+(\.\d+)?((e|E)-?\d+)?)\s*([a-zA-Z]*)?$/;
+    var m = re.exec(len_str);
+    if (!m)
+    {
+        console.log("cannot parse length string '" + len_str + "'");
+        //fallback: if the string is not valid as a whole, let 
+        //          JavaScript itself parse as much of it as possible
+        return parseFloat(len_str); 
+    }
+    
+    var val = parseFloat(m[1]);
+    var unit= m[6];
+
+    if (! unit) //no explicit unit --> unit is meters (OSM default)
+        return val;
+    
+    if (unit == "m") //already in meters -> no conversion necessary
+        return val; 
+
+    console.log("unit is '" + unit + "'");
+    if (console.warn)
+        console.warn("no unit conversion performed");
+
+    return val;
+}
+
 Buildings.prototype.buildGlGeometry = function(outlines) {
     //this.indices = [];
     //this.lengths = [];
     this.vertices= [];
     this.texCoords=[];
     this.normals  =[];
+    this.edgeVertices = [];
     
     //var pos = 0;
     var vertexArrays = [];
@@ -319,7 +363,7 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
         //console.log("processing building %s with %s vertices", i, bldg.outline.length);
         
         if (bldg.tags.height)
-            bldg.height = parseFloat(bldg.tags.height);    //FIXME: currently assumes that all values are in meters (even if other unit is present)
+            bldg.height = getLengthInMeters(bldg.tags.height);
         else if (bldg.tags["building:levels"])
         {
             bldg.height = parseInt(bldg.tags["building:levels"])*3.5;
@@ -331,7 +375,7 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
 
             
         if (bldg.tags.min_height)
-            bldg.min_height = parseFloat(bldg.tags.min_height); //FIXME: currently assumes that all values are in meters (even if other unit is present)
+            bldg.min_height = getLengthInMeters(bldg.tags.min_height);
         else if (bldg.tags["building:min_level"])
             bldg.min_height = parseInt(bldg.tags["building:min_level"])*3.5;
         else
@@ -381,6 +425,10 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
             
             var norms = [].concat(N,N,N,N,N,N);
             this.normals.push.apply( this.normals, norms);
+            
+            var edgeVertices = [].concat(A, D, B, C, A, B, D, C);
+            this.edgeVertices.push.apply(this.edgeVertices, edgeVertices);
+            
             //console.log(coords, tc, norms);
             //var norms = [].concat.apply(
         }
@@ -412,18 +460,15 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
         }*/
         
     }
-    //flatten array of arrays to a single array
-    //this.vertices = [].concat.apply([], vertexArrays);
-    //console.log("vertices has %s elements; %o", this.vertices.length, this.vertices);
-    //alert(this.texCoords.length + "; " + this.vertices.length);
     this.numVertices = this.vertices.length/3.0;    // 3 coordinates per vertex
-    
+    this.numEdgeVertices = this.edgeVertices.length/3.0;
     console.log("'Buildings' total to %s vertices and %s normals", this.numVertices, this.normals.length/3);
     //var norms = this.normals;
     //console.log("normals: %o", norms);
     this.vertices = glu.createArrayBuffer(this.vertices);
     this.texCoords= glu.createArrayBuffer(this.texCoords);
     this.normals  = glu.createArrayBuffer(this.normals);
+    this.edgeVertices = glu.createArrayBuffer(this.edgeVertices);
 }
 
 Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
@@ -456,23 +501,22 @@ Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
 
     gl.activeTexture(gl.TEXTURE0);  //successive commands (here 'gl.bindTexture()') apply to texture unit 0
     gl.bindTexture(gl.TEXTURE_2D, null); //render geometry without texture
-    //gl.lineWidth(5.0);
-    //console.log("starting rendering of buildings")
-
-    /*for (var i in this.lengths)
-    {
-	    //gl.drawArrays(gl.LINE_LOOP, this.indices[i], this.lengths[i]);
-        //console.log("rendering %d vertices starting from index %d", this.lengths[i], this.indices[i]);
-        
-        gl.uniform1i(this.shaderProgram.hasHeightLocation, this.buildings[i].height ? 1 : 0); //select texture unit 0 as the source for the shader variable "tex" 
-	    
-	    gl.drawArrays(gl.TRIANGLES, this.indices[i], this.lengths[i]);
-	    //gl.drawArrays(gl.TRIANGLE_FAN, this.indices[i], this.lengths[i]);
-    }*/
-    //var last = this.indices.length-1;
-    //console.log("rendering %s vertices", this.numVertices);
+    
     gl.drawArrays(gl.TRIANGLES, 0, this.numVertices);
+    // ===
+    
+    //step 2: draw outline
+    gl.useProgram(this.edgeShaderProgram);   //    Install the program as part of the current rendering state
+	gl.enableVertexAttribArray(this.edgeShaderProgram.vertexPosAttribLocation); // setup vertex coordinate buffer
 
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.edgeVertices);   //select the vertex buffer as the currrently active ARRAY_BUFFER (for subsequent calls)
+	gl.vertexAttribPointer(this.edgeShaderProgram.vertexPosAttribLocation, 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
+
+	gl.uniformMatrix4fv(this.edgeShaderProgram.modelViewMatrixLocation, false, modelViewMatrix);
+    gl.uniformMatrix4fv(this.edgeShaderProgram.perspectiveMatrixLocation, false, projectionMatrix);
+
+    gl.drawArrays(gl.LINES, 0, this.numEdgeVertices);
+    
 }
 
 
