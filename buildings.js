@@ -45,14 +45,9 @@ function Buildings(gl, position)
     var bldgs = this;
     var oReq = new XMLHttpRequest();
     oReq.onload = function() { bldgs.onDataLoaded(this); }
-    //oReq.open("get", "http://overpass-api.de/api/interpreter?data=" + encodeURIComponent('[out:json][timeout:25];way["building"](52.1360,11.6356,52.1418,11.6416);out body;>;out skel qt;'), true);
     oReq.open("get", "http://overpass-api.de/api/interpreter?data=" + encodeURIComponent(query), true);
     oReq.send();
     
-    
-    /*QL query: <bbox-query e="11.6416" n="52.1418" s="52.1360" w="11.6356"/> */
-    /*corresponding "get" string:  [out:json][timeout:25];way["building"](52.1360,11.6356,52.1418,11.6416);out body;>;out skel qt;; */
-
 	//compile and link shader program
 	var vertexShader   = glu.compileShader( document.getElementById("building-shader-vs").text, gl.VERTEX_SHADER);
 	var fragmentShader = glu.compileShader( document.getElementById("building-shader-fs").text, gl.FRAGMENT_SHADER);
@@ -76,8 +71,14 @@ function Buildings(gl, position)
 
 function vec(a) { return [a.dx, a.dy];}
 function sub(a, b) { return [a[0] - b[0], a[1]-b[1]]; }
-function norm(a) { var len = Math.sqrt(a[0]*a[0] + a[1]*a[1]); return [a[0]/len, a[1]/len];}
+function norm2(a) { var len = Math.sqrt(a[0]*a[0] + a[1]*a[1]); return [a[0]/len, a[1]/len];}
 function dot(a,b) { return a[0]*b[0] + a[1]*b[1];}
+
+function norm3(v)
+{
+    var len = Math.sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
+    return [ v[0]/len, v[1]/len, v[2]/len];
+}
     
     
 function simplifyOutline(building)
@@ -96,8 +97,8 @@ function simplifyOutline(building)
     {
         var next = outline[i];
         //console.log(prev, curr, next);
-        var v1 = norm(sub(vec(next), vec(prev)));   //v1 = norm( next - prev);
-        var v2 = norm(sub(vec(next), vec(curr)));   //v2 = norm( next - curr);
+        var v1 = norm2(sub(vec(next), vec(prev)));   //v1 = norm( next - prev);
+        var v2 = norm2(sub(vec(next), vec(curr)));   //v2 = norm( next - curr);
         var cosArc = dot(v1, v2);
         
         //console.log("%s;%s;%s;%s;%s;%s;%s", prev.dx, prev.dy, curr.dx, curr.dy, next.dx, next.dy, cosArc);
@@ -117,26 +118,21 @@ function simplifyOutline(building)
     res.push(outline[outline.length-1]);
 
 
-    // Handle edge case: vertex 0 lies on a colienar line segment and should be remove
-    // N.B.: in OSM data, the first and last vertex of an area are identical
+    // Handle edge case: vertex 0 lies on a colinear line segment and should be removed
+    // N.B.: in OSM data, the first and last vertex of an area are identical.
     //       thus, the following algorithm skips the last vertex in the colinearity check
     //       and in case of colinearity removes the first *and* last vertex ( and 
     //       replicates the new first vertex as the new last one).
-    /*console.log("---");
-    for (var i in res)
-        console.log("%s,%s", res[i].dx, res[i].dy);
 
-    console.log("---");*/
     
     prev = res[res.length-2];
     
     curr = res[0];
     next = res[1];
     
-    var v1 = norm(sub(vec(next), vec(prev)));   //v1 = norm( next - prev);
-    var v2 = norm(sub(vec(next), vec(curr)));   //v2 = norm( next - curr);
+    var v1 = norm2(sub(vec(next), vec(prev)));   //v1 = norm( next - prev);
+    var v2 = norm2(sub(vec(next), vec(curr)));   //v2 = norm( next - curr);
     var cosArc = dot(v1, v2);
-    //console.log("%s;%s;%s;%s;%s;%s;%s", prev.dx, prev.dy, curr.dx, curr.dy, next.dx, next.dy, cosArc);
 
 
     if (cosArc > 0.999)    //almost colinear (deviation < 2.6°) --> ignore 'curr' vertex
@@ -147,13 +143,11 @@ function simplifyOutline(building)
 
     building.outline = res;
 }
-    
-Buildings.prototype.onDataLoaded = function(response) {
-    var res = JSON.parse(response.responseText);
+
+Buildings.parseOSMQueryResult = function(res) {
     //console.log(res);
     var nodes = {};
     
-    this.buildings = [];
     //step 1: read all nodes and make them searchable by their id
     for (var i = 0; i < res.elements.length; i++)
     {
@@ -175,10 +169,7 @@ Buildings.prototype.onDataLoaded = function(response) {
         var way = res.elements[i];
 
         var building = { outline: [], tags: way.tags };
-        /*if (way.tags)   
-        {            
-            //hkjhkl
-        }*/
+
         
         for (var j in way.nodes)
         {
@@ -255,20 +246,25 @@ Buildings.prototype.onDataLoaded = function(response) {
         {
             console.log("relation %s/%o has multiple 'outer' members, skippping", rel, rel);
         }
-        //sdfds();
+
         //console.log(res.elements[i]);
         
     }
+	return bldgs;
+}
     
+Buildings.prototype.onDataLoaded = function(response) {
+    var osmQueryResult = JSON.parse(response.responseText);
+	
+
     //console.log("map center is lat/lng: %s%s; x/y: (%s,%s)", mapCenter.lat, mapCenter.lon , x, y);
     //console.log("Buildings set: %o", this);
-    this.buildings = convertToLocalCoordinates(bldgs, this.mapCenter);
-    //for (var i in this.buildings)
-    //    simplifyOutline(this.buildings[i]);
+	var outlines = Buildings.parseOSMQueryResult(osmQueryResult);
+    outlines = convertToLocalCoordinates(outlines, this.mapCenter);
+    for (var i in outlines)
+        simplifyOutline(outlines[i]);
         
-    
-        
-    this.buildGlGeometry();
+    this.buildGlGeometry(outlines);
     
     if (this.onLoaded)
         this.onLoaded();
@@ -302,17 +298,10 @@ function triangulate(outline)
     }
     return vertexData;
     //console.log(vertexData);
-    //sdkfjhk();
     
 }
 
-function norm(v)
-{
-    var len = Math.sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
-    return [ v[0]/len, v[1]/len, v[2]/len];
-}
-
-Buildings.prototype.buildGlGeometry = function() {
+Buildings.prototype.buildGlGeometry = function(outlines) {
     //this.indices = [];
     //this.lengths = [];
     this.vertices= [];
@@ -323,10 +312,10 @@ Buildings.prototype.buildGlGeometry = function() {
     var vertexArrays = [];
     var texCoordArrays = [];
 
-    for (var i in this.buildings)
+    for (var i in outlines)
     {
         //if (i[0] != "r") continue;
-        var bldg = this.buildings[i];
+        var bldg = outlines[i];
         //console.log("processing building %s with %s vertices", i, bldg.outline.length);
         
         if (bldg.tags.height)
@@ -376,7 +365,7 @@ Buildings.prototype.buildGlGeometry = function() {
             var dx = bldg.outline[j+1].dx - bldg.outline[j].dx;
             var dy = bldg.outline[j+1].dy - bldg.outline[j].dy;
 
-            var N = norm( [dy, -dx, 0] );
+            var N = norm3( [dy, -dx, 0] );
             // D-C
             // |/|
             // A-B
