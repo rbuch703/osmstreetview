@@ -4,6 +4,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, user-scalable=no">
+    <meta property="og:image" content="http://rbuch703.de/osmsv/images/screenshot.png" />
+    <meta property="og:description" content="See a 3D view of any position of the world directly from your web browser." />
+    <meta property="og:title" content="Open Street View" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="http://rbuch703.de/osmsv/" />
+    
+    <meta property="fb:admins" content="100001025041261" />
 
     <link   type="text/css" rel="stylesheet" href="styles/global.css" media="screen" />
     <link   type="text/css" rel="stylesheet" href="styles/leaflet.css" />
@@ -308,7 +315,7 @@
 			alert("Your browser does not support 3D views (WebGL)");
 			return;
 		}
-		gl = WebGLDebugUtils.makeDebugContext(gl);
+		//gl = WebGLDebugUtils.makeDebugContext(gl);
 		
 		gl.clearColor(0.5, 0.5, 0.5, 1.0);
 
@@ -322,7 +329,7 @@
         onResize();
 	
         //view setup 
-        eye = [0,0,2.0];
+        eye = [0,0,1.6];
         lookDir = [-0.41759445514800125, 0.9086334100609345, 0];
 
         mapSkyDome = new SkyDome(gl);
@@ -390,6 +397,15 @@
 </head>
 
 <body onload="init()"  > <!-- style ="padding: 0px; margin: 0px;" -->
+<div id="fb-root"></div>
+<script>(function(d, s, id) {
+  var js, fjs = d.getElementsByTagName(s)[0];
+  if (d.getElementById(id)) return;
+  js = d.createElement(s); js.id = id;
+  js.src = "//connect.facebook.net/en_US/sdk.js#xfbml=1&version=v2.0";
+  fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script>
+
 <h2 style="">Open Street View</h2>
 
 
@@ -417,6 +433,11 @@
 </ul>
 </p>
 </div>
+<br>
+<div class="fb-like" data-href="http://rbuch703.de/osmsv" data-layout="button_count" data-action="like" data-show-faces="false" data-share="true"></div>
+<br><br>
+Let me know what you think about this page:
+<div class="fb-comments" data-href="http://rbuch703.de/osmsv" data-width="100%" data-numposts="5" data-colorscheme="light"></div>
 </div>
 
 <div id="content" >

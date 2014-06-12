@@ -83,7 +83,6 @@ MetaTile.prototype.onImageLoad = function(e)
         canvas2.getContext("2d").drawImage(canvas, px, py, 512, 512, 0, 0, 512, 512);
         
         metatile.canvas = canvas2;
-        //console.log("completed metatile for zoom level %s", metatile.zoom);
         /*metatile.img = new Image();
         metatile.img.src = canvas2.toDataURL("image/png");*/
         //console.log("Image is ", metatile.src);
