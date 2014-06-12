@@ -95,21 +95,21 @@ function norm3(v)
 }
     
     
-function simplifyOutline(building)
+function simplifyOutline(outline)
 {
-    var outline = building.outline;
+    var nodes = outline.nodes;
     if (outline.length < 3) return;
     /*
     for (var i in building.outline)
         console.log("%s,%s", building.outline[i].dx, building.outline[i].dy);
     */
     var res = [];
-    res[0] = outline[0];
-    var prev = outline[0];
-    var curr = outline[1];
-    for (var i = 2; i < outline.length; i++)
+    res[0] = nodes[0];
+    var prev = nodes[0];
+    var curr = nodes[1];
+    for (var i = 2; i < nodes.length; i++)
     {
-        var next = outline[i];
+        var next = nodes[i];
         //console.log(prev, curr, next);
         var v1 = norm2(sub(vec(next), vec(prev)));   //v1 = norm( next - prev);
         var v2 = norm2(sub(vec(next), vec(curr)));   //v2 = norm( next - curr);
@@ -129,7 +129,7 @@ function simplifyOutline(building)
         //console.log("#", vec(prev));
         //console.log("v1: %o, v2: %o", v1, v2, prev, curr, next);
     } 
-    res.push(outline[outline.length-1]);
+    res.push(nodes[nodes.length-1]);
 
 
     // Handle edge case: vertex 0 lies on a colinear line segment and should be removed
@@ -155,116 +155,296 @@ function simplifyOutline(building)
         res.push(res[0]);
     }    
 
-    building.outline = res;
+    outline.nodes = res;
 }
 
-Buildings.parseOSMQueryResult = function(res) {
-    //console.log(res);
-    var nodes = {};
-    
-    //step 1: read all nodes and make them searchable by their id
-    for (var i = 0; i < res.elements.length; i++)
+/* in the osm3s response, nodes are individual entities with lon/lat properties, and ways refer to these nodes
+   via their id. This function removes that indirection by replacing the node ids in the way by the actual node
+   lon/lat data
+*/
+Buildings.integrateNodeData = function(nodes, ways) {
+    for (var i in ways)
     {
-        if (res.elements[i].type != "node")
-            continue;
-        var node = res.elements[i];
-        nodes[node.id] = {lat:node.lat, lon:node.lon};
-        //delete res.elements[i];
-    }
-    //console.log("Nodes : %o",nodes);
-    
-    //step 2: read all ways and replace their node IDs by the actual node data
-    var bldgs = {};
-    for (var i = 0; i < res.elements.length; i++)
-    {
-        if (res.elements[i].type != "way")
-            continue;
-            
-        var way = res.elements[i];
+        var way = ways[i];
 
-        var building = { outline: [], tags: way.tags };
-
-        
         for (var j in way.nodes)
         {
-            var id = way.nodes[j];
-            if (id in nodes)
-                building.outline.push( nodes[id]);
+            //var id = ;
+            if (way.nodes[j] in nodes)
+                way.nodes[j] = nodes[way.nodes[j]];
+                //building.outline.push( nodes[id]);
             else
-                console.log("[WARN] Way %o contains node %d, but server response does not include node data. Skipping.", way, id);
+            {
+                delete way.nodes[j];
+                console.log("[WARN] Way %o contains node %d, but server response does not include that node data. Skipping.", way, id);
+            }
         }
         //console.log("buildings %s has shape %o", way.id, building);
-        bldgs[way.id] = building;
+        //bldgs[way.id] = building;
         
         //this.buildings.push(building);
     }
+}
 
-    //console.log("Buildings: %o", bldgs);
-    
-    //step 3: parse relations;
-    for (var i in res.elements)
+Buildings.integrateWays = function(ways, relations) {
+    for (var i in relations)
     {
-        if (res.elements[i].type != "relation")
-            continue;
-            
-        var rel = res.elements[i];
-        
-        //var tags = rel.tags;
-        var num_outer = 0;
-        var outer = [];
-        var inner = [];
-        
+        var rel = relations[i];
+
         for (var j in rel.members)
         {
+            //var id = ;
             var member = rel.members[j];
-            //console.log("scanning member %s of relation %s", member.ref, rel.id);
             if (member.type != "way")
-                console.log("invalid member type %s on relation %s", member.type, rel.id);
+                continue;
+            
+            if (member.ref in ways)
+            {
+                /* way will not be handled as an explicit way, but as a part of the relation -> delete it.
+                 * Flag it first (instead of deleting it right away) as several relations may
+                 * refer to the same way.
+                 */
+                ways[member.ref].partOfRelation = true;   
+
+                member.ref = ways[member.ref];
+            }
             else
             {
-                //console.log("INFO: rel %s references way %s/%o", rel.id, member.ref, bldgs[member.ref]);
-                //console.log("member %s, %o: %o", member.ref, member, bldgs);
-                if ((member.role == "outer") && (bldgs[member.ref]))
-                    outer.push(  bldgs[member.ref] );
-
-                if ((member.role == "inner") && (bldgs[member.ref]))
-                    inner.push(  bldgs[member.ref] );
+                console.log("[WARN] Relation %o contains way %d, but server response does not include that way data. Skipping.", rel, member.ref);
             }
-            delete bldgs[member.ref];
+
         }
-        //console.log("outers: %o, inners: %o", outer, inner);
+        //console.log("buildings %s has shape %o", way.id, building);
+        //bldgs[way.id] = building;
         
-        //console.log("relation with inner: %o, outer: %o", inner, outer);
-        if (outer.length == 1)
-        {
-            outer = outer[0];
-            if (!outer.tags) outer.tags = {};
+        //this.buildings.push(building);
+    }
+    
+    for (var i in ways)
+        if (ways[i].partOfRelation)
+            delete ways[i];
+}
 
-            var relevant_tags = ["building", "building:part", "height", "min_height", 
-                                 "roof:height", "roof:levels", "building:levels", "building:min_level"];
-            
-            for (var k in relevant_tags)
+
+
+Buildings.splitResponse = function(response)
+{
+    var nodes = {};
+    var ways = {};
+    var relations = {};
+    
+    for (var i in response.elements)
+    {
+        var el = response.elements[i];
+        if (el.type == "node")
+            nodes[el.id] = el;
+        else if (el.type == "way")
+            ways[el.id] = el;
+        else if (el.type == "relation")
+            relations[el.id] = el;
+        else
+        {
+            console.log("Unknown element '" + el.type + "' in %o, skipping", el);
+        }
+    }
+    return [nodes, ways, relations];
+}
+
+Buildings.joinWays = function(w1, w2) {
+    //step 1: formal checks for mergeability
+    if (w1.role != w2.role)
+        return false;
+    var role = w1.role;
+    
+    if (w1.type != "way" || w2.type != "way")
+        return false;
+        
+    if (w1.ref.nodes[0].id == w1.ref.nodes[w1.ref.nodes.length-1].id||
+        w2.ref.nodes[0].id == w2.ref.nodes[w2.ref.nodes.length-1].id)
+        return false;
+    
+    //step 2: merging node chains
+    var nodes;    
+    if (w1.ref.nodes[0].id == w2.ref.nodes[0].id)
+    {
+        nodes = w2.ref.nodes.reverse().slice(1).concat(w1.ref.nodes);
+    } else if (w1.ref.nodes[0].id == w2.ref.nodes[w2.ref.nodes.length-1].id)
+    {
+        nodes = w2.ref.nodes.concat(w1.ref.nodes.slice(1));
+    } else if (w2.ref.nodes[0].id == w1.ref.nodes[w1.ref.nodes.length-1].id)
+    {
+        nodes = w1.ref.nodes.concat(w2.ref.nodes.slice(1));
+    } else if (w1.ref.nodes[w1.ref.nodes.length-1].id == w2.ref.nodes[w2.ref.nodes.length-1].id)
+    {
+        nodes = w1.ref.nodes.concat(w2.ref.nodes.reverse().slice(1));
+    } else return false;
+
+    /*step 3: merging tag sets. Strategy: hope that each attribute is either present in at most one of the
+              two sets, or that both sets agree on the value for that attribute. If they don't, discard 
+              the attribute belonging to the second set.
+     */
+    var tags = {};
+    if (w1.ref.tags)
+        tags = w1.ref.tags;
+    
+    if (w2.ref.tags)
+    {
+        for (key in w2.ref.tags)
+        {
+            //var key = w2.ref.tags[i];
+            if (! key in tags)
+                tags[key] = w2.ref.tags[key];
+            else
             {
-                var tag = relevant_tags[k];
-                if (tag in rel.tags)
-                    outer.tags[tag] = rel.tags[tag];
+                if (tags[key] != w2.ref.tags[key])
+                    console.log("attribute value mismatch while merging ways %s and %s: %s:%s, %s:%s",
+                        w1.ref.id, w2.ref.id, key, tags[key], key, w2.ref.tags[key]);
             }
-            //console.log("outer: %o, rel: %o", outer, rel);
-            
-            //for (var j in outer.outline)
-            //    console.log("%s, %s, %o", outer.outline[j].lon, outer.outline[j].lat, outer.outline[j]);
+        }
+    }
+    
+    var merged_way = {id: w1.ref.id + ":" + w2.ref.id, tags: tags, "nodes": nodes};
+    return { ref: merged_way, role: role, type: "way"};
+
+}
+
+
+/* Multipolygon-Relations in OSM may consist of several line segments (ways) of different roles:
+ * These line segments may represent whole or partial outlines or holes in the multipolygon.
+ * This method merges those ways that represent partial holes or outlines, so that all
+ * (merged) ways in 'rel.outlines' are closed polygons
+*/
+Buildings.mergeMultiPolygonSegments = function(rel) {
+
+    //var rel = relations[i];
+    rel.outlines = [];
+    
+    var currentOutline = null;
+    
+    for (var j in rel.members)
+    {
+        if (rel.members[j].type != "way")
+        {
+            console.log("invalid member type %s on relation %s", rel.members[j].type, rel.id);
+            continue;
+        }
+
+        var way = rel.members[j];
+        delete rel.members[j];
+        /* if we currently have an open outline segment, then this next ways must be connectable
+         * to that outline. If not then we have to fallback to close that open outline segment with a
+         * straight line (which is usually not the intended result), store it, and continue with the next one
+        */
+        if (currentOutline)
+        {
+            var res = Buildings.joinWays(currentOutline, way);
+            if (res) //join succeeded
+                currentOutline = res;
+            else //join failed --> force-close old outline
+            {
+                console.log("Force-closed way %s in relation %s", currentOutline.ref.id, rel.id)
                 
-            bldgs["r"+rel.id] = outer;
-            //console.log(outer);
+                //if it is already closed, it should not be currentOutline in the first place
+                if (currentOutline.ref.nodes[0] == currentOutline.ref.nodes[currentOutline.ref.nodes.length-1])
+                    console.log("BUG: current outline should not be closed (at relation %s)", rel.id);
+                else
+                    currentOutline.ref.nodes.push(currentOutline.ref.nodes[0]);
+                    
+                rel.outlines.push(currentOutline);
+                currentOutline = way;
+            }
         } else
         {
-            console.log("relation %s/%o has multiple 'outer' members, skippping", rel, rel);
+            currentOutline = way;
         }
-
-        //console.log(res.elements[i]);
         
+        //if currentOutline is closed, it is complete and can be stored away
+        if (currentOutline)
+        {
+            //console.log(currentOutline);
+            if (currentOutline.ref.nodes[0] == currentOutline.ref.nodes[currentOutline.ref.nodes.length-1])
+            {
+                rel.outlines.push(currentOutline);
+                currentOutline = null;
+            }
+        }
     }
-	return bldgs;
+    
+    /*if there is an open outline left, we have to force-close it (since there is no other segment left
+     *to close it with) using a straight line */
+    if (currentOutline)
+    {
+        if (currentOutline.ref.nodes[0] == currentOutline.ref.nodes[currentOutline.ref.nodes.length-1])
+            console.log("BUG: current outline should not be closed (at relation %s)", rel.id);
+        else
+            currentOutline.ref.nodes.push(currentOutline.ref.nodes[0]);
+
+        rel.outlines.push(currentOutline);
+        currentOutline = null;
+    }
+    
+    //console.log("Relation %s: %o", i, rel);
+
+}
+
+
+//distributes the attributes that a relationi may have buts its members may not to these members
+Buildings.distributeAttributes = function(rel) {
+    var important_tags = ["building:levels", "roof:levels", "building:min_level", "height", "min_height"];
+
+    for (var i in rel.outlines)
+    {
+        var outline = rel.outlines[i];
+        if (! outline.tags)
+            outline.ref.tags = {};
+            
+        for (var j in important_tags)
+        {
+            var key = important_tags[j];
+            if (key in rel.tags)
+            {
+                if (! (key in outline.ref.tags))
+                {
+                    outline.ref.tags[key] = rel.tags[key];
+                }
+            }
+        }
+    }
+}
+
+
+Buildings.parseOSMQueryResult = function(res) {
+
+    res = Buildings.splitResponse(res);
+    var nodes = res[0];
+    var ways = res[1];
+    var relations = res[2];
+    
+    Buildings.integrateNodeData(nodes, ways);
+    Buildings.integrateWays(ways, relations);
+    //console.log("Nodes: %o,\nWays: %o,\nRelations: %o", nodes, ways, relations);
+    //return;
+    nodes = null;
+
+    var outlines = [];
+    
+    for (var i in relations)
+    {
+        var rel = relations[i];
+        Buildings.mergeMultiPolygonSegments( rel );
+        Buildings.distributeAttributes( rel );
+        
+        for (var j in rel.outlines)
+            outlines.push( rel.outlines[j].ref);
+    }
+    
+    for (var i in ways)
+        outlines.push(ways[i]);
+    
+    //console.log(relations);
+    //console.log(outlines);
+    
+	return outlines;
 }
     
 Buildings.prototype.onDataLoaded = function(response) {
@@ -366,9 +546,9 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
             bldg.height = getLengthInMeters(bldg.tags.height);
         else if (bldg.tags["building:levels"])
         {
-            bldg.height = parseInt(bldg.tags["building:levels"])*3.5;
+            bldg.height = parseFloat(bldg.tags["building:levels"])*3.5;
             if (bldg.tags["roof:levels"])
-                bldg.height += parseInt(bldg.tags["roof:levels"])*3.5;
+                bldg.height += parseFloat(bldg.tags["roof:levels"])*3.5;
         }
         //else
         //    building.height = 10.0; //FIXME: just a guess, replace by more educated guess
@@ -393,21 +573,21 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
         //this.lengths.push( (bldg.outline.length-1)*6 );
         //pos += (bldg.outline.length-1)*6;
         
-        if (bldg.outline[0].dx != bldg.outline[bldg.outline.length-1].dx || bldg.outline[0].dy != bldg.outline[bldg.outline.length-1].dy)
+        if (bldg.nodes[0].dx != bldg.nodes[bldg.nodes.length-1].dx || bldg.nodes[0].dy != bldg.nodes[bldg.nodes.length-1].dy)
             console.log("[WARN] outline of building %s does not form a closed loop (%o)", i, this.buildings);
         
         //step 1: build geometry for walls;
-        for (var j = 0; j < bldg.outline.length - 1; j++) //loop does not include the final vertex, as we in each case access the successor vertex as well
+        for (var j = 0; j < bldg.nodes.length - 1; j++) //loop does not include the final vertex, as we in each case access the successor vertex as well
         {
             var min_height= bldg.min_height;
                     
-            var A = [bldg.outline[j  ].dx, bldg.outline[j  ].dy, min_height];
-            var B = [bldg.outline[j+1].dx, bldg.outline[j+1].dy, min_height];
-            var C = [bldg.outline[j+1].dx, bldg.outline[j+1].dy, height];
-            var D = [bldg.outline[j  ].dx, bldg.outline[j  ].dy, height];
+            var A = [bldg.nodes[j  ].dx, bldg.nodes[j  ].dy, min_height];
+            var B = [bldg.nodes[j+1].dx, bldg.nodes[j+1].dy, min_height];
+            var C = [bldg.nodes[j+1].dx, bldg.nodes[j+1].dy, height];
+            var D = [bldg.nodes[j  ].dx, bldg.nodes[j  ].dy, height];
             
-            var dx = bldg.outline[j+1].dx - bldg.outline[j].dx;
-            var dy = bldg.outline[j+1].dy - bldg.outline[j].dy;
+            var dx = bldg.nodes[j+1].dx - bldg.nodes[j].dx;
+            var dy = bldg.nodes[j+1].dy - bldg.nodes[j].dy;
 
             var N = norm3( [dy, -dx, 0] );
             // D-C
@@ -543,13 +723,13 @@ function convertToLocalCoordinates(buildings,  mapCenter)
     for (var i in buildings)
     {
         var bld = buildings[i];
-        for (var j = 0; j < bld.outline.length; j++)
+        for (var j = 0; j < bld.nodes.length; j++)
         {
-            var y = lat2tile(bld.outline[j].lat, 19);
-            var x = long2tile(bld.outline[j].lon, 19);
+            var y = lat2tile(bld.nodes[j].lat, 19);
+            var x = long2tile(bld.nodes[j].lon, 19);
             
-            bld.outline[j].dx = (x - x0) * physicalTileLength;
-            bld.outline[j].dy = (y - y0) * physicalTileLength;
+            bld.nodes[j].dx = (x - x0) * physicalTileLength;
+            bld.nodes[j].dy = (y - y0) * physicalTileLength;
         }
     }
     return buildings;
