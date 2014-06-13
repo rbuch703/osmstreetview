@@ -22,16 +22,19 @@ function MapLayer(gl, position) {
         // formulas taken from http://wiki.openstreetmap.org/wiki/Zoom_levels 
         var earthCircumference = 2 * Math.PI * (6378.1 * 1000);
         var physicalTileLength = earthCircumference* Math.cos(position.lat/180*Math.PI) / Math.pow(2, zoom);
-        
-        var halfWidth = 0.5 * physicalTileLength;
-        //tile rectangle, specified as two triangles
-        geometry = geometry.concat([-halfWidth, -halfWidth, zoom/100,
-                                     halfWidth, -halfWidth, zoom/100,
-                                     halfWidth,  halfWidth, zoom/100,
-                                    -halfWidth, -halfWidth, zoom/100,
-                                     halfWidth,  halfWidth, zoom/100,
-                                    -halfWidth,  halfWidth, zoom/100]);
-        tc = tc.concat(tcPerTile);
+        //console.log("length of tiles at zoom level %s is %s", zoom, physicalTileLength);
+        //var halfWidth = 0.5 * physicalTileLength;
+
+        /*tile rectangle, specified as two triangles (height of zoom/100 is used to prevent z-fighting).
+         * These geometry tiles are twice as wide as 'physicalTileLength' as they consist of 2x2 OSM tiles
+         */
+        geometry = geometry.concat([-physicalTileLength, -physicalTileLength, zoom/100,
+                                     physicalTileLength, -physicalTileLength, zoom/100,
+                                     physicalTileLength,  physicalTileLength, zoom/100,
+                                    -physicalTileLength, -physicalTileLength, zoom/100,
+                                     physicalTileLength,  physicalTileLength, zoom/100,
+                                    -physicalTileLength,  physicalTileLength, zoom/100]);
+        tc.push.apply(tc, tcPerTile);
     }
     
     

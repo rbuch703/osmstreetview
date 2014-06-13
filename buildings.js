@@ -733,8 +733,7 @@ function convertToLocalCoordinates(buildings,  mapCenter)
     var x0 = long2tile(mapCenter.lng, 19);
 
     var earthCircumference = 2 * Math.PI * (6378.1 * 1000);
-    //FIXME: find out why the final correction factor of 2.0 is necessary
-    var physicalTileLength = earthCircumference* Math.cos(mapCenter.lat/180*Math.PI) / Math.pow(2, /*zoom=*/19) / 2.0;
+    var physicalTileLength = earthCircumference* Math.cos(mapCenter.lat/180*Math.PI) / Math.pow(2, /*zoom=*/19);
 
     //for (var i = 0; i < buildings.length; i++)
     for (var i in buildings)
