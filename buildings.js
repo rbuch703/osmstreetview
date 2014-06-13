@@ -585,7 +585,7 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
         var hf = bldg.height? 1 : 0;
         //console.log(bldg, bldg.height, height, hf);
 
-        //triangulate(bldg.outline);
+        //triangulate(bldg.nodes);
         //this.indices.push(pos);
         //this.lengths.push( (bldg.outline.length-1)*6 );
         //pos += (bldg.outline.length-1)*6;
@@ -631,8 +631,18 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
         }
         
         //step 2: build roof geometry:
-        /*
-        var coords = triangulate(bldg.outline);
+        
+        var coords;
+        //console.log("triangulating %o", bldg);
+        try {
+            coords = triangulate(bldg.nodes);
+        }
+        catch(err)
+        {
+            console.log("triangulation of way %s failed", bldg.id);
+            coords = [];
+        }
+        
         //console.log("triangulated coords: %o", coords);
         //console.log("\t has %s vertices at height %s", coords.length/2.0, height);
         for (var j = 0; j < coords.length; j+=2)
@@ -654,7 +664,7 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
                 this.normals.push( 0,0,-1 ); //floor --> normal is pointing straight down
             }
 
-        }*/
+        }
         
     }
     this.numVertices = this.vertices.length/3.0;    // 3 coordinates per vertex
