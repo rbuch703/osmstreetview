@@ -39,8 +39,9 @@
 
 	<script type="text/javascript" src="gl-matrix.js" ></script>
 	<script type="text/javascript" src="glu.js" ></script>
+	<script type="text/javascript" src="math.js" ></script>
 
-    <script src="webgl-debug.js"></script>
+<!--    <script src="webgl-debug.js"></script> -->
     
 	<script id="map-shader-fs" type="x-shader/x-fragment">
 		precision mediump float;
@@ -204,15 +205,10 @@
             var e = {};
             e.latlng = {lat:res.lat, lng:res.lng};
             
-            if (res.lookx && res.looky) //if look direction is also given
+            if (res.yaw && res.pitch) //if look direction is also given
             {
-                //console.log("contains eye position");
-                lookDir[0] = res.lookx;
-                lookDir[1] = res.looky;
-                var len = lookDir[0]*lookDir[0] + lookDir[1]*lookDir[1] + lookDir[2]*lookDir[2];
-                lookDir[0]/=len;
-                lookDir[1]/=len;
-                lookDir[2]/=len;
+                viewAngleYaw = res.yaw;
+                viewAnglePitch=res.pitch;
             }
             
             map.panTo(L.latLng(res.lat, res.lng));
@@ -227,7 +223,9 @@
     var mapSkyDome;
     var mapFrustum;
     var gl;
-    var eye,lookDir,position;
+    var eye,position;
+    var viewAngleYaw = 0;
+    var viewAnglePitch = 0;
     var positionMarker;
     var fieldOfView = 45;
     
@@ -237,7 +235,7 @@
         if (url.indexOf("?") >= 0) // already contains a query string
             url = url.substring(0, url.indexOf("?"));
         
-        url += "?lat="+position.lat+"&lng="+position.lng+"+&lookx="+lookDir[0]+"&looky="+lookDir[1];
+        url += "?lat="+position.lat+"&lng="+position.lng+"&yaw="+viewAngleYaw+"&pitch="+viewAnglePitch;
         history.replaceState(null, document.title, url);
     }
     
@@ -287,26 +285,35 @@
 	
     function onMouseMove(e)
 	{
-	   if (! down) return;
-	   var dx = e.clientX - x;
-	   var dy = e.clientY - y;
-	   
-	   if (Math.abs(dx) < 5 && Math.abs(dy) < 5)
-	        return;
-	   x = e.clientX;
-	   y = e.clientY;
-	   
-	   var rotMat = mat4.create();
-	   mat4.rotateZ(rotMat, rotMat, -dx/100);
-	   vec3.transformMat4(lookDir, lookDir, rotMat);
-	   
-	   /*var tmp = vec3.create();
-	   vec3.scale(tmp, lookDir, -dy);
-	   vec3.add(eye, eye, tmp);*/
+        if (! down) return;
+        var dx = e.clientX - x;
+        var dy = e.clientY - y;
 
-       updateHistoryState();	   
-       renderFrustum();
-	   renderScene();
+        if (Math.abs(dx) < 5 && Math.abs(dy) < 5)
+            return;
+        x = e.clientX;
+        y = e.clientY;
+
+        viewAngleYaw = ((viewAngleYaw + dx/5 + 360) % 360) | 0;
+        viewAnglePitch = (viewAnglePitch - dy / 5 ) % 360 | 0;
+        if (viewAnglePitch < 0)
+            viewAnglePitch = 0;
+            
+        if (viewAnglePitch > 90)
+            viewAnglePitch = 90;
+        //while (viewAngleYaw < 0) viewAngleYaw += 
+
+        /*var rotMat = mat4.create();
+        mat4.rotateZ(rotMat, rotMat, -dx/100);
+        vec3.transformMat4(lookDir, lookDir, rotMat);*/
+
+        /*var tmp = vec3.create();
+        vec3.scale(tmp, lookDir, -dy);
+        vec3.add(eye, eye, tmp);*/
+
+        updateHistoryState();	   
+        renderFrustum();
+        renderScene();
 	}	
 	
 	function renderFrustum()
@@ -317,13 +324,19 @@
 	        mapFrustum = null;
         }
 	    
-	    
 	    /* One degree latitude on earth always corresponds to the same distance in meters ( 1/360th of the earth circumference).
 	     * But the distance of one degree longitude changes depending of the current latitude.
 	     * This aspect is the ration between the two distances. It is needed to correctly
 	     * draw that viewing frustum, which needs to be specified in lat/lnt
 	    */
 	    var localAspect = Math.cos( position.lat / 180 * Math.PI);
+	    
+        var yawRad = viewAngleYaw / 180 * Math.PI;
+        /* compute only planar lookDir (ignoring pitch), as this is the relevant direction to render the frustum
+           on a 2D map
+         */
+        var lookDir = [Math.sin( yawRad), Math.cos(yawRad)];
+	    
 	    //console.log ("local aspect ratio at %s is %s", position.lat, localAspect );
 	    
 	    //console.log( webGlCanvas.height, webGlCanvas.width, fieldOfView / webGlCanvas.height * webGlCanvas.width);
@@ -333,12 +346,12 @@
 	    var rightDir =[ Math.cos(-phi) * lookDir[0] - Math.sin(-phi) * lookDir[1], 
 	                    Math.sin(-phi) * lookDir[0] + Math.cos(-phi) * lookDir[1] ];
 
-        var len = Math.pow(0.5, map.getZoom())*100;
+        var len = Math.pow(0.5, map.getZoom())*2000;
         //console.log(map.getZoom(), len);
 	    var pA = { lat: position.lat + leftDir[1]*len*localAspect,  lng: position.lng + leftDir[0]*len };
 	    var pB = { lat: position.lat + rightDir[1]*len*localAspect, lng: position.lng + rightDir[0]*len};
 	    var line = [position, pA, pB, position ]
-	    mapFrustum = L.polyline(line, {color: 'red'}).addTo(map);
+	    mapFrustum = L.polygon(line, {color: 'red', noClip: 'true', fillColor:"white", fillOpacity:0.4}).addTo(map);
 	}
 	
 	/**
@@ -368,7 +381,7 @@
 	
         //view setup 
         eye = [0,0,1.6];
-        lookDir = [-0.41759445514800125, 0.9086334100609345, 0];
+        //lookDir = [-0.41759445514800125, 0.9086334100609345, 0];
 
         mapSkyDome = new SkyDome(gl);
         mapSkyDome.onLoaded = renderScene;
@@ -399,8 +412,13 @@
 	
 	function renderScene()
 	{
-	    if (!gl || !eye || !lookDir) //not yet initialized
+	    if (!gl || !eye ) //not yet initialized
 	        return;
+	        
+	        
+        var yawRad = viewAngleYaw / 180 * Math.PI;
+        var pitchRad=viewAnglePitch / 180 * Math.PI;
+        var lookDir = [Math.sin( yawRad) * Math.cos(pitchRad), Math.cos(yawRad) * Math.cos( pitchRad ),  Math.sin( pitchRad)];
 	    //console.log("?lat="+position.lat+"&lng="+position.lng+"&lookx="+lookDir[0]+"&looky="+lookDir[1]);
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -458,16 +476,16 @@
 <p>Example locations:
 <ul>
 
-    <li><a href="index.html?lat=51.49792127437513&lng=-0.12039899826049805+&lookx=-0.828674009800797&looky=0.5597454542471598">London (House of Parliament)</a></li>
-    <li><a href="index.html?lat=40.76622259343548&lng=-73.97189140319824+&lookx=-0.9463230728925572&looky=-0.32320061171669856">New York City (Central Park)</a></li>
-    <li><a href="index.html?lat=38.90011502071927&lng=-77.0364761352539+&lookx=-0.12454456879248807&looky=-0.9922077921439103">Washington (The White House)</a></li>
-    <li><a href="index.html?lat=36.11320847328812&lng=-115.17272472381592+&lookx=-0.960931697572018&looky=0.27678200541790926">Las Vegas (The Bellagio)</a></li>
+    <li><a href="index.html?lat=51.4979&lng=-0.1203&yaw=303&pitch=7">London (House of Parliament)</a></li>
+    <li><a href="index.html?lat=40.7683&lng=-73.9794&yaw=261&pitch=14">New York City (Central Park)</a></li>
+    <li><a href="index.html?lat=38.9001&lng=-77.0364&yaw=187&pitch=0">Washington (The White House)</a></li>
+    <li><a href="index.html?lat=36.1132&lng=-115.1727&yaw=284&pitch=12">Las Vegas (The Bellagio)</a></li>
 
-    <li><a href="index.html?lat=52.50918106676593&lng=13.376015424728394&lookx=-0.843616861360829&looky=0.5369484419008503">Berlin (Potsdamer Platz)</a></li>
-    <li><a href="index.html?lat=52.518542911605294&lng=13.372035026550293&lookx=0.9991195257047053&looky=-0.04202442195745082">Berlin (Bundestag, Brandenburger Tor)</a></li>
+    <li><a href="index.html?lat=52.5092&lng=13.3754&yaw=299&pitch=15">Berlin (Potsdamer Platz)</a></li>
+    <li><a href="index.html?lat=52.5184&lng=13.3725&yaw=104&pitch=10">Berlin (Bundestag, Brandenburger Tor)</a></li>
 
-    <li><a href="index.html?lat=51.342923474812814&lng=12.382020950317381+&lookx=-0.3712468810809316&looky=0.9285318347615598">Leipzig (Main Station)</a></li>
-    <li><a href="index.html?lat=52.13942567533446&lng=11.639671325683594&lookx=-0.2771210999768672&looky=-0.9608356743971576">Magdeburg (Universitätsplatz)</a></li>
+    <li><a href="index.html?lat=51.3429&lng=12.3820&yaw=343&pitch=11">Leipzig (Main Station)</a></li>
+    <li><a href="index.html?lat=52.1394&lng=11.6396&yaw=216&pitch=17">Magdeburg (Universitätsplatz)</a></li>
 </ul>
 </p>
 </div>
