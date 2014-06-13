@@ -227,6 +227,14 @@ Buildings.integrateWays = function(ways, relations) {
 
 
 
+/* The osm3s response consists of a single list of 'elements', which may each be nodes, ways or relations
+   This method splits that single list into three distint lists for the three different entity types.
+   For unknown reasons, a response may contain (at least) individual ways multiple times, once with tags and once without
+   (This is probably due to us separately requesting ways and relation, which may in turn consist of ways).
+   Thus, this method has to make sure that only that version with the most data of each way (and possible each node
+   and relation) is used.
+    
+*/
 Buildings.splitResponse = function(response)
 {
     var nodes = {};
@@ -237,11 +245,20 @@ Buildings.splitResponse = function(response)
     {
         var el = response.elements[i];
         if (el.type == "node")
-            nodes[el.id] = el;
+        {
+            if (! (el.id in nodes) || (el.tags && ! nodes[el.id].tags))
+                nodes[el.id] = el;
+        }
         else if (el.type == "way")
-            ways[el.id] = el;
+        {
+            if (! (el.id in ways) || (el.tags && !ways[el.id].tags))
+                ways[el.id] = el;
+        }
         else if (el.type == "relation")
-            relations[el.id] = el;
+        {
+            if (! (el.id in relations) || (el.tags && ! relations[el.id].tags))
+                relations[el.id] = el;
+        }
         else
         {
             console.log("Unknown element '" + el.type + "' in %o, skipping", el);
@@ -395,7 +412,7 @@ Buildings.distributeAttributes = function(rel) {
     for (var i in rel.outlines)
     {
         var outline = rel.outlines[i];
-        if (! outline.tags)
+        if (! outline.ref.tags)
             outline.ref.tags = {};
             
         for (var j in important_tags)
