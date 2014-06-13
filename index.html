@@ -153,6 +153,7 @@
         map = L.map('map_div').setView([52.15, 11.63], 14); //global 
 
         map.on("click", onMapClick);
+        map.on("zoomend", renderFrustum);
 
         /*L.tileLayer('http://ipsum4.rbuch703.de/osm/{z}/{x}/{y}.png', {
             attribution: 'OpenStreetMap',
@@ -224,9 +225,11 @@
     var mapPlane;
     var mapBuildings;
     var mapSkyDome;
+    var mapFrustum;
     var gl;
     var eye,lookDir,position;
     var positionMarker;
+    var fieldOfView = 45;
     
     function updateHistoryState()
     {
@@ -245,6 +248,7 @@
         
         mapPlane = new MapLayer(gl, position);
         mapPlane.onLoaded = renderScene;
+        mapPlane.onProgress= renderScene;
         
         mapBuildings = new Buildings(gl, position);
         mapBuildings.onLoaded = renderScene;
@@ -257,6 +261,7 @@
         positionMarker.addTo(map).bindPopup("You are here");
         //console.log("Setting map center to %o", position);
         updateHistoryState();
+        renderFrustum();
     }   
 
 	var x,y;
@@ -300,8 +305,41 @@
 	   vec3.add(eye, eye, tmp);*/
 
        updateHistoryState();	   
+       renderFrustum();
 	   renderScene();
 	}	
+	
+	function renderFrustum()
+	{
+	    if (mapFrustum)
+	    {
+	        map.removeLayer(mapFrustum);
+	        mapFrustum = null;
+        }
+	    
+	    
+	    /* One degree latitude on earth always corresponds to the same distance in meters ( 1/360th of the earth circumference).
+	     * But the distance of one degree longitude changes depending of the current latitude.
+	     * This aspect is the ration between the two distances. It is needed to correctly
+	     * draw that viewing frustum, which needs to be specified in lat/lnt
+	    */
+	    var localAspect = Math.cos( position.lat / 180 * Math.PI);
+	    //console.log ("local aspect ratio at %s is %s", position.lat, localAspect );
+	    
+	    //console.log( webGlCanvas.height, webGlCanvas.width, fieldOfView / webGlCanvas.height * webGlCanvas.width);
+	    var phi = (0.5 * fieldOfView / webGlCanvas.height * webGlCanvas.width ) / 180 * Math.PI;
+	    var leftDir = [ Math.cos(phi) * lookDir[0]  - Math.sin(phi) * lookDir[1], 
+	                    Math.sin(phi) * lookDir[0]  + Math.cos(phi) * lookDir[1] ];
+	    var rightDir =[ Math.cos(-phi) * lookDir[0] - Math.sin(-phi) * lookDir[1], 
+	                    Math.sin(-phi) * lookDir[0] + Math.cos(-phi) * lookDir[1] ];
+
+        var len = Math.pow(0.5, map.getZoom())*100;
+        //console.log(map.getZoom(), len);
+	    var pA = { lat: position.lat + leftDir[1]*len*localAspect,  lng: position.lng + leftDir[0]*len };
+	    var pB = { lat: position.lat + rightDir[1]*len*localAspect, lng: position.lng + rightDir[0]*len};
+	    var line = [position, pA, pB, position ]
+	    mapFrustum = L.polyline(line, {color: 'red'}).addTo(map);
+	}
 	
 	/**
 	 * Initialises WebGL and creates the 3D scene.
@@ -377,7 +415,7 @@
         //setup projection matrix (model-view will be set up on a per-frame basis in renderScene() )
 	    
 	    var projectionMatrix = mat4.create();
-	    mat4.perspective(projectionMatrix, 45/180*Math.PI, webGlCanvas.width / webGlCanvas.height, 1.0, 10000.0);
+	    mat4.perspective(projectionMatrix, fieldOfView/180*Math.PI, webGlCanvas.width / webGlCanvas.height, 1.0, 10000.0);
 
         
         if (mapPlane)
