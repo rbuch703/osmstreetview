@@ -166,7 +166,6 @@
         }).addTo(map);
 
         L.control.scale({imperial:false, position:"topright"}).addTo(map);
-        
 	    initGl();  //initialize webGL canvas
 
 		//register event handlers
@@ -177,7 +176,6 @@
 		webGlCanvas.onmousemove = onMouseMove;
 		document.body.onresize = onResize;
 
-
         var url = document.URL;
         if (url.indexOf("?") >= 0)
         {
@@ -185,7 +183,7 @@
         }
         else
             //default to a view of the Berlin Bundestag
-            var query = "lat=52.518542911605294&lng=13.372035026550293&lookx=0.9991195257047053&looky=-0.04202442195745082";
+            var query = "lat=52.5184&lng=13.3725&yaw=104&pitch=10";
             
         //console.log("query is '%s'", query);
         var parts = query.split("&");
@@ -199,13 +197,14 @@
                 res[kv[0]] = parseFloat(kv[1]);
             }
         }
+        console.log("RES: %o", res);
         
         if (res.lat && res.lng)
         {
             var e = {};
             e.latlng = {lat:res.lat, lng:res.lng};
             
-            if (res.yaw && res.pitch) //if look direction is also given
+            if ( ("yaw" in  res) && ("pitch" in res) ) //if look direction is also given
             {
                 viewAngleYaw = res.yaw;
                 viewAnglePitch=res.pitch;
@@ -481,7 +480,7 @@
     <li><a href="index.html?lat=38.9001&lng=-77.0364&yaw=187&pitch=0">Washington (The White House)</a></li>
     <li><a href="index.html?lat=36.1132&lng=-115.1727&yaw=284&pitch=12">Las Vegas (The Bellagio)</a></li>
 
-    <li><a href="index.html?lat=52.5092&lng=13.3754&yaw=299&pitch=15">Berlin (Potsdamer Platz)</a></li>
+    <li><a href="index.html?lat=52.509344&lng=13.375242&yaw=299&pitch=15">Berlin (Potsdamer Platz)</a></li>
     <li><a href="index.html?lat=52.5184&lng=13.3725&yaw=104&pitch=10">Berlin (Bundestag, Brandenburger Tor)</a></li>
 
     <li><a href="index.html?lat=51.3429&lng=12.3820&yaw=343&pitch=11">Leipzig (Main Station)</a></li>
@@ -493,7 +492,7 @@
 <div class="fb-like" data-href="http://rbuch703.de/osmsv" data-layout="button_count" data-action="like" data-show-faces="false" data-share="true"></div>
 <br><br>
 Let me know what you think about this page:
-<div class="fb-comments" data-href="http://rbuch703.de/osmsv" data-width="100%" data-numposts="5" data-colorscheme="light"></div>
+<div class="fb-comments" data-href="http://rbuch703.de/osmsv" data-width="400px" data-numposts="5" data-colorscheme="light"></div>
 </div>
 
 <div id="content" >

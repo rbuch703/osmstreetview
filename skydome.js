@@ -66,7 +66,7 @@ SkyDome.prototype.buildGlGeometry = function() {
 
 	    for (var j = 0; j+1 <= NUM_V_SLICES; j++)
     	{
-    	    console.log(j, j+1, NUM_V_SLICES);
+    	    //console.log(j, j+1, NUM_V_SLICES);
     	    var polar1 =  j    * Math.PI / (2.0 * NUM_V_SLICES); //convert to radiants in [0..1/2*PI]
     	    var polar2 = (j+1) * Math.PI / (2.0 * NUM_V_SLICES);
 
