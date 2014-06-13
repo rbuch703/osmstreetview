@@ -52,7 +52,7 @@ SkyDome.prototype.buildGlGeometry = function() {
 	var top = [];
 		
 	var NUM_H_SLICES = 20;
-	var NUM_V_SLICES = 5;
+	var NUM_V_SLICES = 10;
 	for (var i = 0; i < NUM_H_SLICES; i++)
 	{
 		var azimuth1 = i / NUM_H_SLICES * 2 * Math.PI;    //convert to radiants in  [0...2*PI]
@@ -64,10 +64,11 @@ SkyDome.prototype.buildGlGeometry = function() {
 		var y2 = Math.sin(azimuth2) * SkyDome.RADIUS;
 
 
-	    for (var j = 0; j+1 < NUM_V_SLICES; j++)
+	    for (var j = 0; j+1 <= NUM_V_SLICES; j++)
     	{
-    	    var polar1 = j/ NUM_V_SLICES * Math.PI / 2.0; //convert to radiants in [0..1/2*PI]
-    	    var polar2 = (j+1)/ NUM_V_SLICES * Math.PI / 2.0;
+    	    console.log(j, j+1, NUM_V_SLICES);
+    	    var polar1 =  j    * Math.PI / (2.0 * NUM_V_SLICES); //convert to radiants in [0..1/2*PI]
+    	    var polar2 = (j+1) * Math.PI / (2.0 * NUM_V_SLICES);
 
             
 		    //console.log(x1, y1, azimuth);
