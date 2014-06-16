@@ -52,6 +52,7 @@ function Buildings(gl, position)
 	
     this.shaderProgram.modelViewMatrixLocation =   gl.getUniformLocation(this.shaderProgram, "modelViewMatrix")
 	this.shaderProgram.perspectiveMatrixLocation = gl.getUniformLocation(this.shaderProgram, "perspectiveMatrix");
+    this.shaderProgram.modelViewProjectionMatrixLocation =   gl.getUniformLocation(this.shaderProgram, "modelViewProjectionMatrix")
 	//this.shaderProgram.hasHeightLocation =         gl.getUniformLocation(this.shaderProgram, "hasHeight");
 	//this.shaderProgram.heightLocation =            gl.getUniformLocation(this.shaderProgram, "height");
 	this.shaderProgram.texLocation =               gl.getUniformLocation(this.shaderProgram, "tex");
@@ -66,8 +67,7 @@ function Buildings(gl, position)
 
     //get location of variables in shader program (to later bind them to values);
 	this.edgeShaderProgram.vertexPosAttribLocation =   gl.getAttribLocation( this.edgeShaderProgram, "vertexPosition"); 
-    this.edgeShaderProgram.modelViewMatrixLocation =   gl.getUniformLocation(this.edgeShaderProgram, "modelViewMatrix")
-	this.edgeShaderProgram.perspectiveMatrixLocation = gl.getUniformLocation(this.edgeShaderProgram, "perspectiveMatrix");
+    this.edgeShaderProgram.modelViewProjectionMatrixLocation =   gl.getUniformLocation(this.edgeShaderProgram, "modelViewProjectionMatrix")
 
     this.numVertices = 0;
     this.numEdgeVertices = 0;
@@ -287,7 +287,7 @@ Buildings.joinWays = function(w1, w2) {
     
     if (w2.ref.tags)
     {
-        for (key in w2.ref.tags)
+        for (var key in w2.ref.tags)
         {
             //var key = w2.ref.tags[i];
             if (! key in tags)
@@ -686,10 +686,11 @@ Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
 	    gl.vertexAttribPointer(this.shaderProgram.normalAttribLocation, 3, gl.FLOAT, false, 0, 0);  //assigns array "normals"
 	}
 
+    var mvpMatrix = mat4.create();
+    mat4.mul(mvpMatrix, projectionMatrix, modelViewMatrix);
 
     gl.uniform1i(this.shaderProgram.texLocation, 0); //select texture unit 0 as the source for the shader variable "tex" 
-	gl.uniformMatrix4fv(this.shaderProgram.modelViewMatrixLocation, false, modelViewMatrix);
-    gl.uniformMatrix4fv(this.shaderProgram.perspectiveMatrixLocation, false, projectionMatrix);
+	gl.uniformMatrix4fv(this.shaderProgram.modelViewProjectionMatrixLocation, false, mvpMatrix);
 
     gl.activeTexture(gl.TEXTURE0);  //successive commands (here 'gl.bindTexture()') apply to texture unit 0
     gl.bindTexture(gl.TEXTURE_2D, null); //render geometry without texture
@@ -710,8 +711,9 @@ Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
     gl.bindBuffer(gl.ARRAY_BUFFER, this.edgeVertices);   //select the vertex buffer as the currrently active ARRAY_BUFFER (for subsequent calls)
 	gl.vertexAttribPointer(this.edgeShaderProgram.vertexPosAttribLocation, 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
 
-	gl.uniformMatrix4fv(this.edgeShaderProgram.modelViewMatrixLocation, false, modelViewMatrix);
-    gl.uniformMatrix4fv(this.edgeShaderProgram.perspectiveMatrixLocation, false, projectionMatrix);
+    var mvpMatrix = mat4.create();
+    mat4.mul(mvpMatrix, projectionMatrix, modelViewMatrix);
+	gl.uniformMatrix4fv(this.edgeShaderProgram.modelViewProjectionMatrixLocation, false, mvpMatrix);
 
     gl.drawArrays(gl.LINES, 0, this.numEdgeVertices);
     

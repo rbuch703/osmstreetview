@@ -88,7 +88,7 @@
             gl_FragColor = vec4( vec3(diffuse), 1.0);
             
             if (texCoordV.z == 0.0) //HACK: z==0 --> building height was just guessed --> tint it red
-                gl_FragColor = gl_FragColor * vec4(1.0, 0.8, 0.9, 1.0);
+                gl_FragColor = gl_FragColor * vec4(1.0, 0.9, 0.95, 1.0);
 
 		}
 	</script>
@@ -97,13 +97,12 @@
 		attribute vec3 vertexPosition;
         attribute vec2 vertexTexCoords;  			
 		
-		uniform mat4 modelViewMatrix;
-		uniform mat4 perspectiveMatrix;
+		uniform mat4 modelViewProjectionMatrix;
 
         varying vec2 texCoordV;
 
 		void main(void) {
-			gl_Position = perspectiveMatrix * modelViewMatrix * vec4(vertexPosition, 1.0);
+			gl_Position = modelViewProjectionMatrix * vec4(vertexPosition, 1.0);
 			texCoordV = vertexTexCoords;
 		}
 	</script>
@@ -113,15 +112,14 @@
         attribute vec3 vertexTexCoords; 			
         attribute vec3 vertexNormal;
 		
-		uniform mat4 modelViewMatrix;
-		uniform mat4 perspectiveMatrix;
+		uniform mat4 modelViewProjectionMatrix;
 
         varying vec3 texCoordV;
         varying vec3 normal;
         varying vec3 worldPosition;
 
 		void main(void) {
-			gl_Position = perspectiveMatrix * modelViewMatrix * vec4(vertexPosition, 1.0);
+			gl_Position = modelViewProjectionMatrix * vec4(vertexPosition, 1.0);
 			worldPosition = vertexPosition; //pass through untransformed
 			texCoordV = vertexTexCoords;
 			normal = vertexNormal;
@@ -131,11 +129,10 @@
     <script id="edge-shader-vs" type="x-shader/x-vertex">
 		attribute vec3 vertexPosition;
 		
-		uniform mat4 modelViewMatrix;
-		uniform mat4 perspectiveMatrix;
+		uniform mat4 modelViewProjectionMatrix;
 
 		void main(void) {
-			gl_Position = perspectiveMatrix * modelViewMatrix * vec4(vertexPosition, 1.0);
+			gl_Position = modelViewProjectionMatrix * vec4(vertexPosition, 1.0);
 		}
 	</script>
 
@@ -288,7 +285,7 @@
         var dx = e.clientX - x;
         var dy = e.clientY - y;
 
-        if (Math.abs(dx) < 5 && Math.abs(dy) < 5)
+        if (Math.abs(dx) + Math.abs(dy) < 5)
             return;
         x = e.clientX;
         y = e.clientY;
@@ -452,6 +449,8 @@
 </head>
 
 <body onload="init()"  > <!-- style ="padding: 0px; margin: 0px;" -->
+
+<!-- initialization for Facebook integration --> 
 <div id="fb-root"></div>
 <script>(function(d, s, id) {
   var js, fjs = d.getElementsByTagName(s)[0];
@@ -489,9 +488,11 @@
 </p>
 </div>
 <br>
+<!-- Facebook like/share box box -->
 <div class="fb-like" data-href="http://rbuch703.de/osmsv" data-layout="button_count" data-action="like" data-show-faces="false" data-share="true"></div>
 <br><br>
 Let me know what you think about this page:
+<!-- Facebook comment box -->
 <div class="fb-comments" data-href="http://rbuch703.de/osmsv" data-width="400px" data-numposts="5" data-colorscheme="light"></div>
 </div>
 
