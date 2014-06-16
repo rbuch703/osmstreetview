@@ -4,6 +4,8 @@ function Buildings(gl, position)
 {
 
     this.gl = gl;
+    if (!gl)
+        return;
     this.mapCenter = position;//{lat:52.13850380245244, lng:11.64003610610962};
 
     var earthCircumference = 2 * Math.PI * (6378.1 * 1000);
@@ -507,6 +509,10 @@ function getLengthInMeters(len_str) {
 }
 
 Buildings.prototype.buildGlGeometry = function(outlines) {
+    if (!gl)
+        return;
+        
+        
     this.vertices= [];
     this.texCoords=[];
     this.normals  =[];

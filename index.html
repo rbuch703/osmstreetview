@@ -18,13 +18,13 @@
     <style>
         @media (min-width: 1440px) {
               #leftnav { float:left; margin-right:20px; width:400px}
-              #content { margin-left: 420px; margin-right:10px; }
+              #content_div { margin-left: 420px; margin-right:10px; }
               #map_div { width:400px; height:300px }
           }
 
         @media (max-width: 1440px) {
               #leftnav { margin-left: 10px; margin-right:50px; } /*leave a 50px bar on the right to */
-              #content { margin-left: 10px; margin-right:50px; } /*allow for mouse and touch scrolling */
+              #content_div { margin-left: 10px; margin-right:50px; } /*allow for mouse and touch scrolling */
               #map_div { width:100%; height:600px }
           }
 
@@ -165,17 +165,21 @@
         L.control.scale({imperial:false, position:"topright"}).addTo(map);
 	    initGl();  //initialize webGL canvas
 
-		//register event handlers
-		webGlCanvas.onclick = renderScene;
-		webGlCanvas.onmousedown = onMouseDown;
-		webGlCanvas.onmouseup   = onMouseUp;
-		webGlCanvas.onmouseout  = onMouseUp;
-		webGlCanvas.onmousemove = onMouseMove;
-        webGlCanvas.addEventListener("touchstart",  onTouchDown,false);
-        webGlCanvas.addEventListener("touchcancel", onTouchEnd, false);
-        webGlCanvas.addEventListener("touchend",    onTouchEnd, false);
-        webGlCanvas.addEventListener("touchleave",  onTouchEnd, false);
-        webGlCanvas.addEventListener("touchmove",   onTouchMove,false);
+        if (gl)
+        {
+		    //register event handlers
+		    webGlCanvas.onclick = renderScene;
+		    webGlCanvas.onmousedown = onMouseDown;
+		    webGlCanvas.onmouseup   = onMouseUp;
+		    webGlCanvas.onmouseout  = onMouseUp;
+		    webGlCanvas.onmousemove = onMouseMove;
+            webGlCanvas.addEventListener("touchstart",  onTouchDown,false);
+            webGlCanvas.addEventListener("touchcancel", onTouchEnd, false);
+            webGlCanvas.addEventListener("touchend",    onTouchEnd, false);
+            webGlCanvas.addEventListener("touchleave",  onTouchEnd, false);
+            webGlCanvas.addEventListener("touchmove",   onTouchMove,false);
+        }
+
 		document.body.onresize = onResize;
 
         var url = document.URL;
@@ -370,6 +374,8 @@
 	
 	function renderFrustum()
 	{
+	    if (!gl)
+	        return;
 	    if (mapFrustum)
 	    {
 	        map.removeLayer(mapFrustum);
@@ -415,7 +421,11 @@
 		gl = webGlCanvas.getContext("webgl") || webGlCanvas.getContext("experimental-webgl");
 		if(!gl)
 		{
-			alert("Your browser does not support 3D views (WebGL)");
+		    //remove controls that depend on webGL, and show error messages
+	        glErrorDiv.style.display = "inherit";
+	        leftnav.style.display = "none";
+	        gl = null;
+	        content_div.removeChild(webGlCanvas);
 			return;
 		}
 		//gl = WebGLDebugUtils.makeDebugContext(gl);
@@ -518,13 +528,27 @@
 
 <h2 style="">Open Street View</h2>
 
+<div id="glErrorDiv" style="display:none">
+    <p style="font-weight:bold; color:#F00">
+    Unfortunately, your browser does not support 3D web graphics ("WebGL"), which are required for this page to work.</p>
+    <p>
+    This page should work on desktop and laptop computers with most recent browsers (e.g. Firefox, Chrome, Internet Explorer). To date, desktop Safari browsers require <a target="_blank" href="https://discussions.apple.com/thread/3300585?start=0">some tuning</a> to support 3D web graphics.</p>
+    <p>
+    For mobile devices (tablets and smartphones), most recent Android-based devices (usually those with Android 4.3 and newer) should support 3D web graphics. Apple's iPhone and iPad series of devices currently does not.
+    </p>
+    Here's a screenshot of what you are missing:<br>
+    <img src="images/screenshot.png">
+</div>
+
 
 <div id="leftnav" style="">
-<div id="explanation"> 
-    <p>Click on any location on the map to see a 3D view of the world as seen from that position. Then click and drag the 3D view with your mouse to look around.</p>
-    <p>Buildings missing or inaccurate? <a href="howToEdit.html" target="_blank">Add them yourself</a>!</p>
-</div>
-<div id="map_div"> </div>
+
+    <div id="explanation"> 
+        <p>Click on any location on the map to see a 3D view of the world as seen from that position. Then click and drag the 3D view with your mouse to look around.</p>
+        <p>Buildings missing or inaccurate? <a href="howToEdit.html" target="_blank">Add them yourself</a>!</p>
+    </div>
+
+    <div id="map_div"> </div>
 
 <div id="explanation2" >
 <p>Example locations:
@@ -552,7 +576,7 @@ Let me know what you think about this page:
 <div class="fb-comments" data-href="http://rbuch703.de/osmsv" data-width="400px" data-numposts="5" data-colorscheme="light"></div>
 </div>
 
-<div id="content" >
+<div id="content_div" >
     <!-- <div id="nav" style="background-color:#EEE; position:fixed; width:75%; top:50px; bottom:0px; right: 0px; overflow-y:scroll">-->
 		<canvas id="webGlCanvas" style="width:100%; height:auto;background:black" ></canvas>
         <div style="font-size:80%; font-style:italic">

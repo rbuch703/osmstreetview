@@ -2,6 +2,8 @@
 function MapLayer(gl, position) {
     //console.log("MapLayer created");
     this.gl = gl;
+    if (!gl)
+        return;
     // request OSM tiles for texturing
     //var map = this;
 
@@ -75,6 +77,7 @@ MapLayer.prototype.onMetaTileLoaded = function(metatile)
 {
     //var metatile = this;
     var gl = this.gl;
+    if (!gl) return;
     //console.log("loaded metatile for zoom level %s", metatile.zoom);
     //var gl = this.gl;
 
