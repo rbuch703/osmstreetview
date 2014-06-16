@@ -79,11 +79,8 @@ function vec(a) { return [a.dx, a.dy];}
 function simplifyOutline(outline)
 {
     var nodes = outline.nodes;
-    if (outline.length < 3) return;
-    /*
-    for (var i in building.outline)
-        console.log("%s,%s", building.outline[i].dx, building.outline[i].dy);
-    */
+    if (nodes.length < 3) return;
+
     var res = [];
     res[0] = nodes[0];
     var prev = nodes[0];
@@ -91,13 +88,11 @@ function simplifyOutline(outline)
     for (var i = 2; i < nodes.length; i++)
     {
         var next = nodes[i];
-        //console.log(prev, curr, next);
+
         var v1 = norm2(sub2(vec(next), vec(prev)));   //v1 = norm( next - prev);
         var v2 = norm2(sub2(vec(next), vec(curr)));   //v2 = norm( next - curr);
         var cosArc = dot2(v1, v2);
         
-        //console.log("%s;%s;%s;%s;%s;%s;%s", prev.dx, prev.dy, curr.dx, curr.dy, next.dx, next.dy, cosArc);
-
         if (cosArc > 0.999)    //almost colinear (deviation < 2.6°) --> ignore 'curr' vertex
         {
             curr = next;
@@ -107,8 +102,6 @@ function simplifyOutline(outline)
         res.push(curr);
         prev = curr;
         curr = next;
-        //console.log("#", vec(prev));
-        //console.log("v1: %o, v2: %o", v1, v2, prev, curr, next);
     } 
     res.push(nodes[nodes.length-1]);
 
@@ -160,10 +153,6 @@ Buildings.integrateNodeData = function(nodes, ways) {
                 console.log("[WARN] Way %o contains node %d, but server response does not include that node data. Skipping.", way, id);
             }
         }
-        //console.log("buildings %s has shape %o", way.id, building);
-        //bldgs[way.id] = building;
-        
-        //this.buildings.push(building);
     }
 }
 
@@ -174,7 +163,6 @@ Buildings.integrateWays = function(ways, relations) {
 
         for (var j in rel.members)
         {
-            //var id = ;
             var member = rel.members[j];
             if (member.type != "way")
                 continue;
@@ -193,12 +181,7 @@ Buildings.integrateWays = function(ways, relations) {
             {
                 console.log("[WARN] Relation %o contains way %d, but server response does not include that way data. Skipping.", rel, member.ref);
             }
-
         }
-        //console.log("buildings %s has shape %o", way.id, building);
-        //bldgs[way.id] = building;
-        
-        //this.buildings.push(building);
     }
     
     for (var i in ways)
@@ -524,23 +507,18 @@ function getLengthInMeters(len_str) {
 }
 
 Buildings.prototype.buildGlGeometry = function(outlines) {
-    //this.indices = [];
-    //this.lengths = [];
     this.vertices= [];
     this.texCoords=[];
     this.normals  =[];
     this.edgeVertices = [];
     
-    //var pos = 0;
     var vertexArrays = [];
     var texCoordArrays = [];
 
     for (var i in outlines)
     {
-        //if (i[0] != "r") continue;
         var bldg = outlines[i];
-        //console.log("processing building %s with %s vertices", i, bldg.outline.length);
-        
+
         if (bldg.tags.height)
             bldg.height = getLengthInMeters(bldg.tags.height);
         else if (bldg.tags["building:levels"])
@@ -549,9 +527,6 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
             if (bldg.tags["roof:levels"])
                 bldg.height += parseFloat(bldg.tags["roof:levels"])*3.5;
         }
-        //else
-        //    building.height = 10.0; //FIXME: just a guess, replace by more educated guess
-
             
         if (bldg.tags.min_height)
             bldg.min_height = getLengthInMeters(bldg.tags.min_height);
@@ -560,18 +535,9 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
         else
             bldg.min_height = 0.0;
         
-        
-        
-        //var height = bldg.height ? bldg.height/2.0 : 10/2.0;
         var height = bldg.height ? bldg.height : 10;
         var hf = bldg.height? 1 : 0;
-        //console.log(bldg, bldg.height, height, hf);
 
-        //triangulate(bldg.nodes);
-        //this.indices.push(pos);
-        //this.lengths.push( (bldg.outline.length-1)*6 );
-        //pos += (bldg.outline.length-1)*6;
-        
         if (bldg.nodes[0].dx != bldg.nodes[bldg.nodes.length-1].dx || bldg.nodes[0].dy != bldg.nodes[bldg.nodes.length-1].dy)
             console.log("[WARN] outline of building %s does not form a closed loop (%o)", i, this.buildings);
         
@@ -608,14 +574,11 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
             var edgeVertices = [].concat(A, D, B, C, A, B, D, C);
             this.edgeVertices.push.apply(this.edgeVertices, edgeVertices);
             
-            //console.log(coords, tc, norms);
-            //var norms = [].concat.apply(
         }
         
         //step 2: build roof geometry:
         
         var coords;
-        //console.log("triangulating %o", bldg);
         try {
             coords = triangulate(bldg.nodes);
         }
@@ -625,11 +588,8 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
             coords = [];
         }
         
-        //console.log("triangulated coords: %o", coords);
-        //console.log("\t has %s vertices at height %s", coords.length/2.0, height);
         for (var j = 0; j < coords.length; j+=2)
         {
-            //console.log("vertex (%s, %s, %s)", coords[j], coords[j+1], height);
             this.vertices.push(coords[j], coords[j+1], height);
             this.texCoords.push(0.5, 0.5,hf);
             this.normals.push( 0,0,1 ); //roof --> normal is pointing straight up
@@ -640,7 +600,6 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
         {
             for (var j = 0; j < coords.length; j+=2)
             {
-                //console.log("vertex (%s, %s, %s)", coords[j], coords[j+1], height);
                 this.vertices.push(coords[j], coords[j+1], min_height);
                 this.texCoords.push(0.5, 0.5,hf);
                 this.normals.push( 0,0,-1 ); //floor --> normal is pointing straight down
@@ -652,8 +611,7 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
     this.numVertices = this.vertices.length/3.0;    // 3 coordinates per vertex
     this.numEdgeVertices = this.edgeVertices.length/3.0;
     console.log("'Buildings' total to %s vertices and %s normals", this.numVertices, this.normals.length/3);
-    //var norms = this.normals;
-    //console.log("normals: %o", norms);
+
     this.vertices = glu.createArrayBuffer(this.vertices);
     this.texCoords= glu.createArrayBuffer(this.texCoords);
     this.normals  = glu.createArrayBuffer(this.normals);
@@ -729,7 +687,6 @@ function convertToLocalCoordinates(buildings,  mapCenter)
     var earthCircumference = 2 * Math.PI * (6378.1 * 1000);
     var physicalTileLength = earthCircumference* Math.cos(mapCenter.lat/180*Math.PI) / Math.pow(2, /*zoom=*/19);
 
-    //for (var i = 0; i < buildings.length; i++)
     for (var i in buildings)
     {
         var bld = buildings[i];
