@@ -171,6 +171,11 @@
 		webGlCanvas.onmouseup   = onMouseUp;
 		webGlCanvas.onmouseout  = onMouseUp;
 		webGlCanvas.onmousemove = onMouseMove;
+        webGlCanvas.addEventListener("touchstart",  onTouchDown,false);
+        webGlCanvas.addEventListener("touchcancel", onTouchEnd, false);
+        webGlCanvas.addEventListener("touchend",    onTouchEnd, false);
+        webGlCanvas.addEventListener("touchleave",  onTouchEnd, false);
+        webGlCanvas.addEventListener("touchmove",   onTouchMove,false);
 		document.body.onresize = onResize;
 
         var url = document.URL;
@@ -194,7 +199,7 @@
                 res[kv[0]] = parseFloat(kv[1]);
             }
         }
-        console.log("RES: %o", res);
+        //console.log("RES: %o", res);
         
         if (res.lat && res.lng)
         {
@@ -259,7 +264,8 @@
     }   
 
 	var x,y;
-    var down = false;	
+	//id of the touch event that currently tracked as 'down'; "mouse" if the mouse is tracked, null if none
+    var down = null;	
     		
 	function onMouseDown(e)
 	{
@@ -268,20 +274,35 @@
 
 	    x = e.clientX;
 	    y = e.clientY;
-	    down = true;
+	    down = "mouse";
 	}
 	
 	function onMouseUp(e)
 	{
 	    if (e.button != 0) 
 	        return;
-	    down = false;
+	    down = null;
 	    //renderScene();
+	}
+	
+	function updateViewDirection(dx, dy)
+	{
+        viewAngleYaw = ((viewAngleYaw + dx/5 + 360) % 360) | 0;
+        viewAnglePitch = (viewAnglePitch - dy / 5 ) % 360 | 0;
+        if (viewAnglePitch < 0)
+            viewAnglePitch = 0;
+            
+        if (viewAnglePitch > 60)
+            viewAnglePitch = 60;
+
+        updateHistoryState();	   
+        renderFrustum();
+        renderScene();
 	}
 	
     function onMouseMove(e)
 	{
-        if (! down) return;
+        if (down != "mouse" ) return;
         var dx = e.clientX - x;
         var dy = e.clientY - y;
 
@@ -290,27 +311,62 @@
         x = e.clientX;
         y = e.clientY;
 
-        viewAngleYaw = ((viewAngleYaw + dx/5 + 360) % 360) | 0;
-        viewAnglePitch = (viewAnglePitch - dy / 5 ) % 360 | 0;
-        if (viewAnglePitch < 0)
-            viewAnglePitch = 0;
-            
-        if (viewAnglePitch > 60)
-            viewAnglePitch = 60;
-        //while (viewAngleYaw < 0) viewAngleYaw += 
-
-        /*var rotMat = mat4.create();
-        mat4.rotateZ(rotMat, rotMat, -dx/100);
-        vec3.transformMat4(lookDir, lookDir, rotMat);*/
-
-        /*var tmp = vec3.create();
-        vec3.scale(tmp, lookDir, -dy);
-        vec3.add(eye, eye, tmp);*/
-
-        updateHistoryState();	   
-        renderFrustum();
-        renderScene();
+        updateViewDirection(dx, dy);
 	}	
+
+    function getTouchData(touches, identifier)
+    {
+        for (var i in touches)
+        {
+            if (touches[i].identifier == identifier)
+            {
+                return touches[i];
+            }
+        }
+        return null;
+    }
+    
+    function onTouchDown(ev)
+    {
+        ev.preventDefault();
+        var touch = ev.changedTouches[0];
+        down = touch.identifier;
+        x = touch.clientX;
+        y = touch.clientY;
+        //myLog.innerHTML = JSON.stringify( [x,y, down]);
+    }
+    
+    function onTouchEnd(ev)
+    {
+        ev.preventDefault();
+        if (getTouchData(ev.changedTouches, down))
+        {
+            down = null;
+            //myLog.innerHTML = "end";
+        }
+    }
+
+    function onTouchMove(ev)
+    {
+        ev.preventDefault();
+        var touch = getTouchData(ev.changedTouches, down);
+        if (touch)
+        {
+            var dx = touch.clientX - x;
+            var dy = touch.clientY - y;
+
+            if (Math.abs(dx) < 5 && Math.abs(dy) < 5)
+                return;
+            updateDirection(dx, dy);
+            x = touch.clientX;
+            y = touch.clientY;
+            updateViewDirection(dx, dy);
+            //myLog.innerHTML = [dx,dy];
+            
+        }
+        //console.log(ev);
+    }
+
 	
 	function renderFrustum()
 	{
