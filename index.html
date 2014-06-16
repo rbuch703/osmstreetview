@@ -181,6 +181,7 @@
         }
 
 		document.body.onresize = onResize;
+		sampleLocations.onchange = onSampleLocationSelected;
 
         var url = document.URL;
         if (url.indexOf("?") >= 0)
@@ -248,6 +249,8 @@
     {
         position = e.latlng;
         map.panTo(e.latlng);
+        if (map.getZoom() < 16)
+            map.setZoom(16);
         
         mapPlane = new MapLayer(gl, position);
         mapPlane.onLoaded = renderScene;
@@ -265,7 +268,14 @@
         //console.log("Setting map center to %o", position);
         updateHistoryState();
         renderFrustum();
+        webGlCanvas.scrollIntoView();
     }   
+    
+    function onSampleLocationSelected(e)
+    {
+        if (sampleLocations.value !== "dummy")
+            window.location.href = sampleLocations.value;
+    }
 
 	var x,y;
 	//id of the touch event that currently tracked as 'down'; "mouse" if the mouse is tracked, null if none
@@ -526,9 +536,9 @@
   fjs.parentNode.insertBefore(js, fjs);
 }(document, 'script', 'facebook-jssdk'));</script>
 
-<h2 style="">Open Street View</h2>
-
 <div id="glErrorDiv" style="display:none">
+    <h2 style="">Open Street View</h2>
+
     <p style="font-weight:bold; color:#F00">
     Unfortunately, your browser does not support 3D web graphics ("WebGL"), which are required for this page to work.</p>
     <p>
@@ -542,39 +552,41 @@
 
 
 <div id="leftnav" style="">
+    <h2 style="">Open Street View</h2>
 
     <div id="explanation"> 
         <p>Click on any location on the map to see a 3D view of the world as seen from that position. Then click and drag the 3D view with your mouse to look around.</p>
+        <p>Here are some location suggestions: 
+            <select id="sampleLocations">
+              <option value="dummy">-- select one --</option>
+              <option value="index.html?lat=51.4979&lng=-0.1203&yaw=303&pitch=7">London (House of Parliament)</option>
+              <option value="index.html?lat=40.7683&lng=-73.9794&yaw=261&pitch=14">New York City (Central Park)</option>
+              <option value="index.html?lat=38.9001&lng=-77.0364&yaw=187&pitch=0">Washington DC(The White House)</option>
+              <option value="index.html?lat=36.1132&lng=-115.1727&yaw=284&pitch=12">Las Vegas (The Bellagio)</option>
+              <option value="index.html?lat=52.509344&lng=13.375242&yaw=299&pitch=15">Berlin (Potsdamer Platz)</option>
+              <option value="index.html?lat=52.5184&lng=13.3725&yaw=104&pitch=10">Berlin (Bundestag, Brandenburger Tor)</option>
+              <option value="index.html?lat=51.3429&lng=12.3820&yaw=343&pitch=11">Leipzig (Main Station)</option>
+              <option value="index.html?lat=52.1394&lng=11.6396&yaw=216&pitch=17">Magdeburg (Universitätsplatz)</option>
+            </select> 
+        </p>
         <p>Buildings missing or inaccurate? <a href="howToEdit.html" target="_blank">Add them yourself</a>!</p>
     </div>
 
     <div id="map_div"> </div>
 
-<div id="explanation2" >
-<p>Example locations:
-<ul>
+    <div id="explanation2" >
+    <p>
+    Let me know what you think about this page:</p>
+    <!-- Facebook like/share box box -->
+        <div class="fb-like" data-href="http://rbuch703.de/osmsv" data-layout="button_count" data-action="like" data-show-faces="false" data-share="true"></div>
 
-    <li><a href="index.html?lat=51.4979&lng=-0.1203&yaw=303&pitch=7">London (House of Parliament)</a></li>
-    <li><a href="index.html?lat=40.7683&lng=-73.9794&yaw=261&pitch=14">New York City (Central Park)</a></li>
-    <li><a href="index.html?lat=38.9001&lng=-77.0364&yaw=187&pitch=0">Washington (The White House)</a></li>
-    <li><a href="index.html?lat=36.1132&lng=-115.1727&yaw=284&pitch=12">Las Vegas (The Bellagio)</a></li>
+    <!-- Facebook comment box -->
+        <div class="fb-comments" data-href="http://rbuch703.de/osmsv" data-width="400px" data-numposts="5" data-colorscheme="light"></div>
 
-    <li><a href="index.html?lat=52.509344&lng=13.375242&yaw=299&pitch=15">Berlin (Potsdamer Platz)</a></li>
-    <li><a href="index.html?lat=52.5184&lng=13.3725&yaw=104&pitch=10">Berlin (Bundestag, Brandenburger Tor)</a></li>
+    </div>
 
-    <li><a href="index.html?lat=51.3429&lng=12.3820&yaw=343&pitch=11">Leipzig (Main Station)</a></li>
-    <li><a href="index.html?lat=52.1394&lng=11.6396&yaw=216&pitch=17">Magdeburg (Universitätsplatz)</a></li>
-</ul>
-</p>
 </div>
-<br>
-<!-- Facebook like/share box box -->
-<div class="fb-like" data-href="http://rbuch703.de/osmsv" data-layout="button_count" data-action="like" data-show-faces="false" data-share="true"></div>
-<br><br>
-Let me know what you think about this page:
-<!-- Facebook comment box -->
-<div class="fb-comments" data-href="http://rbuch703.de/osmsv" data-width="400px" data-numposts="5" data-colorscheme="light"></div>
-</div>
+
 
 <div id="content_div" >
     <!-- <div id="nav" style="background-color:#EEE; position:fixed; width:75%; top:50px; bottom:0px; right: 0px; overflow-y:scroll">-->
