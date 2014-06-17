@@ -94,7 +94,7 @@ SkyDome.prototype.buildGlGeometry = function() {
 	
     
     
-    console.log("skydome totals to %d vertex coordinates, %d texCoords", this.vertices.length, this.texCoords.length);
+    //console.log("skydome totals to %d vertex coordinates, %d texCoords", this.vertices.length, this.texCoords.length);
 	//console.log("verts: %o, texCoords: %o", this.vertices, this.texCoords);
 	this.numVertices = this.vertices.length / 3;
     this.vertices = glu.createArrayBuffer(this.vertices);

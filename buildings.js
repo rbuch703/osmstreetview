@@ -297,7 +297,7 @@ Buildings.joinWays = function(w1, w2) {
  * This method merges those ways that represent partial holes or outlines, so that all
  * (merged) ways in 'rel.outlines' are closed polygons
 */
-Buildings.mergeMultiPolygonSegments = function(rel) {
+Buildings.mergeMultiPolygonSegments = function(rel, relations) {
 
     //var rel = relations[i];
     rel.outlines = [];
@@ -308,8 +308,20 @@ Buildings.mergeMultiPolygonSegments = function(rel) {
     {
         if (rel.members[j].type != "way")
         {
-            if (rel.members[j].type != "node")
-                console.log("invalid member type '%s' on relation %s", rel.members[j].type, rel.id);
+            if (rel.members[j].type == "node")
+                continue;
+            if (rel.members[j].type == "relation")
+            {
+                var childRel = relations[rel.members[j].ref];
+                if (!childRel || !childRel.tags)
+                    console.log("[WARN] non-existent sub-relation %s of relation %s", rel.members[j].ref, rel.id);
+                    
+                if (!("building" in childRel.tags || "building:part" in childRel.tags))
+                    console.log("[WARN] found sub-relation in %s that not itself a building(:part), ignoring", rel.id);
+                
+                continue;
+            } 
+            console.log("[WARN] invalid member type '%s' on relation %s", rel.members[j].type, rel.id);
             continue;
         }
 
@@ -415,7 +427,7 @@ Buildings.parseOSMQueryResult = function(res) {
     for (var i in relations)
     {
         var rel = relations[i];
-        Buildings.mergeMultiPolygonSegments( rel );
+        Buildings.mergeMultiPolygonSegments( rel, relations );
         Buildings.distributeAttributes( rel );
         
         for (var j in rel.outlines)
@@ -616,7 +628,7 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
     }
     this.numVertices = this.vertices.length/3.0;    // 3 coordinates per vertex
     this.numEdgeVertices = this.edgeVertices.length/3.0;
-    console.log("'Buildings' total to %s vertices and %s normals", this.numVertices, this.normals.length/3);
+    console.log("'Buildings' total to %s faces and %s edges", this.numVertices/3, this.numEdgeVertices/2);
 
     this.vertices = glu.createArrayBuffer(this.vertices);
     this.texCoords= glu.createArrayBuffer(this.texCoords);

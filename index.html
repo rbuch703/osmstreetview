@@ -219,32 +219,16 @@
             onMapClick(e);
         }
 
+        /* For the narrow layout, the 3D view should come directly after the map to reduce the need for scrolling and to
+         * improve chances that map and 3D view will fit on the same page.
+         * For the wide layout, the social media div (Facebook integration) should be in the left navigation column, 
+         * logically in between the map and the 3D view.
+         */
         narrowLayout = window.matchMedia( "(max-width: 1439px)" );
-        narrowLayout.addListener(onLayoutChange);
-    	onLayoutChange();   //to handle the initial layout
-
+        narrowLayout.addListener(function() {(narrowLayout.matches ? contentDiv : leftNavDiv).appendChild(socialMediaDiv);});
+        (narrowLayout.matches ? contentDiv : leftNavDiv).appendChild(socialMediaDiv); //to handle the initial layout
     }   
     
-    /* For the narrow layout, the 3D view should come directly after the map to reduce the need for scrolling and to
-     * improve chances that map and 3D view will fit on the same page.
-     * For the wide layout, the social media div (Facebook integration) should be in the left navigation column, 
-     * logically in between the map and the 3D view.
-     */
-     
-    function onLayoutChange() {
-        if (narrowLayout.matches)
-        {
-            contentDiv.appendChild(socialMediaDiv);
-            //leftNavDiv.removeChild(socialMediaDiv);
-        }
-        else
-        {
-            leftNavDiv.appendChild(socialMediaDiv);
-            //contentDiv.removeChild(socialMediaDiv);
-            console.log("switched to wide layout");
-        }
-    }
-
     var narrowLayout;
     var map;
     var mapPlane;
