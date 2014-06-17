@@ -352,6 +352,7 @@
     
     function onTouchEnd(ev)
     {
+    
         ev.preventDefault();
         if (getTouchData(ev.changedTouches, down))
         {
@@ -362,6 +363,7 @@
 
     function onTouchMove(ev)
     {
+    
         ev.preventDefault();
         var touch = getTouchData(ev.changedTouches, down);
         if (touch)
@@ -371,11 +373,9 @@
 
             if (Math.abs(dx) < 5 && Math.abs(dy) < 5)
                 return;
-            updateDirection(dx, dy);
             x = touch.clientX;
             y = touch.clientY;
             updateViewDirection(dx, dy);
-            //myLog.innerHTML = [dx,dy];
             
         }
         //console.log(ev);
