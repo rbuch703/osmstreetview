@@ -9,7 +9,6 @@ function Buildings(gl, position)
     this.mapCenter = position;//{lat:52.13850380245244, lng:11.64003610610962};
 
     var earthCircumference = 2 * Math.PI * (6378.1 * 1000);
-    //FIXME: find out why the final correction factor of 2.0 is necessary
     var physicalTileLength = earthCircumference* Math.cos(position.lat/180*Math.PI) / Math.pow(2, /*zoom=*/19);
 
     var numTilesPer500m = 500 / physicalTileLength;
@@ -94,11 +93,11 @@ function simplifyOutline(outline)
     {
         var next = nodes[i];
 
-        var v1 = norm2(sub2(vec(next), vec(prev)));   //v1 = norm( next - prev);
-        var v2 = norm2(sub2(vec(next), vec(curr)));   //v2 = norm( next - curr);
+        var v1 = norm2(sub2(vec(next), vec(curr)));   //v1 = norm( next - curr);
+        var v2 = norm2(sub2(vec(prev), vec(curr)));   //v2 = norm( prev - curr);
         var cosArc = dot2(v1, v2);
         
-        if (cosArc > 0.999)    //almost colinear (deviation < 2.6°) --> ignore 'curr' vertex
+        if (Math.abs(cosArc) > 0.999)    //almost colinear (deviation < 2.6°) --> ignore 'curr' vertex
         {
             curr = next;
             continue;
@@ -123,12 +122,11 @@ function simplifyOutline(outline)
     curr = res[0];
     next = res[1];
     
-    var v1 = norm2(sub2(vec(next), vec(prev)));   //v1 = norm( next - prev);
-    var v2 = norm2(sub2(vec(next), vec(curr)));   //v2 = norm( next - curr);
+    var v1 = norm2(sub2(vec(next), vec(curr)));   //v1 = norm( next - curr);
+    var v2 = norm2(sub2(vec(prev), vec(curr)));   //v2 = norm( prev - curr);
     var cosArc = dot2(v1, v2);
-
-
-    if (cosArc > 0.999)    //almost colinear (deviation < 2.6°) --> ignore 'curr' vertex
+    
+    if (Math.abs(cosArc) > 0.999)    //almost colinear (deviation < 2.6°) --> ignore 'curr' vertex
     {
         res = res.slice(1, res.length-1);
         res.push(res[0]);
@@ -473,10 +471,12 @@ function triangulate(outline)
 {
     //console.log("triangulating outline %o", outline);
     var points = [];
-    //skip final vertex (which duplicates the first one)
-    //as poly2tri closes polygons implicitly
     //console.log("polygon has %s vertices", outline.length-1);
-    for (var i = 0; i < outline.length-1; i++) 
+    if ((outline[0].dx != outline[outline.length-1].dx) ||
+        (outline[0].dy != outline[outline.length-1].dy))
+        console.log("[ERR] Non-closed polygon in outline.");
+    
+    for (var i = 0; i < outline.length - 1; i++) 
     {
         points.push(new poly2tri.Point( outline[i].dx, outline[i].dy));
     }
