@@ -168,7 +168,7 @@
         if (gl)
         {
 		    //register event handlers
-		    webGlCanvas.onclick = renderScene;
+		    webGlCanvas.onclick = scheduleFrameRendering;
 		    webGlCanvas.onmousedown = onMouseDown;
 		    webGlCanvas.onmouseup   = onMouseUp;
 		    webGlCanvas.onmouseout  = onMouseUp;
@@ -252,6 +252,19 @@
         history.replaceState(null, document.title, url);
     }
     
+    var updateTimeoutId;
+    // schedules a history state update so that the update is performed once
+    // no update request has been made for a second (1000ms). This keep the history state
+    // reasonably up-to-date while preventing excessive history state updates (which incur
+    // a performance penalty at least in Firefox).
+    function scheduleUpdateHistoryState()
+    {
+        if (updateTimeoutId)
+            window.clearTimeout(updateTimeoutId);
+        
+        updateTimeoutId = window.setTimeout(updateHistoryState, 1000);
+    }
+    
     function onMapClick(e)
     {
         position = e.latlng;
@@ -260,11 +273,11 @@
             map.setZoom(16);
         
         mapPlane = new MapLayer(gl, position);
-        mapPlane.onLoaded = renderScene;
-        mapPlane.onProgress= renderScene;
+        mapPlane.onLoaded = scheduleFrameRendering;
+        mapPlane.onProgress= scheduleFrameRendering;
         
         mapBuildings = new Buildings(gl, position);
-        mapBuildings.onLoaded = renderScene;
+        mapBuildings.onLoaded = scheduleFrameRendering;
         
         if (positionMarker)
             map.removeLayer(positionMarker);
@@ -273,7 +286,7 @@
         
         positionMarker.addTo(map).bindPopup("You are here");
         //console.log("Setting map center to %o", position);
-        updateHistoryState();
+        scheduleUpdateHistoryState();
         renderFrustum();
         /* make sure the 3D view is visible when a user clicked on the map (as this is usually what the user wants
          * when he clicks on a map location. For the wide layout, the 3D view should align with the top of the screen ("true")
@@ -319,7 +332,6 @@
 	    if (e.button != 0) 
 	        return;
 	    down = null;
-	    //renderScene();
 	}
 	
 	function updateViewDirection(dx, dy)
@@ -335,9 +347,8 @@
         if (viewAnglePitch > 60)
             viewAnglePitch = 60;
 
-        updateHistoryState();	   
-        renderFrustum();
-        renderScene();
+        scheduleUpdateHistoryState();
+        scheduleFrameRendering();
 	}
 	
     function onMouseMove(e)
@@ -346,8 +357,8 @@
         var dx = e.clientX - x;
         var dy = e.clientY - y;
 
-        if (Math.abs(dx) + Math.abs(dy) < 5)
-            return;
+        //if (Math.abs(dx) + Math.abs(dy) < 5)
+        //    return;
         x = e.clientX;
         y = e.clientY;
 
@@ -405,6 +416,27 @@
             
         }
         //console.log(ev);
+    }
+    
+    
+    var frameRenderingScheduled = false;
+    function scheduleFrameRendering()
+    {
+        if (frameRenderingScheduled)
+            return;
+
+        frameRenderingScheduled = true;
+        if (window.requestAnimationFrame)
+            window.requestAnimationFrame(executeFrameRendering);
+        else
+            executeFrameRendering();
+    }
+    
+    function executeFrameRendering(dummy)
+    {
+        renderFrustum();
+        renderScene();
+        frameRenderingScheduled = false;
     }
 
 	
@@ -482,29 +514,20 @@
         //lookDir = [-0.41759445514800125, 0.9086334100609345, 0];
 
         mapSkyDome = new SkyDome(gl);
-        mapSkyDome.onLoaded = renderScene;
+        mapSkyDome.onLoaded = scheduleFrameRendering;
 
-        //renderScene();
 	}
 	
 
 	function onResize()
 	{
-	    //console.log("resize triggered");
-	    //webGlCanvas.clientHeight = webGlCanvas.clientWidth / 16 * 9;
         webGlCanvas.height = webGlCanvas.clientHeight;
         webGlCanvas.width  = webGlCanvas.clientWidth;
-	    /*if (webGlCanvas.clientWidth > 1000)
-	    {
-	        webGlCanvas.height /= 1.5;
-	        webGlCanvas.width /=1.5;
-	    } */
 	    
 	    if (gl)
 	    {
-	        //console.log("redraw triggered");
 			gl.viewport(0, 0, webGlCanvas.width, webGlCanvas.height);
-			renderScene();
+			scheduleFrameRendering();
 		}
 	}	
 	
@@ -528,8 +551,6 @@
 		mat4.lookAt(modelViewMatrix, eye,  lookAt,[0, 0, 1]);
 		mat4.scale(modelViewMatrix, modelViewMatrix, [1,-1,1]);//negate y coordinate to make positive y go downward
 
-        //setup projection matrix (model-view will be set up on a per-frame basis in renderScene() )
-	    
 	    var projectionMatrix = mat4.create();
 	    mat4.perspective(projectionMatrix, fieldOfView/180*Math.PI, webGlCanvas.width / webGlCanvas.height, 1.0, 10000.0);
 
