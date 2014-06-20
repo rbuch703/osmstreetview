@@ -139,10 +139,16 @@ MapLayer.prototype.render = function(modelViewMatrix, projectionMatrix)
     //gl.uniformMatrix4fv(this.shaderProgram.perspectiveMatrixLocation, false, projectionMatrix);
 
 
+    gl.enable(gl.POLYGON_OFFSET_FILL);  //to prevent z-fighting between rendered edges and faces
     gl.activeTexture(gl.TEXTURE0);  //successive commands (here 'gl.bindTexture()') apply to texture unit 0
     for (var i = 0; i < this.numTiles; i++)
     {
+        
+        gl.polygonOffset(this.MAX_ZOOM-i+1,this.MAX_ZOOM-i+1);
+
+    
         gl.bindTexture(gl.TEXTURE_2D, this.textures[this.MIN_ZOOM + i]); //render geometry using texture "texture[i]" in texture unit 0
 	    gl.drawArrays(gl.TRIANGLES, i*6, 6);
     }
+    gl.disable(gl.POLYGON_OFFSET_FILL);
 }

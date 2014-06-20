@@ -106,6 +106,7 @@ MetaTile.prototype.createSubImage = function(x, y, zoom)
 
 MetaTile.prototype.numLoaded = 0;//.test = function() { alert('OK'); } // OK
 MetaTile.basePath = "http://tile.openstreetmap.org/";   // attached to the constructor to be shared globally
+//MetaTile.basePath = "http://tile.rbuch703.de/osm/";
 MetaTile.fileExtension = "png";
 
 //MetaTile.basePath = "http://otile1.mqcdn.com/tiles/1.0.0/sat/";   // attached to the constructor to be shared globally

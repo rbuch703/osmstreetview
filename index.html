@@ -248,7 +248,7 @@
         if (url.indexOf("?") >= 0) // already contains a query string
             url = url.substring(0, url.indexOf("?"));
         
-        url += "?lat="+position.lat+"&lng="+position.lng+"&yaw="+viewAngleYaw+"&pitch="+viewAnglePitch;
+        url += "?lat="+position.lat+"&lng="+position.lng+"&yaw="+viewAngleYaw.toFixed(1)+"&pitch="+viewAnglePitch.toFixed(1);
         history.replaceState(null, document.title, url);
     }
     
@@ -324,10 +324,13 @@
 	
 	function updateViewDirection(dx, dy)
 	{
-        viewAngleYaw = ((viewAngleYaw + dx/5 + 360) % 360) | 0;
-        viewAnglePitch = (viewAnglePitch - dy / 5 ) % 360 | 0;
-        if (viewAnglePitch < 0)
-            viewAnglePitch = 0;
+        viewAngleYaw += dx/5 ;
+        viewAnglePitch += dy/ 5;
+        if (viewAnglePitch > 180)
+            viewAnglePitch -= 180;
+        
+        if (viewAnglePitch < -60)
+            viewAnglePitch = -60;
             
         if (viewAnglePitch > 60)
             viewAnglePitch = 60;

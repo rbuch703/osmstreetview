@@ -37,7 +37,7 @@ function Buildings(gl, position)
     var bldgs = this;
     var oReq = new XMLHttpRequest();
     oReq.onload = function() { bldgs.onDataLoaded(this); }
-    oReq.open("get", "http://overpass-api.de/api/interpreter?data=" + encodeURIComponent(query), true);
+    oReq.open("get", Buildings.apiBaseUrl + "?data=" + encodeURIComponent(query), true);
     oReq.send();
     
 	//compile and link building shader program
@@ -74,6 +74,9 @@ function Buildings(gl, position)
     this.numVertices = 0;
     this.numEdgeVertices = 0;
 }    
+
+//Buildings.apiBaseUrl = "http://overpass-api.de/api/interpreter";
+Buildings.apiBaseUrl = "http://rbuch703.de/api/interpreter";
 
 function vec(a) { return [a.dx, a.dy];}
 
@@ -312,11 +315,15 @@ Buildings.mergeMultiPolygonSegments = function(rel, relations) {
                 continue;
             if (rel.members[j].type == "relation")
             {
+                //console.log("rel: %o", rel);
                 var childRel = relations[rel.members[j].ref];
                 if (!childRel || !childRel.tags)
+                {
                     console.log("[WARN] non-existent sub-relation %s of relation %s", rel.members[j].ref, rel.id);
-                    
-                if (!("building" in childRel.tags || "building:part" in childRel.tags))
+                    continue;
+                }
+                //console.log("childRel: %o", childRel)
+                if ((! ("tags" in childRel)) || (!("building" in childRel.tags || "building:part" in childRel.tags)))
                     console.log("[WARN] found sub-relation in %s that not itself a building(:part), ignoring", rel.id);
                 
                 continue;
