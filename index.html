@@ -373,7 +373,6 @@
         down = touch.identifier;
         x = touch.clientX;
         y = touch.clientY;
-        //myLog.innerHTML = JSON.stringify( [x,y, down]);
     }
     
     function onTouchEnd(ev)
@@ -383,7 +382,6 @@
         if (getTouchData(ev.changedTouches, down))
         {
             down = null;
-            //myLog.innerHTML = "end";
         }
     }
 
@@ -404,7 +402,6 @@
             updateViewDirection(dx, dy);
             
         }
-        //console.log(ev);
     }
     
     
@@ -500,7 +497,6 @@
 	
         //view setup 
         eye = [0,0,1.6];
-        //lookDir = [-0.41759445514800125, 0.9086334100609345, 0];
 
         mapSkyDome = new SkyDome(gl);
         mapSkyDome.onLoaded = scheduleFrameRendering;

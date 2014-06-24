@@ -12,7 +12,6 @@ function Tile( tileX, tileY, level, shaderProgram, mapLayer)
     
         
     var im = new Image();
-    //im.tile = this;
     //required to get CORS approval, and thus to be able to draw this on a canvas without tainting that
     im.tile = this;
     im.crossOrigin = "anonymous";   
@@ -48,11 +47,10 @@ function Tile( tileX, tileY, level, shaderProgram, mapLayer)
 
 Tile.prototype.render = function(modelViewMatrix, projectionMatrix) 
 {
-    //var gl = this.gl;
+    //texture is not yet ready --> cannot render
     if (this.texId === null)
         return;
     
-    //console.log("rendering tile %o", this);
 	gl.useProgram(this.shaderProgram);   //    Install the program as part of the current rendering state
 	gl.enableVertexAttribArray(this.shaderProgram.vertexPosAttribLocation); // setup vertex coordinate buffer
 	gl.enableVertexAttribArray(this.shaderProgram.texCoordAttribLocation); //setup texcoord buffer
@@ -71,12 +69,10 @@ Tile.prototype.render = function(modelViewMatrix, projectionMatrix)
 
     gl.enable(gl.POLYGON_OFFSET_FILL);  //to prevent z-fighting between rendered edges and faces
     gl.activeTexture(gl.TEXTURE0);  //successive commands (here 'gl.bindTexture()') apply to texture unit 0
-    //console.log("rendering %s tiles", this.numTiles);
 
     gl.polygonOffset(MapLayer.MAX_ZOOM - this.level + 1, MapLayer.MAX_ZOOM - this.level + 1);
 
     gl.bindTexture(gl.TEXTURE_2D, this.texId); //render geometry using texture "tex" in texture unit 0
-    //gl.bindTexture(gl.TEXTURE_2D, mapSkyDome.tex)
 	gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
     gl.disable(gl.POLYGON_OFFSET_FILL);
 }
@@ -89,7 +85,6 @@ Tile.prototype.onImageLoaded = function(e)
     gl.activeTexture(gl.TEXTURE0);
             
     gl.bindTexture(gl.TEXTURE_2D, tile.texId);
-    //console.log("now loading texture %o of tile %o", metatile.canvas, metatile);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, this); //load texture data
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);                  //set zoom-in filter to linear interpolation
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);    //set zoom-out filter to linear interpolation between pixels and mipmap levels
@@ -109,12 +104,11 @@ Tile.prototype.onImageLoaded = function(e)
 
     delete tile.image;
     
-    if (tile.mapLayer.onTileLoaded)    //call user-defined event handler
-        tile.mapLayer.onTileLoaded();
+    if (tile.mapLayer.onProgress)    //call user-defined event handler
+        tile.mapLayer.onProgress();
 }
 
 
-Tile.prototype.numLoaded = 0;//.test = function() { alert('OK'); } // OK
 Tile.basePath = "http://tile.openstreetmap.org/";   // attached to the constructor to be shared globally
 //Tile.basePath = "http://tile.rbuch703.de/osm/";
 Tile.fileExtension = "png";
