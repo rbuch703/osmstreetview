@@ -31,7 +31,7 @@
     </style>
 
     <script type="text/javascript" src="leaflet.js"></script>
-    <script type="text/javascript" src="metatile.js"></script>
+    <script type="text/javascript" src="tile.js"></script>
     <script type="text/javascript" src="mapLayer.js"></script>
     <script type="text/javascript" src="buildings.js"></script>
     <script type="text/javascript" src="skydome.js"></script>
@@ -41,26 +41,16 @@
 	<script type="text/javascript" src="glu.js" ></script>
 	<script type="text/javascript" src="math.js" ></script>
 
-<!--    <script src="webgl-debug.js"></script> -->
+    <!-- <script src="webgl-debug.js"></script> -->
     
-	<script id="map-shader-fs" type="x-shader/x-fragment">
+	<!--<script id="map-shader-fs" type="x-shader/x-fragment">
 		precision mediump float;
         varying vec2 texCoordV;
         uniform sampler2D tex;
 		void main(void) {
-		    float dx = (texCoordV.s - 0.5)*2.0;
-		    float dy = (texCoordV.t - 0.5)*2.0;
-		    
-		    float radiusSquared = dx*dx + dy*dy;
-            if ( radiusSquared > 1.0)
-                discard;
-
-            float alpha = radiusSquared < 0.9 ? 1.0 : (1.0 - radiusSquared)*10.0;
-
             gl_FragColor = texture2D(tex, texCoordV.st);
-            gl_FragColor[3] = clamp(alpha, 0.0, 1.0);
 		}
-	</script>
+	</script> -->
 
 	<script id="texture-shader-fs" type="x-shader/x-fragment">
 		precision mediump float;
@@ -273,7 +263,6 @@
             map.setZoom(16);
         
         mapPlane = new MapLayer(gl, position);
-        mapPlane.onLoaded = scheduleFrameRendering;
         mapPlane.onProgress= scheduleFrameRendering;
         
         mapBuildings = new Buildings(gl, position);
