@@ -35,6 +35,7 @@
     <script type="text/javascript" src="mapLayer.js"></script>
     <script type="text/javascript" src="buildings.js"></script>
     <script type="text/javascript" src="skydome.js"></script>
+    <script type="text/javascript" src="apartment.js"></script>
     <script type="text/javascript" src="poly2tri.js"></script>
 
 	<script type="text/javascript" src="gl-matrix.js" ></script>
@@ -224,6 +225,7 @@
     var mapPlane;
     var mapBuildings;
     var mapSkyDome;
+    var mapApartment;
     var mapFrustum;
     var gl;
     var eye,position;
@@ -267,6 +269,8 @@
         
         mapBuildings = new Buildings(gl, position);
         mapBuildings.onLoaded = scheduleFrameRendering;
+        
+        mapApartment = new Apartment();
         
         if (positionMarker)
             map.removeLayer(positionMarker);
@@ -496,7 +500,7 @@
         onResize();
 	
         //view setup 
-        eye = [0,0,1.6];
+        eye = [0,0,1.5];
 
         mapSkyDome = new SkyDome(gl);
         mapSkyDome.onLoaded = scheduleFrameRendering;
@@ -535,20 +539,17 @@
 		var modelViewMatrix = mat4.create();
 		mat4.lookAt(modelViewMatrix, eye,  lookAt,[0, 0, 1]);
 		mat4.scale(modelViewMatrix, modelViewMatrix, [1,-1,1]);//negate y coordinate to make positive y go downward
+		mat4.translate(modelViewMatrix, modelViewMatrix, [-5, -5, 0]);
 
 	    var projectionMatrix = mat4.create();
 	    mat4.perspective(projectionMatrix, fieldOfView/180*Math.PI, webGlCanvas.width / webGlCanvas.height, 1.0, 10000.0);
 
-        
-        if (mapPlane)
-            mapPlane.render(modelViewMatrix, projectionMatrix);
-        
-        if (mapBuildings)
-            mapBuildings.render(modelViewMatrix, projectionMatrix);
-        
-        if (mapSkyDome)
-            mapSkyDome.render(modelViewMatrix, projectionMatrix);
-            
+
+        var renderItems = [mapPlane, mapBuildings, mapSkyDome, mapApartment];
+        for (var i in renderItems)
+            if (renderItems[i])
+                renderItems[i].render(modelViewMatrix, projectionMatrix);
+
 		gl.flush();
 	}
 	

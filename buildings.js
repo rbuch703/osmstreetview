@@ -11,7 +11,7 @@ function Buildings(gl, position)
     var earthCircumference = 2 * Math.PI * (6378.1 * 1000);
     var physicalTileLength = earthCircumference* Math.cos(position.lat/180*Math.PI) / Math.pow(2, /*zoom=*/19);
 
-    var numTilesPer500m = 500 / physicalTileLength;
+    var numTilesPer500m = 500 / physicalTileLength *2;
     //console.log("numTilesPer500m: %s", numTilesPer500m);
 
     var x = long2tile(position.lng,19);
@@ -74,8 +74,8 @@ function Buildings(gl, position)
     this.numEdgeVertices = 0;
 }    
 
-//Buildings.apiBaseUrl = "http://overpass-api.de/api/interpreter";
-Buildings.apiBaseUrl = "http://rbuch703.de/api/interpreter";
+Buildings.apiBaseUrl = "http://overpass-api.de/api/interpreter";
+//Buildings.apiBaseUrl = "http://rbuch703.de/api/interpreter";
 
 function vec(a) { return [a.dx, a.dy];}
 
@@ -564,7 +564,7 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
         var hf = bldg.height? 1 : 0;
 
         if (bldg.nodes[0].dx != bldg.nodes[bldg.nodes.length-1].dx || bldg.nodes[0].dy != bldg.nodes[bldg.nodes.length-1].dy)
-            console.log("[WARN] outline of building %s does not form a closed loop (%o)", i, this.buildings);
+            console.log("[WARN] outline of building %s does not form a closed loop (%o)", i, bldg);
         
         //step 1: build geometry for walls;
         for (var j = 0; j < bldg.nodes.length - 1; j++) //loop does not include the final vertex, as we in each case access the successor vertex as well
