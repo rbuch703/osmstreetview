@@ -36,6 +36,7 @@
     <script type="text/javascript" src="buildings.js"></script>
     <script type="text/javascript" src="skydome.js"></script>
     <script type="text/javascript" src="apartment.js"></script>
+    <script type="text/javascript" src="controller.js"></script>
     <script type="text/javascript" src="poly2tri.js"></script>
 
 	<script type="text/javascript" src="gl-matrix.js" ></script>
@@ -137,7 +138,9 @@
 	</script>	
     
     <script type="text/javascript">
-    "use strict"    
+    "use strict"
+    
+        
     function init()
     {
         map = L.map('mapDiv').setView([52.15, 11.63], 14); //global 
@@ -161,55 +164,31 @@
         {
 		    //register event handlers
 		    webGlCanvas.onclick = scheduleFrameRendering;
-		    webGlCanvas.onmousedown = onMouseDown;
-		    webGlCanvas.onmouseup   = onMouseUp;
-		    webGlCanvas.onmouseout  = onMouseUp;
-		    webGlCanvas.onmousemove = onMouseMove;
-            webGlCanvas.addEventListener("touchstart",  onTouchDown,false);
-            webGlCanvas.addEventListener("touchcancel", onTouchEnd, false);
-            webGlCanvas.addEventListener("touchend",    onTouchEnd, false);
-            webGlCanvas.addEventListener("touchleave",  onTouchEnd, false);
-            webGlCanvas.addEventListener("touchmove",   onTouchMove,false);
+		    webGlCanvas.addEventListener("mousedown",   function(ev) {Controller.onMouseDown(ev);}, false);
+		    webGlCanvas.addEventListener("mouseup",     function(ev) {Controller.onMouseUp(ev);},   false);
+		    webGlCanvas.addEventListener("mouseout",    function(ev) {Controller.onMouseUp(ev);},   false);
+		    webGlCanvas.addEventListener("mousemove",   function(ev) {Controller.onMouseMove(ev);}, false);
+            webGlCanvas.addEventListener("touchstart",  function(ev) {Controller.onTouchDown(ev);}, false);
+            webGlCanvas.addEventListener("touchcancel", function(ev) {Controller.onTouchEnd(ev);},  false);
+            webGlCanvas.addEventListener("touchend",    function(ev) {Controller.onTouchEnd(ev);},  false);
+            webGlCanvas.addEventListener("touchleave",  function(ev) {Controller.onTouchEnd(ev);},  false);
+            webGlCanvas.addEventListener("touchmove",   function(ev) {Controller.onTouchMove(ev);}, false);
+            
         }
+
+        document.addEventListener("keydown", function(ev) {Controller.onKeyDown(ev);},  false);
+        document.addEventListener("keyup",   function(ev) {Controller.onKeyUp(ev);},  false);
 
 		document.body.onresize = onResize;
 		sampleLocations.onchange = onSampleLocationSelected;
 
         var url = document.URL;
-        if (url.indexOf("?") >= 0)
-        {
-            var query = url.substring(url.indexOf("?")+1);
-        }
-        else
-            //default to a view of the Berlin Bundestag
-            var query = "lat=52.5184&lng=13.3725&yaw=104&pitch=10";
+        Controller.initFromQueryString( url.indexOf("?") >= 0 ? 
+            url.substring(url.indexOf("?")+1):
+            "lat=52.5184&lng=13.3725&yaw=104&pitch=10"); //default to a view of the Berlin Bundestag
             
-        var parts = query.split("&");
-        var res = {};
-        for (var i in parts)
-        {
-            var part = parts[i];
-            var kv = part.split("=");
-            if (kv.length == 2)
-            {
-                res[kv[0]] = parseFloat(kv[1]);
-            }
-        }
-        
-        if (res.lat && res.lng)
-        {
-            var e = {};
-            e.latlng = {lat:res.lat, lng:res.lng};
-            
-            if ( ("yaw" in  res) && ("pitch" in res) ) //if look direction is also given
-            {
-                viewAngleYaw = res.yaw;
-                viewAnglePitch=res.pitch;
-            }
-            
-            //map.panTo(L.latLng(res.lat, res.lng));
-            onMapClick(e);
-        }
+        onChangeLocation();
+
 
         /* For the narrow layout, the 3D view should come directly after the map to reduce the need for scrolling and to
          * improve chances that map and 3D view will fit on the same page.
@@ -229,17 +208,13 @@
     var mapApartment;
     var mapFrustum;
     var gl;
-    var eye,position;
-    var localPosition = { x:0, y:0 }; //camera position in the local coordinate system
-    var viewAngleYaw = 0;
-    var viewAnglePitch = 0;
     var positionMarker;
     var fieldOfView = 45;
     
     function updateHistoryState()
     {
         var url = document.URL;
-        if (url.indexOf("?") >= 0) // already contains a query string
+        if (url.indexOf("?") >= 0) // already contains a query string --> remove it
             url = url.substring(0, url.indexOf("?"));
         
         url += "?lat="+position.lat+"&lng="+position.lng+"&yaw="+viewAngleYaw.toFixed(1)+"&pitch="+viewAnglePitch.toFixed(1);
@@ -259,10 +234,10 @@
         updateTimeoutId = window.setTimeout(updateHistoryState, 1000);
     }
     
-    function onMapClick(e)
+    
+    function onChangeLocation()
     {
-        position = e.latlng;
-        map.panTo(e.latlng);
+        map.panTo(position);
         if (map.getZoom() < 16)
             map.setZoom(16);
         
@@ -289,6 +264,13 @@
          * align with the bottom of the page to allow the map to be shown above. */
         
         webGlCanvas.scrollIntoView( narrowLayout ? !narrowLayout.matches : true);
+
+    }
+    
+    function onMapClick(e)
+    {
+        position = e.latlng;
+        onChangeLocation();
     }   
     
     function onSampleLocationSelected(e)
@@ -308,180 +290,6 @@
         }
     }
 
-	var x,y;
-	//id of the touch event that is currently tracked as 'down'; "mouse" if the mouse is tracked, null if none
-    var down = null;	
-    		
-	function onMouseDown(e)
-	{
-	    if (e.button != 0) 
-	        return;
-
-	    x = e.clientX;
-	    y = e.clientY;
-	    down = "mouse";
-	}
-	
-	function onMouseUp(e)
-	{
-	    if (e.button != 0) 
-	        return;
-	    down = null;
-	}
-	
-	var keysDown = {};
-	
-	var lastKeyEventProcessed = null;
-
-	function updateKeyInteraction()
-	{
-        var now = new Date().getTime();
-
-        if (lastKeyEventProcessed === null)
-        {
-            lastKeyEventProcessed = now;
-            return;
-        }
-
-        
-        var dt = now - lastKeyEventProcessed;
-        lastKeyEventProcessed = now;
-        
-        var arc = viewAngleYaw / 180 * Math.PI;
-        var forwardX = Math.sin(arc);
-        var forwardY = Math.cos(arc);
-
-        var rightX = Math.sin(arc + Math.PI/2.0);
-        var rightY = Math.cos(arc + Math.PI/2.0);
-        
-        if (keysDown.D) { localPosition.x += rightX * dt/400; localPosition.y += rightY * dt/400;};
-        if (keysDown.A) { localPosition.x -= rightX * dt/400; localPosition.y -= rightY * dt/400;};
-
-        if (keysDown.W) { localPosition.x += forwardX * dt/400; localPosition.y +=forwardY * dt/400;}
-        if (keysDown.S) { localPosition.x -= forwardX * dt/400; localPosition.y -=forwardY * dt/400;}
-
-	        
-	}
-	
-	document.onkeydown = function(evt) 
-	{
-        //console.log("Key event: key %s", evt.keyCode);
-        var key = null;
-        switch (evt.keyCode)
-        {
-            
-            case 65: key = "A"; break;
-            case 68: key = "D"; break;
-            case 83: key = "S"; break;
-            case 87: key = "W"; break;
-        }
-        
-        if (key in keysDown) //is just a reoccuring event for a key that is still pressed
-            return;
-            
-        updateKeyInteraction();
-        keysDown[key] = key;
-        
-        scheduleFrameRendering();
-    };
-
-	document.onkeyup = function(evt) 
-	{
-        //console.log("Key event: key %s", evt.keyCode);
-        switch (evt.keyCode)
-        {
-            
-            case 65: delete keysDown.A; break;
-            case 68: delete keysDown.D; break;
-            case 83: delete keysDown.S; break;
-            case 87: delete keysDown.W; break;
-        }
-    }
-	
-	function updateViewDirection(dx, dy)
-	{
-        viewAngleYaw += dx/5 ;
-        viewAnglePitch += dy/ 5;
-        if (viewAnglePitch > 180)
-            viewAnglePitch -= 180;
-        
-        if (viewAnglePitch < -60)
-            viewAnglePitch = -60;
-            
-        if (viewAnglePitch > 60)
-            viewAnglePitch = 60;
-        /*localPosition.x += dx/100;
-        localPosition.y += dy/100;*/
-
-        scheduleUpdateHistoryState();
-        scheduleFrameRendering();
-	}
-	
-    function onMouseMove(e)
-	{
-        if (down != "mouse" ) return;
-        var dx = e.clientX - x;
-        var dy = e.clientY - y;
-
-        //if (Math.abs(dx) + Math.abs(dy) < 5)
-        //    return;
-        x = e.clientX;
-        y = e.clientY;
-
-        updateViewDirection(dx, dy);
-	}	
-
-    function getTouchData(touches, identifier)
-    {
-        for (var i in touches)
-        {
-            if (touches[i].identifier == identifier)
-            {
-                return touches[i];
-            }
-        }
-        return null;
-    }
-    
-    function onTouchDown(ev)
-    {
-        ev.preventDefault();
-        var touch = ev.changedTouches[0];
-        down = touch.identifier;
-        x = touch.clientX;
-        y = touch.clientY;
-    }
-    
-    function onTouchEnd(ev)
-    {
-    
-        ev.preventDefault();
-        if (getTouchData(ev.changedTouches, down))
-        {
-            down = null;
-        }
-    }
-
-    function onTouchMove(ev)
-    {
-    
-        ev.preventDefault();
-        var touch = getTouchData(ev.changedTouches, down);
-        if (touch)
-        {
-            var dx = touch.clientX - x;
-            var dy = touch.clientY - y;
-
-            if (Math.abs(dx) < 5 && Math.abs(dy) < 5)
-                return;
-            x = touch.clientX;
-            y = touch.clientY;
-            updateViewDirection(dx, dy);
-            
-        }
-    }
-    
-    
     var frameRenderingScheduled = false;
     function scheduleFrameRendering()
     {
@@ -497,7 +305,7 @@
     
     function executeFrameRendering(dummy)
     {
-        updateKeyInteraction();
+        Controller.updateKeyInteraction();
 
         renderFrustum();
         renderScene();
@@ -505,7 +313,7 @@
         
         // If at least one key is still pressed, schedule rendering of the next frame right away:
         // A pressed key will potentially change the scene and require a re-rendering
-        if (Object.keys(keysDown).length)   
+        if (Controller.keysStillPressed())   
             scheduleFrameRendering();
     }
 
