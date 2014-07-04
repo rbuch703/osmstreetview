@@ -37,9 +37,9 @@ function Tile( tileX, tileY, level, shaderProgram, mapLayer)
     var v3 = [ x2, y2, 0 ];
     var v4 = [ x1, y2, 0 ];
 
-    var vertexData = v1.concat(v2, v3, v4);
+    var vertexData = v1.concat(v4, v3, v2);
     this.vertices =  glu.createArrayBuffer(vertexData);
-    this.texCoords = glu.createArrayBuffer([0,0, 1, 0, 1, 1, 0, 1]);
+    this.texCoords = glu.createArrayBuffer([0,0,  0,1,  1,1,  1,0]);
     
     
     

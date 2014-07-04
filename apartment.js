@@ -1,6 +1,6 @@
 "use strict"
 
-function Apartment() {
+function Apartment(scaling, height) {
 
     this.textures = [];
 	//compile and link shader program
@@ -20,7 +20,7 @@ function Apartment() {
 
     this.layoutImage = new Image(); //global
     var aptTmp = this;
-    this.layoutImage.onload = function() { var tmp = aptTmp.loadLayout(this, 10/720.0); aptTmp.processLayout(tmp);}
+    this.layoutImage.onload = function() { var tmp = aptTmp.loadLayout(this, scaling, height); aptTmp.processLayout(tmp);}
     this.layoutImage.src = "out.png";
 
     /*//setup projection matrix
@@ -204,40 +204,41 @@ var windowColor = [15, 14, 12];
 function createVector3(x, y, z) { return [x, y, z];}
 function createRectangleWithColor( pos, width, height, color) { return {"pos": pos, "width": width, "height": height, "color": color}; }
 
-function addWindowedWall(startX, startY, dx, dy, scaling, /*ref*/segments)
+Apartment.prototype.addWindowedWall = function(startX, startY, dx, dy, scaling, /*ref*/segments)
 {
     startX *= scaling;
     startY *= scaling;
     dx *= scaling;
     dy *= scaling;
     
-    segments.push(createRectangleWithColor( createVector3(startX,startY,0),  
+    segments.push(createRectangleWithColor( createVector3(startX,startY,0+this.height),  
                                                  createVector3(dx, dy, 0), 
                                                  createVector3(0, 0, WINDOW_LOW), wallColor ));
-    segments.push(createRectangleWithColor( createVector3(startX,startY,WINDOW_LOW), 
+    segments.push(createRectangleWithColor( createVector3(startX,startY,WINDOW_LOW+this.height), 
                                                  createVector3(dx, dy, 0), 
                                                  createVector3(0, 0, 0/*WINDOW_HEIGHT*/), windowColor)); //hack to remove windows (to be able to look through them)
-    segments.push(createRectangleWithColor( createVector3(startX,startY,WINDOW_HIGH), 
+    segments.push(createRectangleWithColor( createVector3(startX,startY,WINDOW_HIGH+this.height), 
                                                  createVector3(dx, dy, 0), 
                                                  createVector3(0, 0, TOP_WALL_HEIGHT), wallColor));
 }
 
-function addWall(startX, startY, dx, dy, scaling, /*ref*/segments)
+Apartment.prototype.addWall = function(startX, startY, dx, dy, scaling, /*ref*/segments)
 {
     startX *= scaling;
     startY *= scaling;
     dx *= scaling;
     dy *= scaling;
 
-    segments.push(createRectangleWithColor( createVector3(startX,startY,0),
+    segments.push(createRectangleWithColor( createVector3(startX,startY,0+this.height),
                                             createVector3(dx,dy,0),
                                             createVector3(0,0,HEIGHT), wallColor));
 }
 
 
 
-Apartment.prototype.loadLayout = function(img, scaling)
+Apartment.prototype.loadLayout = function(img, scaling, height)
 {
+    this.height = height;
     var canvas = document.createElement('CANVAS');
     canvas.width=  img.width;
     canvas.height= img.height;
@@ -282,10 +283,10 @@ Apartment.prototype.loadLayout = function(img, scaling)
 
             var endX = x;
             
-            if      (pxAbove == BLACK && pxHere == WHITE) addWall(startX, y, endX - startX, 0, scaling, segments); //transition from wall to inside area
-            else if (pxAbove == WHITE && pxHere == BLACK) addWall(endX,   y, startX - endX, 0, scaling, segments);// transition from inside area to wall
-            else if (pxAbove == GREEN && pxHere == WHITE) addWindowedWall(startX, y, endX - startX, 0, scaling, segments); //transition from window to inside area
-            else if (pxAbove == WHITE && pxHere == GREEN) addWindowedWall(endX,   y, startX - endX, 0, scaling, segments);
+            if      (pxAbove == BLACK && pxHere == WHITE) this.addWall(startX, y, endX - startX, 0, scaling, segments); //transition from wall to inside area
+            else if (pxAbove == WHITE && pxHere == BLACK) this.addWall(endX,   y, startX - endX, 0, scaling, segments);// transition from inside area to wall
+            else if (pxAbove == GREEN && pxHere == WHITE) this.addWindowedWall(startX, y, endX - startX, 0, scaling, segments); //transition from window to inside area
+            else if (pxAbove == WHITE && pxHere == GREEN) this.addWindowedWall(endX,   y, startX - endX, 0, scaling, segments);
         }
     }
     //cout << "  == End of horizontal scan, beginning vertical scan ==" << endl;
@@ -310,29 +311,24 @@ Apartment.prototype.loadLayout = function(img, scaling)
                 
             var endY = y;
             
-            if      (pxLeft == BLACK && pxHere == WHITE) addWall(x, endY,   0, startY - endY, scaling, segments); //transition from wall to inside area
-            else if (pxLeft == WHITE && pxHere == BLACK) addWall(x, startY, 0, endY - startY, scaling, segments);// transition from inside area to wall
-            else if (pxLeft == GREEN && pxHere == WHITE) addWindowedWall(x, endY,   0, startY - endY, scaling, segments);//transition from window to inside area
-            else if (pxLeft == WHITE && pxHere == GREEN) addWindowedWall(x, startY, 0, endY - startY, scaling, segments);
+            if      (pxLeft == BLACK && pxHere == WHITE) this.addWall(x, endY,   0, startY - endY, scaling, segments); //transition from wall to inside area
+            else if (pxLeft == WHITE && pxHere == BLACK) this.addWall(x, startY, 0, endY - startY, scaling, segments);// transition from inside area to wall
+            else if (pxLeft == GREEN && pxHere == WHITE) this.addWindowedWall(x, endY,   0, startY - endY, scaling, segments);//transition from window to inside area
+            else if (pxLeft == WHITE && pxHere == GREEN) this.addWindowedWall(x, startY, 0, endY - startY, scaling, segments);
         }
     }    
     
-    var aabb = getAABB( segments); // min_x, max_x, min_y, max_y
+    var aabb = getAABB( segments);
     
     var front = [];
-    front.push( createRectangleWithColor( createVector3(aabb.min_x, aabb.min_y,0), 
+    front.push( createRectangleWithColor( createVector3(aabb.min_x, aabb.min_y,this.height), 
                                           createVector3(0, aabb.max_y-aabb.min_y, 0), 
                                           createVector3( aabb.max_x-aabb.min_x, 0, 0), wallColor));    // floor
     
-    front.push( createRectangleWithColor( createVector3(aabb.min_x, aabb.min_y,HEIGHT),
+    front.push( createRectangleWithColor( createVector3(aabb.min_x, aabb.min_y,HEIGHT+this.height),
                                           createVector3(aabb.max_x - aabb.min_x, 0, 0), 
                                           createVector3(0, aabb.max_y - aabb.min_y, 0), wallColor));  // ceiling
 
-    
-    /*console.log(pixels[0] == GRAY);
-    console.log("now");
-    console.log(segments);*/
-    console.log("segments: %o", front.concat(segments));
     return front.concat(segments);
 }
 

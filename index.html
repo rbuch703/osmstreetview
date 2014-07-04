@@ -74,9 +74,10 @@
 		    const float c = 0.02;
 
             vec3 vView = normalize(- worldPosition); //direction vector from surface to camera (camera is always at (0,0,0) )
-            float diffuse = abs(0.5 * dot(vView, normal))+0.3;
+            float diffuse = abs( 0.5 * dot(vView, normal) );
+
             
-            gl_FragColor = vec4( vec3(diffuse), 1.0);
+            gl_FragColor = diffuse > 0.0 ? vec4( vec3(diffuse+0.3), 1.0): vec4(-diffuse+0.3, 0.0, 0.0, 1.0);
             
             if (texCoordV.z == 0.0) //HACK: z==0 --> building height was just guessed --> tint it red
                 gl_FragColor = gl_FragColor * vec4(1.0, 0.9, 0.95, 1.0);
@@ -229,6 +230,7 @@
     var mapFrustum;
     var gl;
     var eye,position;
+    var localPosition = { x:0, y:0 }; //camera position in the local coordinate system
     var viewAngleYaw = 0;
     var viewAnglePitch = 0;
     var positionMarker;
@@ -270,7 +272,7 @@
         mapBuildings = new Buildings(gl, position);
         mapBuildings.onLoaded = scheduleFrameRendering;
         
-        mapApartment = new Apartment();
+        mapApartment = new Apartment(10/720.0, 21);
         
         if (positionMarker)
             map.removeLayer(positionMarker);
@@ -307,7 +309,7 @@
     }
 
 	var x,y;
-	//id of the touch event that currently tracked as 'down'; "mouse" if the mouse is tracked, null if none
+	//id of the touch event that is currently tracked as 'down'; "mouse" if the mouse is tracked, null if none
     var down = null;	
     		
 	function onMouseDown(e)
@@ -327,6 +329,75 @@
 	    down = null;
 	}
 	
+	var keysDown = {};
+	
+	var lastKeyEventProcessed = null;
+
+	function updateKeyInteraction()
+	{
+        var now = new Date().getTime();
+
+        if (lastKeyEventProcessed === null)
+        {
+            lastKeyEventProcessed = now;
+            return;
+        }
+
+        
+        var dt = now - lastKeyEventProcessed;
+        lastKeyEventProcessed = now;
+        
+        var arc = viewAngleYaw / 180 * Math.PI;
+        var forwardX = Math.sin(arc);
+        var forwardY = Math.cos(arc);
+
+        var rightX = Math.sin(arc + Math.PI/2.0);
+        var rightY = Math.cos(arc + Math.PI/2.0);
+        
+        if (keysDown.D) { localPosition.x += rightX * dt/400; localPosition.y += rightY * dt/400;};
+        if (keysDown.A) { localPosition.x -= rightX * dt/400; localPosition.y -= rightY * dt/400;};
+
+        if (keysDown.W) { localPosition.x += forwardX * dt/400; localPosition.y +=forwardY * dt/400;}
+        if (keysDown.S) { localPosition.x -= forwardX * dt/400; localPosition.y -=forwardY * dt/400;}
+
+	        
+	}
+	
+	document.onkeydown = function(evt) 
+	{
+        //console.log("Key event: key %s", evt.keyCode);
+        var key = null;
+        switch (evt.keyCode)
+        {
+            
+            case 65: key = "A"; break;
+            case 68: key = "D"; break;
+            case 83: key = "S"; break;
+            case 87: key = "W"; break;
+        }
+        
+        if (key in keysDown) //is just a reoccuring event for a key that is still pressed
+            return;
+            
+        updateKeyInteraction();
+        keysDown[key] = key;
+        
+        scheduleFrameRendering();
+    };
+
+	document.onkeyup = function(evt) 
+	{
+        //console.log("Key event: key %s", evt.keyCode);
+        switch (evt.keyCode)
+        {
+            
+            case 65: delete keysDown.A; break;
+            case 68: delete keysDown.D; break;
+            case 83: delete keysDown.S; break;
+            case 87: delete keysDown.W; break;
+        }
+    }
+	
 	function updateViewDirection(dx, dy)
 	{
         viewAngleYaw += dx/5 ;
@@ -339,6 +410,8 @@
             
         if (viewAnglePitch > 60)
             viewAnglePitch = 60;
+        /*localPosition.x += dx/100;
+        localPosition.y += dy/100;*/
 
         scheduleUpdateHistoryState();
         scheduleFrameRendering();
@@ -424,9 +497,16 @@
     
     function executeFrameRendering(dummy)
     {
+        updateKeyInteraction();
+
         renderFrustum();
         renderScene();
         frameRenderingScheduled = false;
+        
+        // If at least one key is still pressed, schedule rendering of the next frame right away:
+        // A pressed key will potentially change the scene and require a re-rendering
+        if (Object.keys(keysDown).length)   
+            scheduleFrameRendering();
     }
 
 	
@@ -494,13 +574,13 @@
 		gl.enable(gl.DEPTH_TEST);
 		gl.depthFunc(gl.LEQUAL);
 		
-		gl.enable(gl.BLEND);
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+        gl.enable(gl.CULL_FACE);
 
         onResize();
 	
         //view setup 
-        eye = [0,0,1.5];
+        eye = [0,0,1.5+21];
 
         mapSkyDome = new SkyDome(gl);
         mapSkyDome.onLoaded = scheduleFrameRendering;
@@ -538,11 +618,11 @@
 	
 		var modelViewMatrix = mat4.create();
 		mat4.lookAt(modelViewMatrix, eye,  lookAt,[0, 0, 1]);
+		mat4.translate(modelViewMatrix, modelViewMatrix, [-localPosition.x, -localPosition.y, 0]);
 		mat4.scale(modelViewMatrix, modelViewMatrix, [1,-1,1]);//negate y coordinate to make positive y go downward
-		mat4.translate(modelViewMatrix, modelViewMatrix, [-5, -5, 0]);
 
 	    var projectionMatrix = mat4.create();
-	    mat4.perspective(projectionMatrix, fieldOfView/180*Math.PI, webGlCanvas.width / webGlCanvas.height, 1.0, 10000.0);
+	    mat4.perspective(projectionMatrix, fieldOfView/180*Math.PI, webGlCanvas.width / webGlCanvas.height, 0.1, 10000.0);
 
 
         var renderItems = [mapPlane, mapBuildings, mapSkyDome, mapApartment];

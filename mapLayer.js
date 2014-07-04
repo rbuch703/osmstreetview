@@ -151,6 +151,10 @@ MapLayer.prototype.createTileHierarchy = function()
 
 MapLayer.prototype.render = function(modelViewMatrix, projectionMatrix) 
 {
+	//gl.enable(gl.BLEND);
+    //gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
     for (var i in this.tiles)
         this.tiles[i].render(modelViewMatrix, projectionMatrix);
+    //gl.disable(gl.BLEND);
 }

@@ -135,6 +135,36 @@ function simplifyOutline(outline)
     outline.nodes = res;
 }
 
+
+/** standard polygon orientation test: 
+  * 1. find a extreme vertex, e.g. the leftmost one
+  * 2. determine the sign of opening angle between the adjacent edges (= the orientation)
+  **/
+function isClockwise(outline)
+{
+    var nodes = outline.nodes;
+    if (nodes.length < 3) return;
+
+    var minXIdx = 0;
+
+    for (var i = 0; i < nodes.length; i++)
+        if (nodes[i].dx < nodes[minXIdx].dx)
+            minXIdx = i;
+            
+    //note: first and last vertex of a polygon are identical
+    var predIdx = (minXIdx == 0) ? nodes.length - 2 : minXIdx - 1;
+    var succIdx = (minXIdx == nodes.length-1) ? 1 : minXIdx + 1;
+    
+    var A = nodes[predIdx];
+    var B = nodes[minXIdx];
+    var C = nodes[succIdx];
+    
+    var det = (B.dx * C.dy + A.dx * B.dy + A.dy * C.dx) - (A.dy * B.dx + B.dy * C.dx + A.dx * C.dy);
+    
+    return det > 0;
+}
+
+
 /* in the osm3s response, nodes are individual entities with lon/lat properties, and ways refer to these nodes
    via their id. This function removes that indirection by replacing the node ids in the way by the actual node
    lon/lat data
@@ -457,7 +487,13 @@ Buildings.prototype.onDataLoaded = function(response) {
 	var outlines = Buildings.parseOSMQueryResult(osmQueryResult);
     outlines = convertToLocalCoordinates(outlines, this.mapCenter);
     for (var i in outlines)
+    {
         simplifyOutline(outlines[i]);
+        if (isClockwise(outlines[i]))
+        {
+            outlines[i].nodes.reverse();
+        }
+    }
         
     this.buildGlGeometry(outlines);
     
@@ -613,14 +649,6 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
             coords = [];
         }
         
-        for (var j = 0; j < coords.length; j+=2)
-        {
-            this.vertices.push(coords[j], coords[j+1], height);
-            this.texCoords.push(0.5, 0.5,hf);
-            this.normals.push( 0,0,1 ); //roof --> normal is pointing straight up
-            
-        }
-        
         if (bldg.min_height > 0)
         {
             for (var j = 0; j < coords.length; j+=2)
@@ -632,6 +660,23 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
 
         }
         
+        if (coords.length % 6 != 0) //three vertices --> six coordinates per triangle
+        {
+            console.log("triangulation result is not a list of triangles");
+            continue;
+        }
+        
+        //console.log(coords.length, coords.length % 6);
+        for (var j = 0; j < coords.length; j+=6)
+        {
+        
+            this.vertices.push(coords[j], coords[j+1], height);
+            this.vertices.push(coords[j+4], coords[j+5], height);   //order reversed to change orientation
+            this.vertices.push(coords[j+2], coords[j+3], height);
+
+            this.texCoords.push(0.5, 0.5,hf,  0.5, 0.5,hf,  0.5, 0.5,hf);
+            this.normals.push( 0,0,1,  0,0,1,  0,0,1 ); //roof --> normal is pointing straight up
+        }        
     }
     this.numVertices = this.vertices.length/3.0;    // 3 coordinates per vertex
     this.numEdgeVertices = this.edgeVertices.length/3.0;
