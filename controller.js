@@ -1,16 +1,23 @@
 "use strict"    
 
 
-var eye,position;
-var localPosition = { x:0, y:0 }; //camera position in the local coordinate system
-var viewAngleYaw = 0;
-var viewAnglePitch = 0;
 
 
 var Controller = {
+
+    eye: {},
+    position: {},
+    localPosition : { x:0, y:0 }, //camera position in the local coordinate system
+    viewAngleYaw : {},
+    viewAnglePitch : {},
+
+
     buildQueryString: function()
     {
-        return "?lat="+position.lat+"&lng="+position.lng+"&yaw="+viewAngleYaw.toFixed(1)+"&pitch="+viewAnglePitch.toFixed(1);
+        return "?lat="+this.position.lat+
+               "&lng="+this.position.lng+
+               "&yaw="+this.viewAngleYaw.toFixed(1)+
+               "&pitch="+this.viewAnglePitch.toFixed(1);
     },
 
     initFromQueryString: function(queryString)
@@ -18,12 +25,12 @@ var Controller = {
         var query = this.toDictionary(queryString);
         if (query.lat && query.lng)
         {
-            position = {lat:query.lat, lng:query.lng};
+            this.position = {lat:query.lat, lng:query.lng};
             
             if ( ("yaw" in  query) && ("pitch" in query) ) //if look direction is also given
             {
-                viewAngleYaw = query.yaw;
-                viewAnglePitch=query.pitch;
+                this.viewAngleYaw = query.yaw;
+                this.viewAnglePitch=query.pitch;
             }
         }
     },
@@ -34,8 +41,7 @@ var Controller = {
         var res = {};
         for (var i in parts)
         {
-            var part = parts[i];
-            var kv = part.split("=");
+            var kv = parts[i].split("=");
             if (kv.length == 2)
             {
                 res[kv[0]] = parseFloat(kv[1]);
@@ -81,18 +87,18 @@ var Controller = {
         var dt = now - this.lastKeyEventProcessed;
         this.lastKeyEventProcessed = now;
         
-        var arc = viewAngleYaw / 180 * Math.PI;
+        var arc = this.viewAngleYaw / 180 * Math.PI;
         var forwardX = Math.sin(arc);
         var forwardY = Math.cos(arc);
 
         var rightX = Math.sin(arc + Math.PI/2.0);
         var rightY = Math.cos(arc + Math.PI/2.0);
         
-        if (this.keysDown.D) { localPosition.x += rightX * dt/400; localPosition.y += rightY * dt/400;};
-        if (this.keysDown.A) { localPosition.x -= rightX * dt/400; localPosition.y -= rightY * dt/400;};
+        if (this.keysDown.D) { this.localPosition.x += rightX * dt/400; this.localPosition.y += rightY * dt/400;};
+        if (this.keysDown.A) { this.localPosition.x -= rightX * dt/400; this.localPosition.y -= rightY * dt/400;};
 
-        if (this.keysDown.W) { localPosition.x += forwardX * dt/400; localPosition.y +=forwardY * dt/400;}
-        if (this.keysDown.S) { localPosition.x -= forwardX * dt/400; localPosition.y -=forwardY * dt/400;}
+        if (this.keysDown.W) { this.localPosition.x += forwardX * dt/400; this.localPosition.y +=forwardY * dt/400;}
+        if (this.keysDown.S) { this.localPosition.x -= forwardX * dt/400; this.localPosition.y -=forwardY * dt/400;}
 	},
 	
 	x:null,
@@ -119,7 +125,9 @@ var Controller = {
         this.updateKeyInteraction();
         this.keysDown[key] = key;
         
-        scheduleFrameRendering();
+        if (this.onRequestFrameRender)
+            this.onRequestFrameRender();
+
     },
 
 	onKeyUp: function(evt)
@@ -142,21 +150,22 @@ var Controller = {
 	
 	updateViewDirection: function(dx, dy)
 	{
-        viewAngleYaw += dx/5 ;
-        viewAnglePitch += dy/ 5;
-        if (viewAnglePitch > 180)
-            viewAnglePitch -= 180;
+        this.viewAngleYaw += dx/5 ;
+        this.viewAnglePitch += dy/ 5;
+        if (this.viewAnglePitch > 180)
+            this.viewAnglePitch -= 180;
         
-        if (viewAnglePitch < -60)
-            viewAnglePitch = -60;
+        if (this.viewAnglePitch < -60)
+            this.viewAnglePitch = -60;
             
-        if (viewAnglePitch > 60)
-            viewAnglePitch = 60;
+        if (this.viewAnglePitch > 60)
+            this.viewAnglePitch = 60;
         /*localPosition.x += dx/100;
         localPosition.y += dy/100;*/
 
-        scheduleUpdateHistoryState();
-        scheduleFrameRendering();
+        this.updateHistoryState();
+        if (this.onRequestFrameRender)
+            this.onRequestFrameRender();
 	},
 	
     onMouseMove: function(e)
@@ -188,9 +197,9 @@ var Controller = {
     {
         ev.preventDefault();
         var touch = ev.changedTouches[0];
-        down = touch.identifier;
-        x = touch.clientX;
-        y = touch.clientY;
+        this.down = touch.identifier;
+        this.x = touch.clientX;
+        this.y = touch.clientY;
     },
     
     onTouchEnd: function(ev)
@@ -220,5 +229,30 @@ var Controller = {
             updateViewDirection(dx, dy);
             
         }
+    },
+    
+   
+    updateTimeoutId: null,
+    // schedules a history state update so that the update is performed once no
+    // update request has been made for a second (1000ms). This keeps the history state
+    // reasonably up-to-date while preventing excessive history state updates (which incur
+    // a performance penalty at least in Firefox).
+    updateHistoryState : function()
+    {
+        if (this.updateTimeoutId)
+            window.clearTimeout(this.updateTimeoutId);
+        
+        this.updateTimeoutId = window.setTimeout( function() 
+            {
+                var url = document.URL;
+                if (url.indexOf("?") >= 0) // already contains a query string --> remove it
+                    url = url.substring(0, url.indexOf("?"));
+                
+                url += Controller.buildQueryString();
+                //"?lat="+position.lat+"&lng="+position.lng+"&yaw="+viewAngleYaw.toFixed(1)+"&pitch="+viewAnglePitch.toFixed(1);
+                history.replaceState(null, document.title, url);
+            },1000);
     }
+    
+    
 }

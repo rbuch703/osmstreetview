@@ -20,11 +20,11 @@ function Tile( tileX, tileY, level, shaderProgram, mapLayer)
     this.image = im;    
     
     
-    var px = long2tile(position.lng,level);
-    var py = lat2tile( position.lat,level);
+    var px = long2tile(Controller.position.lng,level);
+    var py = lat2tile( Controller.position.lat,level);
 
     var earthCircumference = 2 * Math.PI * (6378.1 * 1000);
-    var physicalTileLength = earthCircumference* Math.cos(position.lat/180*Math.PI) / Math.pow(2, level);
+    var physicalTileLength = earthCircumference* Math.cos(Controller.position.lat/180*Math.PI) / Math.pow(2, level);
     
     var x1 = (this.x - px)     * physicalTileLength;
     var x2 = (this.x - px + 1) * physicalTileLength;

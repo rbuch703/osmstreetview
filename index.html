@@ -143,8 +143,13 @@
         
     function init()
     {
-        map = L.map('mapDiv').setView([52.15, 11.63], 14); //global 
+        var idx;
+        Controller.initFromQueryString( (idx = document.URL.indexOf("?")) >= 0 ? 
+            document.URL.substring(idx + 1):
+            "lat=52.5184&lng=13.3725&yaw=104&pitch=10"); //default to a view of the Berlin Bundestag
+        Controller.onRequestFrameRender = scheduleFrameRendering;
 
+        map = L.map('mapDiv').setView([52.15, 11.63], 14); //global 
         map.on("click", onMapClick);
         map.on("zoomend", renderFrustum);
 
@@ -163,7 +168,7 @@
         if (gl)
         {
 		    //register event handlers
-		    webGlCanvas.onclick = scheduleFrameRendering;
+		    //webGlCanvas.onclick = scheduleFrameRendering;
 		    webGlCanvas.addEventListener("mousedown",   function(ev) {Controller.onMouseDown(ev);}, false);
 		    webGlCanvas.addEventListener("mouseup",     function(ev) {Controller.onMouseUp(ev);},   false);
 		    webGlCanvas.addEventListener("mouseout",    function(ev) {Controller.onMouseUp(ev);},   false);
@@ -182,11 +187,6 @@
 		document.body.onresize = onResize;
 		sampleLocations.onchange = onSampleLocationSelected;
 
-        var url = document.URL;
-        Controller.initFromQueryString( url.indexOf("?") >= 0 ? 
-            url.substring(url.indexOf("?")+1):
-            "lat=52.5184&lng=13.3725&yaw=104&pitch=10"); //default to a view of the Berlin Bundestag
-            
         onChangeLocation();
 
 
@@ -211,40 +211,16 @@
     var positionMarker;
     var fieldOfView = 45;
     
-    function updateHistoryState()
-    {
-        var url = document.URL;
-        if (url.indexOf("?") >= 0) // already contains a query string --> remove it
-            url = url.substring(0, url.indexOf("?"));
-        
-        url += "?lat="+position.lat+"&lng="+position.lng+"&yaw="+viewAngleYaw.toFixed(1)+"&pitch="+viewAnglePitch.toFixed(1);
-        history.replaceState(null, document.title, url);
-    }
-    
-    var updateTimeoutId;
-    // schedules a history state update so that the update is performed once
-    // no update request has been made for a second (1000ms). This keep the history state
-    // reasonably up-to-date while preventing excessive history state updates (which incur
-    // a performance penalty at least in Firefox).
-    function scheduleUpdateHistoryState()
-    {
-        if (updateTimeoutId)
-            window.clearTimeout(updateTimeoutId);
-        
-        updateTimeoutId = window.setTimeout(updateHistoryState, 1000);
-    }
-    
-    
     function onChangeLocation()
     {
-        map.panTo(position);
+        map.panTo(Controller.position);
         if (map.getZoom() < 16)
             map.setZoom(16);
         
-        mapPlane = new MapLayer(gl, position);
+        mapPlane = new MapLayer(gl, Controller.position);
         mapPlane.onProgress= scheduleFrameRendering;
         
-        mapBuildings = new Buildings(gl, position);
+        mapBuildings = new Buildings(gl, Controller.position);
         mapBuildings.onLoaded = scheduleFrameRendering;
         
         mapApartment = new Apartment(10/720.0, 21);
@@ -252,11 +228,11 @@
         if (positionMarker)
             map.removeLayer(positionMarker);
         
-        positionMarker = L.marker([position.lat, position.lng])
+        positionMarker = L.marker(Controller.position);
         
         positionMarker.addTo(map).bindPopup("You are here");
         //console.log("Setting map center to %o", position);
-        scheduleUpdateHistoryState();
+        Controller.updateHistoryState();
         renderFrustum();
         /* make sure the 3D view is visible when a user clicked on the map (as this is usually what the user wants
          * when he clicks on a map location. For the wide layout, the 3D view should align with the top of the screen ("true")
@@ -264,7 +240,6 @@
          * align with the bottom of the page to allow the map to be shown above. */
         
         webGlCanvas.scrollIntoView( narrowLayout ? !narrowLayout.matches : true);
-
     }
     
     function onMapClick(e)
@@ -280,12 +255,15 @@
             var pos = JSON.parse(sampleLocations.value);
 
             if ("yaw" in pos)
-                viewAngleYaw = pos.yaw;
+                Controller.viewAngleYaw = pos.yaw;
             if ("pitch" in pos)
-                viewAnglePitch = pos.pitch;
-                
+                Controller.viewAnglePitch = pos.pitch;
+    
             if ("lat" in pos && "lng" in pos)
-                onMapClick( {"latlng":pos});
+            {
+                Controller.position = pos;
+                onChangeLocation();
+            }
             //window.location.href = sampleLocations.value;
         }
     }
@@ -303,7 +281,7 @@
             executeFrameRendering();
     }
     
-    function executeFrameRendering(dummy)
+    function executeFrameRendering()
     {
         Controller.updateKeyInteraction();
 
@@ -333,9 +311,9 @@
 	     * This aspect is the ration between the two distances. It is needed to correctly
 	     * draw that viewing frustum, which needs to be specified in lat/lnt
 	    */
-	    var localAspect = Math.cos( position.lat / 180 * Math.PI);
+	    var localAspect = Math.cos( Controller.position.lat / 180 * Math.PI);
 	    
-        var yawRad = viewAngleYaw / 180 * Math.PI;
+        var yawRad = Controller.viewAngleYaw / 180 * Math.PI;
         /* compute only planar lookDir (ignoring pitch), as this is the relevant direction to render the frustum
            on a 2D map
          */
@@ -352,9 +330,9 @@
 
         var len = Math.pow(0.5, map.getZoom())*2000;
         //console.log(map.getZoom(), len);
-	    var pA = { lat: position.lat + leftDir[1]*len*localAspect,  lng: position.lng + leftDir[0]*len };
-	    var pB = { lat: position.lat + rightDir[1]*len*localAspect, lng: position.lng + rightDir[0]*len};
-	    var line = [position, pA, pB, position ]
+	    var pA = { lat: Controller.position.lat + leftDir[1]*len*localAspect,  lng: Controller.position.lng + leftDir[0]*len };
+	    var pB = { lat: Controller.position.lat + rightDir[1]*len*localAspect, lng: Controller.position.lng + rightDir[0]*len};
+	    var line = [Controller.position, pA, pB, Controller.position ]
 	    mapFrustum = L.polygon(line, {color: 'red', noClip: 'true', fillColor:"white", fillOpacity:0.4}).addTo(map);
 	}
 	
@@ -388,7 +366,7 @@
         onResize();
 	
         //view setup 
-        eye = [0,0,1.5+21];
+        Controller.eye = [0,0,1.5+21];
 
         mapSkyDome = new SkyDome(gl);
         mapSkyDome.onLoaded = scheduleFrameRendering;
@@ -410,25 +388,12 @@
 	
 	function renderScene()
 	{
-	    if (!gl || !eye ) //not yet initialized
+	    if (!gl || !Controller.eye ) //not yet initialized
 	        return;
 	        
-	        
-        var yawRad = viewAngleYaw / 180 * Math.PI;
-        var pitchRad=viewAnglePitch / 180 * Math.PI;
-        var lookDir = [Math.sin( yawRad) * Math.cos(pitchRad), Math.cos(yawRad) * Math.cos( pitchRad ),  Math.sin( pitchRad)];
-	    //console.log("?lat="+position.lat+"&lng="+position.lng+"&lookx="+lookDir[0]+"&looky="+lookDir[1]);
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-        //determine look-at point
-	    var lookAt = vec3.create();
-        vec3.add(lookAt, eye, lookDir);
-	
-		var modelViewMatrix = mat4.create();
-		mat4.lookAt(modelViewMatrix, eye,  lookAt,[0, 0, 1]);
-		mat4.translate(modelViewMatrix, modelViewMatrix, [-localPosition.x, -localPosition.y, 0]);
-		mat4.scale(modelViewMatrix, modelViewMatrix, [1,-1,1]);//negate y coordinate to make positive y go downward
-
+	        
+        var modelViewMatrix = glu.lookAt(Controller.viewAngleYaw, Controller.viewAnglePitch, Controller.eye, Controller.localPosition);
 	    var projectionMatrix = mat4.create();
 	    mat4.perspective(projectionMatrix, fieldOfView/180*Math.PI, webGlCanvas.width / webGlCanvas.height, 0.1, 10000.0);
 
