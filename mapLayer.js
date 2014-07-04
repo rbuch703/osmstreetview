@@ -1,17 +1,10 @@
 "use strict"
-function MapLayer(gl, position) {
-    
-	//compile and link shader program
-	var vertexShader   = glu.compileShader( document.getElementById("shader-vs").text, gl.VERTEX_SHADER);
-	var fragmentShader = glu.compileShader( document.getElementById("texture-shader-fs").text, gl.FRAGMENT_SHADER);
-	this.shaderProgram  = glu.createProgram( vertexShader, fragmentShader);
-	gl.useProgram(this.shaderProgram);   //    Install the program as part of the current rendering state
 
-    //get location of variables in shader program (to later bind them to values);
-	this.shaderProgram.vertexPosAttribLocation =   gl.getAttribLocation( this.shaderProgram, "vertexPosition"); 
-	this.shaderProgram.texCoordAttribLocation =    gl.getAttribLocation( this.shaderProgram, "vertexTexCoords"); 
-    this.shaderProgram.modelViewProjectionMatrixLocation =   gl.getUniformLocation(this.shaderProgram, "modelViewProjectionMatrix")
-	this.shaderProgram.texLocation =               gl.getUniformLocation(this.shaderProgram, "tex");
+function MapLayer(gl, position) {
+    this.shaderProgram = glu.createShader( document.getElementById("shader-vs").text, 
+                                       document.getElementById("texture-shader-fs").text,
+                                       ["vertexPosition","vertexTexCoords"], 
+                                       ["modelViewProjectionMatrix", "tex"]);
     
     this.createTileHierarchy(  );
 
@@ -144,10 +137,6 @@ MapLayer.prototype.createTileHierarchy = function()
 
 MapLayer.prototype.render = function(modelViewMatrix, projectionMatrix) 
 {
-	//gl.enable(gl.BLEND);
-    //gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-
     for (var i in this.tiles)
         this.tiles[i].render(modelViewMatrix, projectionMatrix);
-    //gl.disable(gl.BLEND);
 }

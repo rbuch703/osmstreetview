@@ -3,31 +3,16 @@
 function Apartment(scaling, height) {
 
     this.textures = [];
-	//compile and link shader program
-	var vertexShader   = glu.compileShader( document.getElementById("shader-vs").text, gl.VERTEX_SHADER);
-	var fragmentShader = glu.compileShader( document.getElementById("texture-shader-fs").text, gl.FRAGMENT_SHADER);
-	this.shaderProgram  = glu.createProgram( vertexShader, fragmentShader);
-	gl.useProgram(this.shaderProgram);   //    Install the program as part of the current rendering state
-
-    //get location of variables in shader program (to later bind them to values);
-	this.shaderProgram.vertexPosAttribLocation =   gl.getAttribLocation( this.shaderProgram, "vertexPosition"); 
-	this.shaderProgram.texCoordAttribLocation =    gl.getAttribLocation( this.shaderProgram, "vertexTexCoords"); 
-    this.shaderProgram.modelViewProjectionMatrixLocation =   gl.getUniformLocation(this.shaderProgram, "modelViewProjectionMatrix")
-	this.shaderProgram.texLocation =               gl.getUniformLocation(this.shaderProgram, "tex");
     
-	gl.enableVertexAttribArray(this.shaderProgram.vertexPosAttribLocation); // setup vertex coordinate buffer
-	gl.enableVertexAttribArray(this.shaderProgram.texCoordAttribLocation); //setup texcoord buffer
+    this.shaderProgram = glu.createShader(  document.getElementById("shader-vs").text, 
+                                            document.getElementById("texture-shader-fs").text,
+                                            ["vertexPosition", "vertexTexCoords"],
+                                            ["modelViewProjectionMatrix", "tex"]);
 
-    this.layoutImage = new Image(); //global
+    this.layoutImage = new Image();
     var aptTmp = this;
     this.layoutImage.onload = function() { var tmp = aptTmp.loadLayout(this, scaling, height); aptTmp.processLayout(tmp);}
     this.layoutImage.src = "out.png";
-
-    /*//setup projection matrix
-    var projectionMatrix = mat4.create();
-    mat4.perspective(projectionMatrix, 45.0, canvasGl.width / canvasGl.height, 1.0, 10000.0);
-    gl.uniformMatrix4fv(shaderProgram.perspectiveMatrixLocation, false, projectionMatrix);*/
-
 
 }
 
@@ -36,34 +21,23 @@ Apartment.prototype.render = function(modelViewMatrix, projectionMatrix)
     if (!this.vertices)
         return;
         
-    //console.log("vertices: %s", this.vertices);
-    /*var lookAt = vec3.create();
-    vec3.add(lookAt, eye, lookDir);
-
-	var modelViewMatrix = mat4.create();//initialize to identity matrix;
-	mat4.lookAt(modelViewMatrix, eye,  lookAt,[0, 0, 1]);
-	mat4.scale(modelViewMatrix, modelViewMatrix, [1,-1,1]);//negate y coordinate to make positive y go downward
-	gl.uniformMatrix4fv(shaderProgram.modelViewMatrixLocation, false, modelViewMatrix);*/
-	
     var mvpMatrix = mat4.create();
     mat4.mul(mvpMatrix, projectionMatrix, modelViewMatrix);
 
 	gl.useProgram(this.shaderProgram);   //    Install the program as part of the current rendering state
-	gl.uniformMatrix4fv(this.shaderProgram.modelViewProjectionMatrixLocation, false, mvpMatrix);
+	gl.uniformMatrix4fv(this.shaderProgram.locations.modelViewProjectionMatrix, false, mvpMatrix);
 
-	gl.enableVertexAttribArray(this.shaderProgram.vertexPosAttribLocation); // setup vertex coordinate buffer
-	gl.enableVertexAttribArray(this.shaderProgram.texCoordAttribLocation); //setup texcoord buffer
-    gl.uniform1i(this.shaderProgram.texLocation, 0); //select texture unit 0 as the source for the shader variable "tex" 
+	gl.enableVertexAttribArray(this.shaderProgram.locations.vertexPos); // setup vertex coordinate buffer
+	gl.enableVertexAttribArray(this.shaderProgram.locations.vertexTexCoords); //setup texcoord buffer
+    gl.uniform1i(this.shaderProgram.locations.tex, 0); //select texture unit 0 as the source for the shader variable "tex" 
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vertices);   //select the vertex buffer as the currrently active ARRAY_BUFFER (for subsequent calls)
-	gl.vertexAttribPointer(this.shaderProgram.vertexPosAttribLocation, 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
+	gl.vertexAttribPointer(this.shaderProgram.locations.vertexPos, 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
     
 	gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoords);
-	gl.vertexAttribPointer(this.shaderProgram.texCoordAttribLocation, 2, gl.FLOAT, false, 0, 0);  //assigns array "texCoords" bound above as the vertex attribute "vertexTexCoords"
+	gl.vertexAttribPointer(this.shaderProgram.locations.vertexTexCoords, 2, gl.FLOAT, false, 0, 0);  //assigns array "texCoords" bound above as the vertex attribute "vertexTexCoords"
 
     
-
-	//gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 	for (var i = 0; i < this.numVertices; i+=6)
 	{
         gl.activeTexture(gl.TEXTURE0);				
@@ -74,20 +48,8 @@ Apartment.prototype.render = function(modelViewMatrix, projectionMatrix)
 }
 			
 			
-Apartment.prototype.handleLoadedTexture = function(texture) {
-    //console.log("Handling loading of texture " + texture.image.src);
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    //gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); //Prevents s-coordinate wrapping (repeating). Required for NPOT-textures
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); //Prevents t-coordinate wrapping (repeating). Required for NPOT-textures
-
-    //var apt = texture.apartment;
-    gl.uniform1i(this.shaderProgram.samplerUniform, 0);
-
-    this.textures[ texture.id] = texture;
+Apartment.prototype.handleLoadedTexture = function(image) {
+    this.textures[ image.id] = glu.createNpotTexture( image );
 }
 
 /* scoping hack: needs to be a dedicated function, because it is
@@ -97,18 +59,15 @@ Apartment.prototype.handleLoadedTexture = function(texture) {
  *               over and over again */
 Apartment.prototype.requestTexture = function(j)
 {
-    var texture = gl.createTexture();
-    texture.id = j;
-    
-    texture.image = new Image();
-    texture.image.apartment = this;
+    var image = new Image();
+    image.id = j;
+    image.apartment = this;
 
-    texture.image.onload = function() {
-      this.apartment.handleLoadedTexture(texture)
+    image.onload = function() {
+      this.apartment.handleLoadedTexture(image)
     }
 
-    texture.image.src = "tiles/tile_"+j+".png";
-    return texture;
+    image.src = "tiles/tile_"+j+".png";
 }
 			
 /**
@@ -132,12 +91,11 @@ Apartment.prototype.processLayout = function(segments)
         var C = [B[0]+h[0], B[1]+h[1], B[2]+h[2]];
         var D = [A[0]+h[0], A[1]+h[1], A[2]+h[2]];
         
-        //FIXME: make this more efficient
-        this.vertices = this.vertices.concat(A, B, C);
-        this.vertices = this.vertices.concat(A, C, D);
+        var verts = [].concat(A, B, C, /**/ A, C, D);
+        [].push.apply(this.vertices, verts);
         
-        this.texCoords = this.texCoords.concat( [0,0], [1,0], [1,1]);
-        this.texCoords = this.texCoords.concat( [0,0], [1,1], [0,1]);
+        var coords = [].concat([0,0], [1,0], [1,1], /**/ [0,0], [1,1], [0,1]);
+        [].push.apply(this.texCoords, coords);
     }
 
     this.numVertices = (this.vertices.length / 3) | 0;
@@ -145,11 +103,6 @@ Apartment.prototype.processLayout = function(segments)
     this.vertices = glu.createArrayBuffer(this.vertices); //convert to webgl array buffer
     this.texCoords= glu.createArrayBuffer(this.texCoords);
     
-    /*gl.bindBuffer(gl.ARRAY_BUFFER, vertices);   //select the vertex buffer as the currrently active ARRAY_BUFFER (for subsequent calls)
-	gl.vertexAttribPointer(shaderProgram.vertexPosAttribLocation, 3, gl.FLOAT, false, 0, 0);  //assigns the currently bound ARRAY_BUFFER to the vertex attribute at the passed index			    
-	gl.bindBuffer(gl.ARRAY_BUFFER, texCoords);
-	gl.vertexAttribPointer(shaderProgram.texCoordAttribLocation, 2, gl.FLOAT, false, 0, 0);  */
-					
     for (var i = 0; i < this.numVertices/6; i++) {
         this.requestTexture(i);
     }

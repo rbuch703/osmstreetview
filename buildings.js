@@ -11,8 +11,7 @@ function Buildings(gl, position)
     var earthCircumference = 2 * Math.PI * (6378.1 * 1000);
     var physicalTileLength = earthCircumference* Math.cos(position.lat/180*Math.PI) / Math.pow(2, /*zoom=*/19);
 
-    var numTilesPer500m = 500 / physicalTileLength *2;
-    //console.log("numTilesPer500m: %s", numTilesPer500m);
+    var numTilesPer500m = 500 / physicalTileLength * 2; //HACK: increase radius to 1km
 
     var x = long2tile(position.lng,19);
     var y = lat2tile( position.lat,19);
@@ -24,7 +23,6 @@ function Buildings(gl, position)
     var lat_min = tile2lat( y + numTilesPer500m, 19);
     var lat_max = tile2lat( y - numTilesPer500m, 19);
 
-    //console.log("lat: %s-%s; lon: %s-%s", lat_min, lat_max, lng_min, lng_max);
     //var query = '[out:json][timeout:25];way["building"]('+lat_min+","+lng_min+","+lat_max+","+lng_max+');out body;>;out skel qt;';
     var bbox = '('+lat_min+","+lng_min+","+lat_max+","+lng_max+')';
     
@@ -32,43 +30,22 @@ function Buildings(gl, position)
     var query = '[out:json][timeout:25];(way["building"]'+bbox+
                                        ';way["building:part"]'+bbox+
                                        ';relation["building"]'+bbox+');out body;>;out skel qt;';
-    //console.log("query: %s", query);
+
     var bldgs = this;
     var oReq = new XMLHttpRequest();
     oReq.onload = function() { bldgs.onDataLoaded(this); }
     oReq.open("get", Buildings.apiBaseUrl + "?data=" + encodeURIComponent(query), true);
     oReq.send();
     
-	//compile and link building shader program
-	var vertexShader   = glu.compileShader( document.getElementById("building-shader-vs").text, gl.VERTEX_SHADER);
-	var fragmentShader = glu.compileShader( document.getElementById("building-shader-fs").text, gl.FRAGMENT_SHADER);
-	this.shaderProgram  = glu.createProgram( vertexShader, fragmentShader);
-	gl.useProgram(this.shaderProgram);   //    Install the program as part of the current rendering state
-
-    //get location of variables in shader program (to later bind them to values);
-	this.shaderProgram.vertexPosAttribLocation =   gl.getAttribLocation( this.shaderProgram, "vertexPosition"); 
-	this.shaderProgram.texCoordAttribLocation =    gl.getAttribLocation( this.shaderProgram, "vertexTexCoords"); 
-	this.shaderProgram.normalAttribLocation   =    gl.getAttribLocation( this.shaderProgram, "vertexNormal"); 
-	
-	
-    this.shaderProgram.modelViewMatrixLocation =   gl.getUniformLocation(this.shaderProgram, "modelViewMatrix")
-	this.shaderProgram.perspectiveMatrixLocation = gl.getUniformLocation(this.shaderProgram, "perspectiveMatrix");
-    this.shaderProgram.modelViewProjectionMatrixLocation =   gl.getUniformLocation(this.shaderProgram, "modelViewProjectionMatrix")
-	//this.shaderProgram.hasHeightLocation =         gl.getUniformLocation(this.shaderProgram, "hasHeight");
-	//this.shaderProgram.heightLocation =            gl.getUniformLocation(this.shaderProgram, "height");
-	this.shaderProgram.texLocation =               gl.getUniformLocation(this.shaderProgram, "tex");
-
     
-    //compile and link edge shader program
-    
-	var vertexShader   = glu.compileShader( document.getElementById("edge-shader-vs").text, gl.VERTEX_SHADER);
-	var fragmentShader = glu.compileShader( document.getElementById("edge-shader-fs").text, gl.FRAGMENT_SHADER);
-	this.edgeShaderProgram  = glu.createProgram( vertexShader, fragmentShader);
-	gl.useProgram(this.edgeShaderProgram);   //    Install the program as part of the current rendering state
-
-    //get location of variables in shader program (to later bind them to values);
-	this.edgeShaderProgram.vertexPosAttribLocation =   gl.getAttribLocation( this.edgeShaderProgram, "vertexPosition"); 
-    this.edgeShaderProgram.modelViewProjectionMatrixLocation =   gl.getUniformLocation(this.edgeShaderProgram, "modelViewProjectionMatrix")
+    this.shaderProgram = glu.createShader(document.getElementById("building-shader-vs").text,
+                                          document.getElementById("building-shader-fs").text,
+                                          ["vertexPosition","vertexTexCoords", "vertexNormal"],
+                                          ["modelViewProjectionMatrix", "tex"]);
+                                          
+    this.edgeShaderProgram = glu.createShader(document.getElementById("edge-shader-vs").text,
+                                              document.getElementById("edge-shader-fs").text,
+                                              ["vertexPosition"], ["modelViewProjectionMatrix"]);
 
     this.numVertices = 0;
     this.numEdgeVertices = 0;
@@ -697,28 +674,28 @@ Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
 
     //draw faces
 	gl.useProgram(this.shaderProgram);   //    Install the program as part of the current rendering state
-	gl.enableVertexAttribArray(this.shaderProgram.vertexPosAttribLocation); // setup vertex coordinate buffer
-	gl.enableVertexAttribArray(this.shaderProgram.texCoordAttribLocation); //setup texcoord buffer
-	gl.enableVertexAttribArray(this.shaderProgram.normalAttribLocation); //setup texcoord buffer
+	gl.enableVertexAttribArray(this.shaderProgram.locations.vertexPos); // setup vertex coordinate buffer
+	gl.enableVertexAttribArray(this.shaderProgram.locations.vertexTexCoords); //setup texcoord buffer
+	gl.enableVertexAttribArray(this.shaderProgram.locations.vertexNormal); //setup texcoord buffer
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vertices);   //select the vertex buffer as the currrently active ARRAY_BUFFER (for subsequent calls)
-	gl.vertexAttribPointer(this.shaderProgram.vertexPosAttribLocation, 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
+	gl.vertexAttribPointer(this.shaderProgram.locations.vertexPos, 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
     
 	gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoords);
-	gl.vertexAttribPointer(this.shaderProgram.texCoordAttribLocation, 3, gl.FLOAT, false, 0, 0);  //assigns array "texCoords" bound above as the vertex attribute "vertexTexCoords"
+	gl.vertexAttribPointer(this.shaderProgram.locations.vertexTexCoords, 3, gl.FLOAT, false, 0, 0);  //assigns array "texCoords" bound above as the vertex attribute "vertexTexCoords"
 
     // can apparently be -1 if the variable is not used inside the shader
-    if (this.shaderProgram.normalAttribLocation > -1)
+    if (this.shaderProgram.locations.vertexNormal > -1)
     {
 	    gl.bindBuffer(gl.ARRAY_BUFFER, this.normals);
-	    gl.vertexAttribPointer(this.shaderProgram.normalAttribLocation, 3, gl.FLOAT, false, 0, 0);  //assigns array "normals"
+	    gl.vertexAttribPointer(this.shaderProgram.locations.vertexNormal, 3, gl.FLOAT, false, 0, 0);  //assigns array "normals"
 	}
 
     var mvpMatrix = mat4.create();
     mat4.mul(mvpMatrix, projectionMatrix, modelViewMatrix);
 
-    gl.uniform1i(this.shaderProgram.texLocation, 0); //select texture unit 0 as the source for the shader variable "tex" 
-	gl.uniformMatrix4fv(this.shaderProgram.modelViewProjectionMatrixLocation, false, mvpMatrix);
+    gl.uniform1i(this.shaderProgram.locations.tex, 0); //select texture unit 0 as the source for the shader variable "tex" 
+	gl.uniformMatrix4fv(this.shaderProgram.locations.modelViewProjectionMatrix, false, mvpMatrix);
 
     gl.activeTexture(gl.TEXTURE0);  //successive commands (here 'gl.bindTexture()') apply to texture unit 0
     gl.bindTexture(gl.TEXTURE_2D, null); //render geometry without texture
@@ -734,14 +711,14 @@ Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
 
     //step 2: draw outline
     gl.useProgram(this.edgeShaderProgram);   //    Install the program as part of the current rendering state
-	gl.enableVertexAttribArray(this.edgeShaderProgram.vertexPosAttribLocation); // setup vertex coordinate buffer
+	gl.enableVertexAttribArray(this.edgeShaderProgram.locations.vertexPos); // setup vertex coordinate buffer
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.edgeVertices);   //select the vertex buffer as the currrently active ARRAY_BUFFER (for subsequent calls)
-	gl.vertexAttribPointer(this.edgeShaderProgram.vertexPosAttribLocation, 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
+	gl.vertexAttribPointer(this.edgeShaderProgram.locations.vertexPos, 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
 
     var mvpMatrix = mat4.create();
     mat4.mul(mvpMatrix, projectionMatrix, modelViewMatrix);
-	gl.uniformMatrix4fv(this.edgeShaderProgram.modelViewProjectionMatrixLocation, false, mvpMatrix);
+	gl.uniformMatrix4fv(this.edgeShaderProgram.locations.modelViewProjectionMatrix, false, mvpMatrix);
 
     gl.drawArrays(gl.LINES, 0, this.numEdgeVertices);
     

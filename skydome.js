@@ -4,33 +4,32 @@ function SkyDome(gl)
 
     this.gl = gl;
 
-	var vertexShader   = glu.compileShader( document.getElementById("shader-vs").text, gl.VERTEX_SHADER);
-	var fragmentShader = glu.compileShader( document.getElementById("texture-shader-fs").text, gl.FRAGMENT_SHADER);
-	this.shaderProgram  = glu.createProgram( vertexShader, fragmentShader);
-	gl.useProgram(this.shaderProgram);   //    Install the program as part of the current rendering state
-
-    //get location of variables in shader program (to later bind them to values);
-	this.shaderProgram.vertexPosAttribLocation =   gl.getAttribLocation( this.shaderProgram, "vertexPosition"); 
-	this.shaderProgram.texCoordAttribLocation =    gl.getAttribLocation( this.shaderProgram, "vertexTexCoords"); 
-    this.shaderProgram.modelViewProjectionMatrixLocation =   gl.getUniformLocation(this.shaderProgram, "modelViewProjectionMatrix")
-	this.shaderProgram.texLocation =               gl.getUniformLocation(this.shaderProgram, "tex");
+    this.shaderProgram = glu.createShader(  document.getElementById("shader-vs").text,
+                                            document.getElementById("texture-shader-fs").text,
+                                            ["vertexPosition", "vertexTexCoords"],
+                                            ["modelViewProjectionMatrix", "tex"] );
 
     this.buildGlGeometry();
 }    
 
 function onTextureLoaded(im, dome) {
-	//console.log("dome is %o; this is %o", dome, this);
-	var gl = dome.gl;
 
-    dome.tex = gl.createTexture();
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, dome.tex);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, im); //load texture data
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);                  //set zoom-in filter to linear interpolation
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);    //set zoom-out filter to linear interpolation between pixels and mipmap levels
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT); // is a dome --> s-coordinate wraps (left edge = right edge)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); // ... but t coordinate does not (top != bottom)
-    gl.generateMipmap(gl.TEXTURE_2D);                                     // automatic mipmap generation
+    
+    var maxTexSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+    var maxTexPot = Math.round( Math.log(maxTexSize) / Math.log(2) );
+    
+    if (maxTexSize < im.width)
+    {
+        var canvas = document.createElement('canvas');
+        canvas.width = 1 << maxTexPot;
+        canvas.height= 1 << (maxTexPot -2);
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(im, 0, 0, canvas.width, canvas.height);
+        
+        im = canvas;
+    }
+
+    dome.tex = glu.createTexture(im);
 	
 	if (dome.onLoaded)
         dome.onLoaded();
@@ -105,20 +104,20 @@ SkyDome.prototype.render = function(modelViewMatrix, projectionMatrix) {
         
     var gl = this.gl;
 	gl.useProgram(this.shaderProgram);   //    Install the program as part of the current rendering state
-	gl.enableVertexAttribArray(this.shaderProgram.vertexPosAttribLocation); // setup vertex coordinate buffer
-	gl.enableVertexAttribArray(this.shaderProgram.texCoordAttribLocation); //setup texcoord buffer
+	gl.enableVertexAttribArray(this.shaderProgram.locations.vertexPosition); // setup vertex coordinate buffer
+	gl.enableVertexAttribArray(this.shaderProgram.locations.vertexTexCoords); //setup texcoord buffer
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vertices);   //select the vertex buffer as the currrently active ARRAY_BUFFER (for subsequent calls)
-	gl.vertexAttribPointer(this.shaderProgram.vertexPosAttribLocation, 3, this.gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
+	gl.vertexAttribPointer(this.shaderProgram.locations.vertexPosition, 3, this.gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
     
 	gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoords);
-	gl.vertexAttribPointer(this.shaderProgram.texCoordAttribLocation, 2, this.gl.FLOAT, false, 0, 0);  //assigns array "texCoords" bound above as the vertex attribute "vertexTexCoords"
+	gl.vertexAttribPointer(this.shaderProgram.locations.vertexTexCoords, 2, this.gl.FLOAT, false, 0, 0);  //assigns array "texCoords" bound above as the vertex attribute "vertexTexCoords"
 
-    gl.uniform1i(this.shaderProgram.texLocation, 0); //select texture unit 0 as the source for the shader variable "tex" 
+    gl.uniform1i(this.shaderProgram.locations.tex, 0); //select texture unit 0 as the source for the shader variable "tex" 
 
     var mvpMatrix = mat4.create();
     mat4.mul(mvpMatrix, projectionMatrix, modelViewMatrix);
-	gl.uniformMatrix4fv(this.shaderProgram.modelViewProjectionMatrixLocation, false, mvpMatrix);
+	gl.uniformMatrix4fv(this.shaderProgram.locations.modelViewProjectionMatrix, false, mvpMatrix);
     
     gl.activeTexture(gl.TEXTURE0);  //successive commands (here 'gl.bindTexture()') apply to texture unit 0
     gl.bindTexture(gl.TEXTURE_2D, this.tex); //render geometry without texture
@@ -132,3 +131,4 @@ SkyDome.prototype.render = function(modelViewMatrix, projectionMatrix) {
 
 
 SkyDome.RADIUS = 5000;
+

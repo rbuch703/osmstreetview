@@ -34,6 +34,25 @@ glu.createProgram = function (vShader, fShader)
 	return shaderProgram;
 }
 
+glu.createShader = function( vertexShaderCode, fragmentShaderCode, attribLocations, uniformLocations)
+{
+	var shaderProgram  = glu.createProgram( glu.compileShader( vertexShaderCode, gl.VERTEX_SHADER), 
+	                                        glu.compileShader( fragmentShaderCode, gl.FRAGMENT_SHADER) );
+
+	gl.useProgram(shaderProgram);   //    Install the program as part of the current rendering state
+
+    shaderProgram.locations = {};
+
+    //get location of variables in shader program (to later bind them to values);
+    for (var i in attribLocations)
+        shaderProgram.locations[ attribLocations[i]] = gl.getAttribLocation( shaderProgram, attribLocations[i]); 
+        
+    for (var i in uniformLocations)
+        shaderProgram.locations[ uniformLocations[i] ] = gl.getUniformLocation( shaderProgram, uniformLocations[i]); 
+    
+    return shaderProgram;
+}
+
 
 glu.createArrayBuffer = function(data)
 {
@@ -62,3 +81,44 @@ glu.lookAt = function(yaw, pitch, lookAtHeight, translate)
 
 }
 
+glu.createTexture = function(image)
+{
+    var texId = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE0);
+            
+    gl.bindTexture(gl.TEXTURE_2D, texId);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image); //load texture data
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);                  //set zoom-in filter to linear interpolation
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);    //set zoom-out filter to linear interpolation between pixels and mipmap levels
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); // texCords are clamped 
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); // to range [0..1]
+    gl.generateMipmap(gl.TEXTURE_2D);                                     // automatic mipmap generation
+    
+    // enable anisotropic filtering for this texture if available.
+    // without anisotrophy, textures on quads close to parallel to the view direction
+    // would appear extremely blurry
+    var ext = gl.getExtension("EXT_texture_filter_anisotropic"); //check for anisotropy support
+    if (ext && ext.MAX_TEXTURE_MAX_ANISOTROPY_EXT)
+    {
+        var max_anisotropy = gl.getParameter(ext.MAX_TEXTURE_MAX_ANISOTROPY_EXT);
+        gl.texParameterf(gl.TEXTURE_2D, ext.TEXTURE_MAX_ANISOTROPY_EXT, max_anisotropy);
+    }
+    return texId;
+}
+
+// webGL has only limited support for textures whose width and height are not powers of two:
+// those may not use automatic mipmapping, and must use the warp mode CLAMP_TO_EDGE
+glu.createNpotTexture = function(image)
+{
+    var texId = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE0);
+            
+    gl.bindTexture(gl.TEXTURE_2D, texId);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image); //load texture data
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);                  //set zoom-in filter to linear interpolation
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);    //set zoom-out filter to linear interpolation between pixels and mipmap levels
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); // texCords are clamped 
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); // to range [0..1]
+    
+    return texId;
+}
