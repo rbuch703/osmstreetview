@@ -1,6 +1,6 @@
 "use strict"
 
-function Apartment(scaling, height) {
+function Apartment(scaling, position, height) {
 
     this.textures = [];
     
@@ -11,7 +11,7 @@ function Apartment(scaling, height) {
 
     this.layoutImage = new Image();
     var aptTmp = this;
-    this.layoutImage.onload = function() { var tmp = aptTmp.loadLayout(this, scaling, height); aptTmp.processLayout(tmp);}
+    this.layoutImage.onload = function() { var tmp = aptTmp.loadLayout(this, scaling, position, height); aptTmp.processLayout(tmp);}
     this.layoutImage.src = "out.png";
 
 }
@@ -151,11 +151,11 @@ var WINDOW_HIGH = 2.20;
 var WINDOW_HEIGHT = WINDOW_HIGH - WINDOW_LOW;
 var TOP_WALL_HEIGHT = HEIGHT - WINDOW_HIGH;
 
-var wallColor = [0.8, 0.8, 0.8];
-var windowColor = [15, 14, 12];
+//var wallColor = [0.8, 0.8, 0.8];
+//var windowColor = [15, 14, 12];
 
 function createVector3(x, y, z) { return [x, y, z];}
-function createRectangleWithColor( pos, width, height, color) { return {"pos": pos, "width": width, "height": height, "color": color}; }
+function createRectangle( pos, width, height) { return {"pos": pos, "width": width, "height": height}; }
 
 Apartment.prototype.addWindowedWall = function(startX, startY, dx, dy, scaling, /*ref*/segments)
 {
@@ -164,15 +164,16 @@ Apartment.prototype.addWindowedWall = function(startX, startY, dx, dy, scaling, 
     dx *= scaling;
     dy *= scaling;
     
-    segments.push(createRectangleWithColor( createVector3(startX,startY,0+this.height),  
-                                                 createVector3(dx, dy, 0), 
-                                                 createVector3(0, 0, WINDOW_LOW), wallColor ));
-    segments.push(createRectangleWithColor( createVector3(startX,startY,WINDOW_LOW+this.height), 
-                                                 createVector3(dx, dy, 0), 
-                                                 createVector3(0, 0, 0/*WINDOW_HEIGHT*/), windowColor)); //hack to remove windows (to be able to look through them)
-    segments.push(createRectangleWithColor( createVector3(startX,startY,WINDOW_HIGH+this.height), 
-                                                 createVector3(dx, dy, 0), 
-                                                 createVector3(0, 0, TOP_WALL_HEIGHT), wallColor));
+    segments.push(createRectangle( createVector3(startX,startY,0+this.height),     //wall below window
+                                   createVector3(dx, dy, 0), 
+                                   createVector3(0, 0, WINDOW_LOW) ));
+    //the window itself. Hack: Window height set to zero to make it invisible while still being present (to not confuse the order of tile textures)
+    segments.push(createRectangle( createVector3(startX,startY,WINDOW_LOW+this.height), 
+                                   createVector3(dx, dy, 0), 
+                                   createVector3(0, 0, 0/*WINDOW_HEIGHT*/))); 
+    segments.push(createRectangle( createVector3(startX,startY,WINDOW_HIGH+this.height),   //wall above window 
+                                   createVector3(dx, dy, 0), 
+                                   createVector3(0, 0, TOP_WALL_HEIGHT)));
 }
 
 Apartment.prototype.addWall = function(startX, startY, dx, dy, scaling, /*ref*/segments)
@@ -182,14 +183,14 @@ Apartment.prototype.addWall = function(startX, startY, dx, dy, scaling, /*ref*/s
     dx *= scaling;
     dy *= scaling;
 
-    segments.push(createRectangleWithColor( createVector3(startX,startY,0+this.height),
-                                            createVector3(dx,dy,0),
-                                            createVector3(0,0,HEIGHT), wallColor));
+    segments.push(createRectangle( createVector3(startX,startY,0+this.height),
+                                   createVector3(dx,dy,0),
+                                   createVector3(0,0,HEIGHT)));
 }
 
 
 
-Apartment.prototype.loadLayout = function(img, scaling, height)
+Apartment.prototype.loadLayout = function(img, scaling, position, height)
 {
     this.height = height;
     var canvas = document.createElement('CANVAS');
@@ -271,9 +272,40 @@ Apartment.prototype.loadLayout = function(img, scaling, height)
         }
     }    
     
+    //step 3: shift apartment to relocate its center to (0,0) to give its 'position' a canonical meaning
     var aabb = getAABB( segments);
+    var dx = aabb.max_x - aabb.min_x;
+    var dy = aabb.max_y - aabb.min_y;
+    var mid_x = (aabb.max_x + aabb.min_x) / 2.0;
+    var mid_y = (aabb.max_y + aabb.min_y) / 2.0;
+
+    for (var i in segments)
+    {
+        segments[i].pos[0] -= mid_x;
+        segments[i].pos[1] -= mid_y;
+    }    
+    
     
     var front = [];
+    front.push( createRectangle( createVector3(-dx/2.0, -dy/2.0,this.height),          createVector3(0, dy, 0), createVector3( dx, 0, 0)));    // floor
+    front.push( createRectangle( createVector3(-dx/2.0, -dy/2.0,this.height + HEIGHT), createVector3(dx, 0, 0), createVector3( 0, dy, 0)));    // ceiling
+    
+    
+    //step 4: rotate apartment;
+    //FIXME: add code
+    
+    //step 5: move to selected position
+    var earthCircumference = 2 * Math.PI * (6378.1 * 1000);
+    var metersPerDegreeLat = earthCircumference / 360;
+    var metersPerDegreeLng = metersPerDegreeLat * Math.cos( Controller.position.lat / 180 * Math.PI);
+    
+    var dx = (position.lng - Controller.position.lng) * metersPerDegreeLng;
+    var dy = (position.lat - Controller.position.lat) * metersPerDegreeLat;
+    
+    console.log("necessary shift: dx=%s, dy=%s", dx, dy);
+    
+    
+    /*
     front.push( createRectangleWithColor( createVector3(aabb.min_x, aabb.min_y,this.height), 
                                           createVector3(0, aabb.max_y-aabb.min_y, 0), 
                                           createVector3( aabb.max_x-aabb.min_x, 0, 0), wallColor));    // floor
@@ -281,7 +313,7 @@ Apartment.prototype.loadLayout = function(img, scaling, height)
     front.push( createRectangleWithColor( createVector3(aabb.min_x, aabb.min_y,HEIGHT+this.height),
                                           createVector3(aabb.max_x - aabb.min_x, 0, 0), 
                                           createVector3(0, aabb.max_y - aabb.min_y, 0), wallColor));  // ceiling
-
+    */
     return front.concat(segments);
 }
 

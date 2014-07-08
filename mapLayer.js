@@ -11,7 +11,7 @@ function MapLayer(gl, position) {
 }
 
 MapLayer.MIN_ZOOM = 12; //experimentally tested: everything beyond level 12 is beyond the far plane
-MapLayer.MAX_ZOOM = 19;
+MapLayer.MAX_ZOOM = 20;
 
 MapLayer.prototype.createTilesRecursive = function(tileX, tileY, level, maxDistance, hasRenderedParent, tileListOut)
 {
@@ -95,7 +95,7 @@ function getRadius(pixelLength, height)
 
 MapLayer.prototype.createTileHierarchy = function()
 {
-    var height = Controller.eye[2];
+    var height = Controller.localPosition.z;
     var earthCircumference = 2 * Math.PI * (6378.1 * 1000);
     var physicalTileLength = earthCircumference* Math.cos(Controller.position.lat/180*Math.PI) / Math.pow(2, 17);
     var pixelLength = physicalTileLength / 256;
@@ -128,8 +128,11 @@ MapLayer.prototype.createTileHierarchy = function()
         for (var j in listY)
             this.createTilesRecursive(x+listX[i], y+listY[j], 12, maxDistance, false, tileList);  
     
-
-    console.log("map layer consists of %s tiles:", tileList.length);
+    // sort tiles by descending zoom level so that tiles with higher zoom are loaded first
+    // Those tiles are closer to the viewer and thus more relevant; they are also usually faster to 
+    // render by the backend OSM servers (if not already cached)
+    tileList.sort( function(a, b) { return b[3] - a[3];});
+    console.log("map layer consists of %s tiles", tileList.length);
     this.tiles = [];
     for (var i in tileList)
         this.tiles.push(new Tile(tileList[i][1], tileList[i][2], tileList[i][3], this.shaderProgram, this ));

@@ -5,17 +5,20 @@
 
 var Controller = {
 
-    eye: {},
     position: {},
-    localPosition : { x:0, y:0 }, //camera position in the local coordinate system
+    localPosition : { x:0, y:0, z: 1.5+21 }, //camera position in the local coordinate system ('z' is height)
     viewAngleYaw : {},
     viewAnglePitch : {},
 
 
-    buildQueryString: function()
+    buildQueryString: function(lat, lng)
     {
-        return "?lat="+this.position.lat+
-               "&lng="+this.position.lng+
+        var lat, lng;
+        if (!lat) lat = this.position.lat;
+        if (!lng) lng = this.position.lng;
+        
+        return "?lat=" + lat.toFixed(8) +
+               "&lng=" + lng.toFixed(8) +
                "&yaw="+this.viewAngleYaw.toFixed(1)+
                "&pitch="+this.viewAnglePitch.toFixed(1);
     },
@@ -99,6 +102,8 @@ var Controller = {
 
         if (this.keysDown.W) { this.localPosition.x += forwardX * dt/400; this.localPosition.y +=forwardY * dt/400;}
         if (this.keysDown.S) { this.localPosition.x -= forwardX * dt/400; this.localPosition.y -=forwardY * dt/400;}
+        
+        this.updateHistoryState();
 	},
 	
 	x:null,
@@ -248,11 +253,16 @@ var Controller = {
                 if (url.indexOf("?") >= 0) // already contains a query string --> remove it
                     url = url.substring(0, url.indexOf("?"));
                 
-                url += Controller.buildQueryString();
-                //"?lat="+position.lat+"&lng="+position.lng+"&yaw="+viewAngleYaw.toFixed(1)+"&pitch="+viewAnglePitch.toFixed(1);
+                var earthCircumference = 2 * Math.PI * (6378.1 * 1000);
+                var metersPerDegreeLat = earthCircumference / 360;
+                var metersPerDegreeLng = metersPerDegreeLat * Math.cos( Controller.position.lat / 180 * Math.PI);
+                //console.log("Resolution x: %s m/°, y: %s m/°", metersPerDegreeLng, metersPerDegreeLat);
+
+                url += Controller.buildQueryString(Controller.position.lat + Controller.localPosition.y / metersPerDegreeLat, 
+                                                   Controller.position.lng + Controller.localPosition.x / metersPerDegreeLng );
+
                 history.replaceState(null, document.title, url);
             },1000);
     }
-    
-    
 }
+

@@ -63,19 +63,20 @@ glu.createArrayBuffer = function(data)
 	return buffer;
 }
 
-glu.lookAt = function(yaw, pitch, lookAtHeight, translate)
+glu.lookAt = function(yaw, pitch, translate)
 {
     var yawRad = yaw / 180 * Math.PI;
     var pitchRad= pitch / 180 * Math.PI;
     var lookDir = [Math.sin( yawRad) * Math.cos(pitchRad), Math.cos(yawRad) * Math.cos( pitchRad ),  Math.sin( pitchRad)];
 
+    var eye = [translate.x, translate.y, translate.z];
     //determine look-at point
     var lookAt = vec3.create();
-    vec3.add(lookAt, lookAtHeight, lookDir);
+    vec3.add(lookAt, eye, lookDir);
 
 	var modelViewMatrix = mat4.create();
-	mat4.lookAt(modelViewMatrix, Controller.eye,  lookAt,[0, 0, 1]);
-	mat4.translate(modelViewMatrix, modelViewMatrix, [-translate.x, -translate.y, 0]);
+	mat4.lookAt(modelViewMatrix, eye,  lookAt,[0, 0, 1]);
+	//mat4.translate(modelViewMatrix, modelViewMatrix, [-translate.x, -translate.y, -translate.z]);
 	mat4.scale(modelViewMatrix, modelViewMatrix, [1,-1,1]);//negate y coordinate to make positive y go downward
     return modelViewMatrix;
 

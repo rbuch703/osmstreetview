@@ -223,7 +223,7 @@
         mapBuildings = new Buildings(gl, Controller.position);
         mapBuildings.onLoaded = scheduleFrameRendering;
         
-        mapApartment = new Apartment(10/720.0, 21);
+        mapApartment = new Apartment(10/720.0, {lat:52.13875180, lng:11.63868375}, 21);
         
         if (positionMarker)
             map.removeLayer(positionMarker);
@@ -244,7 +244,7 @@
     
     function onMapClick(e)
     {
-        position = e.latlng;
+        Controller.position = e.latlng;
         onChangeLocation();
     }   
     
@@ -365,9 +365,6 @@
 
         onResize();
 	
-        //view setup 
-        Controller.eye = [0,0,1.5+21];
-
         mapSkyDome = new SkyDome(gl);
         mapSkyDome.onLoaded = scheduleFrameRendering;
 
@@ -388,12 +385,12 @@
 	
 	function renderScene()
 	{
-	    if (!gl || !Controller.eye ) //not yet initialized
+	    if (!gl || !Controller.localPosition ) //not yet initialized
 	        return;
 	        
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 	        
-        var modelViewMatrix = glu.lookAt(Controller.viewAngleYaw, Controller.viewAnglePitch, Controller.eye, Controller.localPosition);
+        var modelViewMatrix = glu.lookAt(Controller.viewAngleYaw, Controller.viewAnglePitch, Controller.localPosition);
 	    var projectionMatrix = mat4.create();
 	    mat4.perspective(projectionMatrix, fieldOfView/180*Math.PI, webGlCanvas.width / webGlCanvas.height, 0.1, 10000.0);
 
