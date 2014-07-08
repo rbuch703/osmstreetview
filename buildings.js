@@ -51,8 +51,8 @@ function Buildings(gl, position)
     this.numEdgeVertices = 0;
 }    
 
-Buildings.apiBaseUrl = "http://overpass-api.de/api/interpreter";
-//Buildings.apiBaseUrl = "http://rbuch703.de/api/interpreter";
+//Buildings.apiBaseUrl = "http://overpass-api.de/api/interpreter";
+Buildings.apiBaseUrl = "http://tile.rbuch703.de/api/interpreter";
 
 function vec(a) { return [a.dx, a.dy];}
 

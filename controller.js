@@ -206,9 +206,9 @@ var Controller = {
     {
     
         ev.preventDefault();
-        if (getTouchData(ev.changedTouches, down))
+        if (this.getTouchData(ev.changedTouches, this.down))
         {
-            down = null;
+            this.down = null;
         }
     },
 
@@ -216,17 +216,17 @@ var Controller = {
     {
     
         ev.preventDefault();
-        var touch = getTouchData(ev.changedTouches, down);
+        var touch = this.getTouchData(ev.changedTouches, this.down);
         if (touch)
         {
-            var dx = touch.clientX - x;
-            var dy = touch.clientY - y;
+            var dx = touch.clientX - this.x;
+            var dy = touch.clientY - this.y;
 
-            if (Math.abs(dx) < 5 && Math.abs(dy) < 5)
-                return;
-            x = touch.clientX;
-            y = touch.clientY;
-            updateViewDirection(dx, dy);
+            /*if (Math.abs(dx) < 5 && Math.abs(dy) < 5)
+                return;*/
+            this.x = touch.clientX;
+            this.y = touch.clientY;
+            this.updateViewDirection(dx, dy);
             
         }
     },
