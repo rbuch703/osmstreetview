@@ -41,7 +41,7 @@ function Buildings(gl, position)
     this.shaderProgram = glu.createShader(document.getElementById("building-shader-vs").text,
                                           document.getElementById("building-shader-fs").text,
                                           ["vertexPosition","vertexTexCoords", "vertexNormal"],
-                                          ["modelViewProjectionMatrix", "tex"]);
+                                          ["modelViewProjectionMatrix", "tex", "cameraPos"]);
                                           
     this.edgeShaderProgram = glu.createShader(document.getElementById("edge-shader-vs").text,
                                               document.getElementById("edge-shader-fs").text,
@@ -696,6 +696,10 @@ Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
 
     gl.uniform1i(this.shaderProgram.locations.tex, 0); //select texture unit 0 as the source for the shader variable "tex" 
 	gl.uniformMatrix4fv(this.shaderProgram.locations.modelViewProjectionMatrix, false, mvpMatrix);
+
+    var pos = Controller.localPosition;
+    //console.log(pos.x, pos.y, pos.z);
+    gl.uniform3f(this.shaderProgram.locations.cameraPos, pos.x, pos.y, pos.z);
 
     gl.activeTexture(gl.TEXTURE0);  //successive commands (here 'gl.bindTexture()') apply to texture unit 0
     gl.bindTexture(gl.TEXTURE_2D, null); //render geometry without texture

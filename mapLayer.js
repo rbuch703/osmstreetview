@@ -38,7 +38,7 @@ MapLayer.prototype.createTilesRecursive = function(tileX, tileY, level, maxDista
     {
         tileListOut.push( [[v1,v2,v3,v4], tileX, tileY, level]);
 
-        if (level+1 < MapLayer.MAX_ZOOM)
+        if (level < MapLayer.MAX_ZOOM)
         {
             this.createTilesRecursive( tileX*2,   tileY*2,   level + 1, maxDistance, true, tileListOut);
             this.createTilesRecursive( tileX*2+1, tileY*2,   level + 1, maxDistance, true, tileListOut);

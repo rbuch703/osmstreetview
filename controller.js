@@ -6,10 +6,21 @@
 var Controller = {
 
     position: {},
-    localPosition : { x:0, y:0, z: 1.5+21 }, //camera position in the local coordinate system ('z' is height)
+    localPosition : { x:0, y:0, z: 1.5+10 }, //camera position in the local coordinate system ('z' is height)
     viewAngleYaw : {},
     viewAnglePitch : {},
 
+
+    getEffectivePosition : function() 
+    {
+        var earthCircumference = 2 * Math.PI * (6378.1 * 1000);
+        var metersPerDegreeLat = earthCircumference / 360;
+        var metersPerDegreeLng = metersPerDegreeLat * Math.cos( this.position.lat / 180 * Math.PI);
+
+        return {lat: this.position.lat + this.localPosition.y / metersPerDegreeLat,
+                lng: this.position.lng + this.localPosition.x / metersPerDegreeLng};
+        
+    },
 
     buildQueryString: function(lat, lng)
     {
@@ -126,9 +137,12 @@ var Controller = {
         
         if (key in this.keysDown) //is just a reoccuring event for a key that is still pressed
             return;
-            
-        this.updateKeyInteraction();
-        this.keysDown[key] = key;
+
+        if (key != null)
+        {            
+            this.updateKeyInteraction();
+            this.keysDown[key] = key;
+        }
         
         if (this.onRequestFrameRender)
             this.onRequestFrameRender();

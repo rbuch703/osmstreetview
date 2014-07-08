@@ -43,7 +43,7 @@
 	<script type="text/javascript" src="glu.js" ></script>
 	<script type="text/javascript" src="math.js" ></script>
 
-    <!-- <script src="webgl-debug.js"></script> -->
+    <script src="webgl-debug.js"></script>
     
 	<!--<script id="map-shader-fs" type="x-shader/x-fragment">
 		precision mediump float;
@@ -70,14 +70,15 @@
         varying vec3 worldPosition;
         
         uniform sampler2D tex;
+        uniform vec3 cameraPos;
         //uniform float height;
 		void main(void) {
 		    const float c = 0.02;
 
-            vec3 vView = normalize(- worldPosition); //direction vector from surface to camera (camera is always at (0,0,0) )
+            vec3 vView = normalize( cameraPos - worldPosition); //direction vector from surface to camera (camera is always at (0,0,0) )
             float diffuse = abs( 0.5 * dot(vView, normal) );
 
-            
+            //gl_FragColor = vec4( (normal + 1.0)/2.0, 1.0);
             gl_FragColor = diffuse > 0.0 ? vec4( vec3(diffuse+0.3), 1.0): vec4(-diffuse+0.3, 0.0, 0.0, 1.0);
             
             if (texCoordV.z == 0.0) //HACK: z==0 --> building height was just guessed --> tint it red
@@ -168,7 +169,6 @@
         if (gl)
         {
 		    //register event handlers
-		    //webGlCanvas.onclick = scheduleFrameRendering;
 		    webGlCanvas.addEventListener("mousedown",   function(ev) {Controller.onMouseDown(ev);}, false);
 		    webGlCanvas.addEventListener("mouseup",     function(ev) {Controller.onMouseUp(ev);},   false);
 		    webGlCanvas.addEventListener("mouseout",    function(ev) {Controller.onMouseUp(ev);},   false);
@@ -201,6 +201,7 @@
     }   
     
     var narrowLayout;
+
     var map;
     var mapPlane;
     var mapBuildings;
@@ -211,8 +212,21 @@
     var positionMarker;
     var fieldOfView = 45;
     
+    
+    function updatePositionMarker()
+    {
+        if (positionMarker)
+            map.removeLayer(positionMarker);
+        
+        positionMarker = L.marker( Controller.getEffectivePosition() );
+        positionMarker.addTo(map).bindPopup("You are here");
+    }
+    
     function onChangeLocation()
     {
+        Controller.localPosition.x = 0;
+        Controller.localPosition.y = 0;
+        
         map.panTo(Controller.position);
         if (map.getZoom() < 16)
             map.setZoom(16);
@@ -223,14 +237,9 @@
         mapBuildings = new Buildings(gl, Controller.position);
         mapBuildings.onLoaded = scheduleFrameRendering;
         
-        mapApartment = new Apartment(10/720.0, {lat:52.13875180, lng:11.63868375}, 21);
+        mapApartment = new Apartment(10/720.0, {lat:52.13376195, lng:11.63842729}, -74.5, 10);
         
-        if (positionMarker)
-            map.removeLayer(positionMarker);
-        
-        positionMarker = L.marker(Controller.position);
-        
-        positionMarker.addTo(map).bindPopup("You are here");
+        updatePositionMarker();
         //console.log("Setting map center to %o", position);
         Controller.updateHistoryState();
         renderFrustum();
@@ -283,8 +292,10 @@
     
     function executeFrameRendering()
     {
-        Controller.updateKeyInteraction();
+        if (Controller.keysStillPressed())
+            Controller.updateKeyInteraction();
 
+        updatePositionMarker();
         renderFrustum();
         renderScene();
         frameRenderingScheduled = false;
@@ -306,12 +317,14 @@
 	        mapFrustum = null;
         }
 	    
+	    var effectivePosition = Controller.getEffectivePosition();
+	    
 	    /* One degree latitude on earth always corresponds to the same distance in meters ( 1/360th of the earth circumference).
 	     * But the distance of one degree longitude changes depending of the current latitude.
 	     * This aspect is the ration between the two distances. It is needed to correctly
 	     * draw that viewing frustum, which needs to be specified in lat/lnt
 	    */
-	    var localAspect = Math.cos( Controller.position.lat / 180 * Math.PI);
+	    var localAspect = Math.cos( effectivePosition.lat / 180 * Math.PI);
 	    
         var yawRad = Controller.viewAngleYaw / 180 * Math.PI;
         /* compute only planar lookDir (ignoring pitch), as this is the relevant direction to render the frustum
@@ -330,9 +343,9 @@
 
         var len = Math.pow(0.5, map.getZoom())*2000;
         //console.log(map.getZoom(), len);
-	    var pA = { lat: Controller.position.lat + leftDir[1]*len*localAspect,  lng: Controller.position.lng + leftDir[0]*len };
-	    var pB = { lat: Controller.position.lat + rightDir[1]*len*localAspect, lng: Controller.position.lng + rightDir[0]*len};
-	    var line = [Controller.position, pA, pB, Controller.position ]
+	    var pA = { lat: effectivePosition.lat + leftDir[1]*len*localAspect,  lng: effectivePosition.lng + leftDir[0]*len };
+	    var pB = { lat: effectivePosition.lat + rightDir[1]*len*localAspect, lng: effectivePosition.lng + rightDir[0]*len};
+	    var line = [effectivePosition, pA, pB, effectivePosition ]
 	    mapFrustum = L.polygon(line, {color: 'red', noClip: 'true', fillColor:"white", fillOpacity:0.4}).addTo(map);
 	}
 	
@@ -352,15 +365,13 @@
 	        contentDiv.removeChild(webGlCanvas);
 			return;
 		}
-		//gl = WebGLDebugUtils.makeDebugContext(gl);
+		gl = WebGLDebugUtils.makeDebugContext(gl);
 		
 		gl.clearColor(0.5, 0.5, 0.5, 1.0);
 
 		gl.clearDepth(1.0);
 		gl.enable(gl.DEPTH_TEST);
 		gl.depthFunc(gl.LEQUAL);
-		
-
         gl.enable(gl.CULL_FACE);
 
         onResize();
@@ -442,14 +453,14 @@
         <p>Here are some location suggestions: 
             <select id="sampleLocations">
               <option value="dummy">-- select one --</option>
-              <option value='{"lat":51.4979,  "lng":-0.1203,   "yaw":303, "pitch":7 }'>London (House of Parliament)</option>
-              <option value='{"lat":40.7683,  "lng":-73.9794,  "yaw":261, "pitch":14}'>New York City (Central Park)</option>
-              <option value='{"lat":38.9001,  "lng":-77.0364,  "yaw":187, "pitch":0 }'>Washington DC(The White House)</option>
-              <option value='{"lat":36.1132,  "lng":-115.1727, "yaw":284, "pitch":12}'>Las Vegas (The Bellagio)</option>
-              <option value='{"lat":52.509344,"lng":13.375242, "yaw":299, "pitch":15}'>Berlin (Potsdamer Platz)</option>
-              <option value='{"lat":52.5184,  "lng":13.3725,   "yaw":104, "pitch":10}'>Berlin (Bundestag, Brandenburger Tor)</option>
-              <option value='{"lat":51.3429,  "lng":12.3820,   "yaw":343, "pitch":11}'>Leipzig (Main Station)</option>
-              <option value='{"lat":52.1394,  "lng":11.6396,   "yaw":203, "pitch":17}'>Magdeburg (Universitätsplatz)</option>
+              <option value='{"lat":51.4979,   "lng":-0.1203,   "yaw":303, "pitch":7 }'>London (House of Parliament)</option>
+              <option value='{"lat":40.7683,   "lng":-73.9794,  "yaw":261, "pitch":14}'>New York City (Central Park)</option>
+              <option value='{"lat":38.9001,   "lng":-77.0364,  "yaw":187, "pitch":0 }'>Washington DC(The White House)</option>
+              <option value='{"lat":36.1132,   "lng":-115.1727, "yaw":284, "pitch":12}'>Las Vegas (The Bellagio)</option>
+              <option value='{"lat":52.509344, "lng":13.375242, "yaw":299, "pitch":15}'>Berlin (Potsdamer Platz)</option>
+              <option value='{"lat":52.5184,   "lng":13.3725,   "yaw":104, "pitch":10}'>Berlin (Bundestag, Brandenburger Tor)</option>
+              <option value='{"lat":51.3429,   "lng":12.3820,   "yaw":343, "pitch":11}'>Leipzig (Main Station)</option>
+              <option value='{"lat":52.1394,   "lng":11.6396,   "yaw":203, "pitch":17}'>Magdeburg (Universitätsplatz)</option>
             </select> 
         </p>
         <p>Buildings missing or inaccurate? <a href="howToEdit.html" target="_blank">Add them yourself</a>!</p>

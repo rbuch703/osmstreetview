@@ -1,6 +1,6 @@
 "use strict"
 
-function Apartment(scaling, position, height) {
+function Apartment(scaling, position, yaw, height) {
 
     this.textures = [];
     
@@ -11,7 +11,7 @@ function Apartment(scaling, position, height) {
 
     this.layoutImage = new Image();
     var aptTmp = this;
-    this.layoutImage.onload = function() { var tmp = aptTmp.loadLayout(this, scaling, position, height); aptTmp.processLayout(tmp);}
+    this.layoutImage.onload = function() { var tmp = aptTmp.loadLayout(this, scaling, position, yaw, height); aptTmp.processLayout(tmp);}
     this.layoutImage.src = "out.png";
 
 }
@@ -50,6 +50,8 @@ Apartment.prototype.render = function(modelViewMatrix, projectionMatrix)
 			
 Apartment.prototype.handleLoadedTexture = function(image) {
     this.textures[ image.id] = glu.createNpotTexture( image );
+    if (Controller.onRequestFrameRender)
+        Controller.onRequestFrameRender();
 }
 
 /* scoping hack: needs to be a dedicated function, because it is
@@ -188,9 +190,17 @@ Apartment.prototype.addWall = function(startX, startY, dx, dy, scaling, /*ref*/s
                                    createVector3(0,0,HEIGHT)));
 }
 
+Apartment.rotate = function (vector, angle)
+{
+    angle = angle /180 * Math.PI;
 
+    var v0    = Math.cos( angle ) * vector[0] - Math.sin( angle ) * vector[1] ;
+    vector[1] = Math.sin( angle ) * vector[0] + Math.cos( angle ) * vector[1] ;
+    
+    vector[0] = v0;
+}
 
-Apartment.prototype.loadLayout = function(img, scaling, position, height)
+Apartment.prototype.loadLayout = function(img, scaling, position, yaw, height)
 {
     this.height = height;
     var canvas = document.createElement('CANVAS');
@@ -289,31 +299,33 @@ Apartment.prototype.loadLayout = function(img, scaling, position, height)
     var front = [];
     front.push( createRectangle( createVector3(-dx/2.0, -dy/2.0,this.height),          createVector3(0, dy, 0), createVector3( dx, 0, 0)));    // floor
     front.push( createRectangle( createVector3(-dx/2.0, -dy/2.0,this.height + HEIGHT), createVector3(dx, 0, 0), createVector3( 0, dy, 0)));    // ceiling
-    
+    segments = front.concat(segments);
     
     //step 4: rotate apartment;
-    //FIXME: add code
+    for (var i in segments)
+    {
+        Apartment.rotate( segments[i].pos, yaw);
+        Apartment.rotate( segments[i].width, yaw);
+        Apartment.rotate( segments[i].height, yaw);
+    }    
     
     //step 5: move to selected position
     var earthCircumference = 2 * Math.PI * (6378.1 * 1000);
     var metersPerDegreeLat = earthCircumference / 360;
     var metersPerDegreeLng = metersPerDegreeLat * Math.cos( Controller.position.lat / 180 * Math.PI);
-    
+
     var dx = (position.lng - Controller.position.lng) * metersPerDegreeLng;
     var dy = (position.lat - Controller.position.lat) * metersPerDegreeLat;
     
-    console.log("necessary shift: dx=%s, dy=%s", dx, dy);
-    
-    
-    /*
-    front.push( createRectangleWithColor( createVector3(aabb.min_x, aabb.min_y,this.height), 
-                                          createVector3(0, aabb.max_y-aabb.min_y, 0), 
-                                          createVector3( aabb.max_x-aabb.min_x, 0, 0), wallColor));    // floor
-    
-    front.push( createRectangleWithColor( createVector3(aabb.min_x, aabb.min_y,HEIGHT+this.height),
-                                          createVector3(aabb.max_x - aabb.min_x, 0, 0), 
-                                          createVector3(0, aabb.max_y - aabb.min_y, 0), wallColor));  // ceiling
-    */
-    return front.concat(segments);
+    //console.log("distance to apartment: dx=%sm, dy=%sm", dx, dy);
+    for (var i in segments)
+    {
+        //FIXME: why do those signs have to be different?
+        segments[i].pos[0] += dx;
+        segments[i].pos[1] -= dy;
+    }    
+
+    return segments;
 }
+
 
