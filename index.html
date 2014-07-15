@@ -154,13 +154,9 @@
         map.on("click", onMapClick);
         map.on("zoomend", renderFrustum);
 
-        /*L.tileLayer('http://ipsum4.rbuch703.de/osm/{z}/{x}/{y}.png', {
+        L.tileLayer('http://{s}.tile.rbuch703.de/osm/{z}/{x}/{y}.png', {
             attribution: 'OpenStreetMap',
-            maxZoom: 19, minZoom:1
-        }).addTo(map);*/
-        L.tileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: 'OpenStreetMap',
-            maxZoom: 19, minZoom:1
+            maxZoom: 20, minZoom:0
         }).addTo(map);
 
         L.control.scale({imperial:false, position:"topright"}).addTo(map);

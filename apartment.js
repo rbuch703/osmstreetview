@@ -49,7 +49,7 @@ Apartment.prototype.render = function(modelViewMatrix, projectionMatrix)
 			
 			
 Apartment.prototype.handleLoadedTexture = function(image) {
-    this.textures[ image.id] = glu.createNpotTexture( image );
+    this.textures[ image.id] = glu.createTexture( image );
     if (Controller.onRequestFrameRender)
         Controller.onRequestFrameRender();
 }
@@ -68,7 +68,7 @@ Apartment.prototype.requestTexture = function(j)
     image.onload = function() {
       this.apartment.handleLoadedTexture(image)
     }
-
+    //console.log("Requesting texture %s", j);
     image.src = "tiles/tile_"+j+".png";
 }
 			
