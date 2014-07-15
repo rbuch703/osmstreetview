@@ -11,8 +11,7 @@ function Buildings(gl, position)
     var earthCircumference = 2 * Math.PI * (6378.1 * 1000);
     var physicalTileLength = earthCircumference* Math.cos(position.lat/180*Math.PI) / Math.pow(2, /*zoom=*/19);
 
-    var numTilesPer500m = 500 / physicalTileLength;
-    //console.log("numTilesPer500m: %s", numTilesPer500m);
+    var numTilesPer500m = 500 / physicalTileLength * 2; //HACK: increase radius to 1km
 
     var x = long2tile(position.lng,19);
     var y = lat2tile( position.lat,19);
@@ -24,7 +23,6 @@ function Buildings(gl, position)
     var lat_min = tile2lat( y + numTilesPer500m, 19);
     var lat_max = tile2lat( y - numTilesPer500m, 19);
 
-    //console.log("lat: %s-%s; lon: %s-%s", lat_min, lat_max, lng_min, lng_max);
     //var query = '[out:json][timeout:25];way["building"]('+lat_min+","+lng_min+","+lat_max+","+lng_max+');out body;>;out skel qt;';
     var bbox = '('+lat_min+","+lng_min+","+lat_max+","+lng_max+')';
     
@@ -32,50 +30,29 @@ function Buildings(gl, position)
     var query = '[out:json][timeout:25];(way["building"]'+bbox+
                                        ';way["building:part"]'+bbox+
                                        ';relation["building"]'+bbox+');out body;>;out skel qt;';
-    //console.log("query: %s", query);
+
     var bldgs = this;
     var oReq = new XMLHttpRequest();
     oReq.onload = function() { bldgs.onDataLoaded(this); }
     oReq.open("get", Buildings.apiBaseUrl + "?data=" + encodeURIComponent(query), true);
     oReq.send();
     
-	//compile and link building shader program
-	var vertexShader   = glu.compileShader( document.getElementById("building-shader-vs").text, gl.VERTEX_SHADER);
-	var fragmentShader = glu.compileShader( document.getElementById("building-shader-fs").text, gl.FRAGMENT_SHADER);
-	this.shaderProgram  = glu.createProgram( vertexShader, fragmentShader);
-	gl.useProgram(this.shaderProgram);   //    Install the program as part of the current rendering state
-
-    //get location of variables in shader program (to later bind them to values);
-	this.shaderProgram.vertexPosAttribLocation =   gl.getAttribLocation( this.shaderProgram, "vertexPosition"); 
-	this.shaderProgram.texCoordAttribLocation =    gl.getAttribLocation( this.shaderProgram, "vertexTexCoords"); 
-	this.shaderProgram.normalAttribLocation   =    gl.getAttribLocation( this.shaderProgram, "vertexNormal"); 
-	
-	
-    this.shaderProgram.modelViewMatrixLocation =   gl.getUniformLocation(this.shaderProgram, "modelViewMatrix")
-	this.shaderProgram.perspectiveMatrixLocation = gl.getUniformLocation(this.shaderProgram, "perspectiveMatrix");
-    this.shaderProgram.modelViewProjectionMatrixLocation =   gl.getUniformLocation(this.shaderProgram, "modelViewProjectionMatrix")
-	//this.shaderProgram.hasHeightLocation =         gl.getUniformLocation(this.shaderProgram, "hasHeight");
-	//this.shaderProgram.heightLocation =            gl.getUniformLocation(this.shaderProgram, "height");
-	this.shaderProgram.texLocation =               gl.getUniformLocation(this.shaderProgram, "tex");
-
     
-    //compile and link edge shader program
-    
-	var vertexShader   = glu.compileShader( document.getElementById("edge-shader-vs").text, gl.VERTEX_SHADER);
-	var fragmentShader = glu.compileShader( document.getElementById("edge-shader-fs").text, gl.FRAGMENT_SHADER);
-	this.edgeShaderProgram  = glu.createProgram( vertexShader, fragmentShader);
-	gl.useProgram(this.edgeShaderProgram);   //    Install the program as part of the current rendering state
-
-    //get location of variables in shader program (to later bind them to values);
-	this.edgeShaderProgram.vertexPosAttribLocation =   gl.getAttribLocation( this.edgeShaderProgram, "vertexPosition"); 
-    this.edgeShaderProgram.modelViewProjectionMatrixLocation =   gl.getUniformLocation(this.edgeShaderProgram, "modelViewProjectionMatrix")
+    this.shaderProgram = glu.createShader(document.getElementById("building-shader-vs").text,
+                                          document.getElementById("building-shader-fs").text,
+                                          ["vertexPosition","vertexTexCoords", "vertexNormal"],
+                                          ["modelViewProjectionMatrix", "tex", "cameraPos"]);
+                                          
+    this.edgeShaderProgram = glu.createShader(document.getElementById("edge-shader-vs").text,
+                                              document.getElementById("edge-shader-fs").text,
+                                              ["vertexPosition"], ["modelViewProjectionMatrix"]);
 
     this.numVertices = 0;
     this.numEdgeVertices = 0;
 }    
 
 //Buildings.apiBaseUrl = "http://overpass-api.de/api/interpreter";
-Buildings.apiBaseUrl = "http://rbuch703.de/api/interpreter";
+Buildings.apiBaseUrl = "http://tile.rbuch703.de/api/interpreter";
 
 function vec(a) { return [a.dx, a.dy];}
 
@@ -134,6 +111,36 @@ function simplifyOutline(outline)
 
     outline.nodes = res;
 }
+
+
+/** standard polygon orientation test: 
+  * 1. find a extreme vertex, e.g. the leftmost one
+  * 2. determine the sign of opening angle between the adjacent edges (= the orientation)
+  **/
+function isClockwise(outline)
+{
+    var nodes = outline.nodes;
+    if (nodes.length < 3) return;
+
+    var minXIdx = 0;
+
+    for (var i = 0; i < nodes.length; i++)
+        if (nodes[i].dx < nodes[minXIdx].dx)
+            minXIdx = i;
+            
+    //note: first and last vertex of a polygon are identical
+    var predIdx = (minXIdx == 0) ? nodes.length - 2 : minXIdx - 1;
+    var succIdx = (minXIdx == nodes.length-1) ? 1 : minXIdx + 1;
+    
+    var A = nodes[predIdx];
+    var B = nodes[minXIdx];
+    var C = nodes[succIdx];
+    
+    var det = (B.dx * C.dy + A.dx * B.dy + A.dy * C.dx) - (A.dy * B.dx + B.dy * C.dx + A.dx * C.dy);
+    
+    return det > 0;
+}
+
 
 /* in the osm3s response, nodes are individual entities with lon/lat properties, and ways refer to these nodes
    via their id. This function removes that indirection by replacing the node ids in the way by the actual node
@@ -457,7 +464,13 @@ Buildings.prototype.onDataLoaded = function(response) {
 	var outlines = Buildings.parseOSMQueryResult(osmQueryResult);
     outlines = convertToLocalCoordinates(outlines, this.mapCenter);
     for (var i in outlines)
+    {
         simplifyOutline(outlines[i]);
+        if (isClockwise(outlines[i]))
+        {
+            outlines[i].nodes.reverse();
+        }
+    }
         
     this.buildGlGeometry(outlines);
     
@@ -564,7 +577,7 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
         var hf = bldg.height? 1 : 0;
 
         if (bldg.nodes[0].dx != bldg.nodes[bldg.nodes.length-1].dx || bldg.nodes[0].dy != bldg.nodes[bldg.nodes.length-1].dy)
-            console.log("[WARN] outline of building %s does not form a closed loop (%o)", i, this.buildings);
+            console.log("[WARN] outline of building %s does not form a closed loop (%o)", i, bldg);
         
         //step 1: build geometry for walls;
         for (var j = 0; j < bldg.nodes.length - 1; j++) //loop does not include the final vertex, as we in each case access the successor vertex as well
@@ -613,14 +626,6 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
             coords = [];
         }
         
-        for (var j = 0; j < coords.length; j+=2)
-        {
-            this.vertices.push(coords[j], coords[j+1], height);
-            this.texCoords.push(0.5, 0.5,hf);
-            this.normals.push( 0,0,1 ); //roof --> normal is pointing straight up
-            
-        }
-        
         if (bldg.min_height > 0)
         {
             for (var j = 0; j < coords.length; j+=2)
@@ -632,6 +637,23 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
 
         }
         
+        if (coords.length % 6 != 0) //three vertices --> six coordinates per triangle
+        {
+            console.log("triangulation result is not a list of triangles");
+            continue;
+        }
+        
+        //console.log(coords.length, coords.length % 6);
+        for (var j = 0; j < coords.length; j+=6)
+        {
+        
+            this.vertices.push(coords[j], coords[j+1], height);
+            this.vertices.push(coords[j+4], coords[j+5], height);   //order reversed to change orientation
+            this.vertices.push(coords[j+2], coords[j+3], height);
+
+            this.texCoords.push(0.5, 0.5,hf,  0.5, 0.5,hf,  0.5, 0.5,hf);
+            this.normals.push( 0,0,1,  0,0,1,  0,0,1 ); //roof --> normal is pointing straight up
+        }        
     }
     this.numVertices = this.vertices.length/3.0;    // 3 coordinates per vertex
     this.numEdgeVertices = this.edgeVertices.length/3.0;
@@ -652,28 +674,32 @@ Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
 
     //draw faces
 	gl.useProgram(this.shaderProgram);   //    Install the program as part of the current rendering state
-	gl.enableVertexAttribArray(this.shaderProgram.vertexPosAttribLocation); // setup vertex coordinate buffer
-	gl.enableVertexAttribArray(this.shaderProgram.texCoordAttribLocation); //setup texcoord buffer
-	gl.enableVertexAttribArray(this.shaderProgram.normalAttribLocation); //setup texcoord buffer
+	gl.enableVertexAttribArray(this.shaderProgram.locations.vertexPos); // setup vertex coordinate buffer
+	gl.enableVertexAttribArray(this.shaderProgram.locations.vertexTexCoords); //setup texcoord buffer
+	gl.enableVertexAttribArray(this.shaderProgram.locations.vertexNormal); //setup texcoord buffer
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vertices);   //select the vertex buffer as the currrently active ARRAY_BUFFER (for subsequent calls)
-	gl.vertexAttribPointer(this.shaderProgram.vertexPosAttribLocation, 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
+	gl.vertexAttribPointer(this.shaderProgram.locations.vertexPos, 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
     
 	gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoords);
-	gl.vertexAttribPointer(this.shaderProgram.texCoordAttribLocation, 3, gl.FLOAT, false, 0, 0);  //assigns array "texCoords" bound above as the vertex attribute "vertexTexCoords"
+	gl.vertexAttribPointer(this.shaderProgram.locations.vertexTexCoords, 3, gl.FLOAT, false, 0, 0);  //assigns array "texCoords" bound above as the vertex attribute "vertexTexCoords"
 
     // can apparently be -1 if the variable is not used inside the shader
-    if (this.shaderProgram.normalAttribLocation > -1)
+    if (this.shaderProgram.locations.vertexNormal > -1)
     {
 	    gl.bindBuffer(gl.ARRAY_BUFFER, this.normals);
-	    gl.vertexAttribPointer(this.shaderProgram.normalAttribLocation, 3, gl.FLOAT, false, 0, 0);  //assigns array "normals"
+	    gl.vertexAttribPointer(this.shaderProgram.locations.vertexNormal, 3, gl.FLOAT, false, 0, 0);  //assigns array "normals"
 	}
 
     var mvpMatrix = mat4.create();
     mat4.mul(mvpMatrix, projectionMatrix, modelViewMatrix);
 
-    gl.uniform1i(this.shaderProgram.texLocation, 0); //select texture unit 0 as the source for the shader variable "tex" 
-	gl.uniformMatrix4fv(this.shaderProgram.modelViewProjectionMatrixLocation, false, mvpMatrix);
+    gl.uniform1i(this.shaderProgram.locations.tex, 0); //select texture unit 0 as the source for the shader variable "tex" 
+	gl.uniformMatrix4fv(this.shaderProgram.locations.modelViewProjectionMatrix, false, mvpMatrix);
+
+    var pos = Controller.localPosition;
+    //console.log(pos.x, pos.y, pos.z);
+    gl.uniform3f(this.shaderProgram.locations.cameraPos, pos.x, pos.y, pos.z);
 
     gl.activeTexture(gl.TEXTURE0);  //successive commands (here 'gl.bindTexture()') apply to texture unit 0
     gl.bindTexture(gl.TEXTURE_2D, null); //render geometry without texture
@@ -689,14 +715,14 @@ Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
 
     //step 2: draw outline
     gl.useProgram(this.edgeShaderProgram);   //    Install the program as part of the current rendering state
-	gl.enableVertexAttribArray(this.edgeShaderProgram.vertexPosAttribLocation); // setup vertex coordinate buffer
+	gl.enableVertexAttribArray(this.edgeShaderProgram.locations.vertexPos); // setup vertex coordinate buffer
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.edgeVertices);   //select the vertex buffer as the currrently active ARRAY_BUFFER (for subsequent calls)
-	gl.vertexAttribPointer(this.edgeShaderProgram.vertexPosAttribLocation, 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
+	gl.vertexAttribPointer(this.edgeShaderProgram.locations.vertexPos, 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
 
     var mvpMatrix = mat4.create();
     mat4.mul(mvpMatrix, projectionMatrix, modelViewMatrix);
-	gl.uniformMatrix4fv(this.edgeShaderProgram.modelViewProjectionMatrixLocation, false, mvpMatrix);
+	gl.uniformMatrix4fv(this.edgeShaderProgram.locations.modelViewProjectionMatrix, false, mvpMatrix);
 
     gl.drawArrays(gl.LINES, 0, this.numEdgeVertices);
     

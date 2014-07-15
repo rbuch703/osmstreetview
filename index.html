@@ -35,13 +35,15 @@
     <script type="text/javascript" src="mapLayer.js"></script>
     <script type="text/javascript" src="buildings.js"></script>
     <script type="text/javascript" src="skydome.js"></script>
+    <script type="text/javascript" src="apartment.js"></script>
+    <script type="text/javascript" src="controller.js"></script>
     <script type="text/javascript" src="poly2tri.js"></script>
 
 	<script type="text/javascript" src="gl-matrix.js" ></script>
 	<script type="text/javascript" src="glu.js" ></script>
 	<script type="text/javascript" src="math.js" ></script>
 
-    <!-- <script src="webgl-debug.js"></script> -->
+    <script src="webgl-debug.js"></script>
     
 	<!--<script id="map-shader-fs" type="x-shader/x-fragment">
 		precision mediump float;
@@ -68,14 +70,16 @@
         varying vec3 worldPosition;
         
         uniform sampler2D tex;
+        uniform vec3 cameraPos;
         //uniform float height;
 		void main(void) {
 		    const float c = 0.02;
 
-            vec3 vView = normalize(- worldPosition); //direction vector from surface to camera (camera is always at (0,0,0) )
-            float diffuse = abs(0.5 * dot(vView, normal))+0.3;
-            
-            gl_FragColor = vec4( vec3(diffuse), 1.0);
+            vec3 vView = normalize( cameraPos - worldPosition); //direction vector from surface to camera (camera is always at (0,0,0) )
+            float diffuse = abs( 0.5 * dot(vView, normal) );
+
+            //gl_FragColor = vec4( (normal + 1.0)/2.0, 1.0);
+            gl_FragColor = diffuse > 0.0 ? vec4( vec3(diffuse+0.3), 1.0): vec4(-diffuse+0.3, 0.0, 0.0, 1.0);
             
             if (texCoordV.z == 0.0) //HACK: z==0 --> building height was just guessed --> tint it red
                 gl_FragColor = gl_FragColor * vec4(1.0, 0.9, 0.95, 1.0);
@@ -135,11 +139,18 @@
 	</script>	
     
     <script type="text/javascript">
-    "use strict"    
+    "use strict"
+    
+        
     function init()
     {
-        map = L.map('mapDiv').setView([52.15, 11.63], 14); //global 
+        var idx;
+        Controller.initFromQueryString( (idx = document.URL.indexOf("?")) >= 0 ? 
+            document.URL.substring(idx + 1):
+            "lat=52.5184&lng=13.3725&yaw=104&pitch=10"); //default to a view of the Berlin Bundestag
+        Controller.onRequestFrameRender = scheduleFrameRendering;
 
+        map = L.map('mapDiv').setView([52.15, 11.63], 14); //global 
         map.on("click", onMapClick);
         map.on("zoomend", renderFrustum);
 
@@ -158,56 +169,26 @@
         if (gl)
         {
 		    //register event handlers
-		    webGlCanvas.onclick = scheduleFrameRendering;
-		    webGlCanvas.onmousedown = onMouseDown;
-		    webGlCanvas.onmouseup   = onMouseUp;
-		    webGlCanvas.onmouseout  = onMouseUp;
-		    webGlCanvas.onmousemove = onMouseMove;
-            webGlCanvas.addEventListener("touchstart",  onTouchDown,false);
-            webGlCanvas.addEventListener("touchcancel", onTouchEnd, false);
-            webGlCanvas.addEventListener("touchend",    onTouchEnd, false);
-            webGlCanvas.addEventListener("touchleave",  onTouchEnd, false);
-            webGlCanvas.addEventListener("touchmove",   onTouchMove,false);
+		    webGlCanvas.addEventListener("mousedown",   function(ev) {Controller.onMouseDown(ev);}, false);
+		    webGlCanvas.addEventListener("mouseup",     function(ev) {Controller.onMouseUp(ev);},   false);
+		    webGlCanvas.addEventListener("mouseout",    function(ev) {Controller.onMouseUp(ev);},   false);
+		    webGlCanvas.addEventListener("mousemove",   function(ev) {Controller.onMouseMove(ev);}, false);
+            webGlCanvas.addEventListener("touchstart",  function(ev) {Controller.onTouchDown(ev);}, false);
+            webGlCanvas.addEventListener("touchcancel", function(ev) {Controller.onTouchEnd(ev);},  false);
+            webGlCanvas.addEventListener("touchend",    function(ev) {Controller.onTouchEnd(ev);},  false);
+            webGlCanvas.addEventListener("touchleave",  function(ev) {Controller.onTouchEnd(ev);},  false);
+            webGlCanvas.addEventListener("touchmove",   function(ev) {Controller.onTouchMove(ev);}, false);
+            
         }
+
+        document.addEventListener("keydown", function(ev) {Controller.onKeyDown(ev);},  false);
+        document.addEventListener("keyup",   function(ev) {Controller.onKeyUp(ev);},  false);
 
 		document.body.onresize = onResize;
 		sampleLocations.onchange = onSampleLocationSelected;
 
-        var url = document.URL;
-        if (url.indexOf("?") >= 0)
-        {
-            var query = url.substring(url.indexOf("?")+1);
-        }
-        else
-            //default to a view of the Berlin Bundestag
-            var query = "lat=52.5184&lng=13.3725&yaw=104&pitch=10";
-            
-        var parts = query.split("&");
-        var res = {};
-        for (var i in parts)
-        {
-            var part = parts[i];
-            var kv = part.split("=");
-            if (kv.length == 2)
-            {
-                res[kv[0]] = parseFloat(kv[1]);
-            }
-        }
-        
-        if (res.lat && res.lng)
-        {
-            var e = {};
-            e.latlng = {lat:res.lat, lng:res.lng};
-            
-            if ( ("yaw" in  res) && ("pitch" in res) ) //if look direction is also given
-            {
-                viewAngleYaw = res.yaw;
-                viewAnglePitch=res.pitch;
-            }
-            
-            //map.panTo(L.latLng(res.lat, res.lng));
-            onMapClick(e);
-        }
+        onChangeLocation();
+
 
         /* For the narrow layout, the 3D view should come directly after the map to reduce the need for scrolling and to
          * improve chances that map and 3D view will fit on the same page.
@@ -220,62 +201,47 @@
     }   
     
     var narrowLayout;
+
     var map;
     var mapPlane;
     var mapBuildings;
     var mapSkyDome;
+    var mapApartment;
     var mapFrustum;
     var gl;
-    var eye,position;
-    var viewAngleYaw = 0;
-    var viewAnglePitch = 0;
     var positionMarker;
     var fieldOfView = 45;
     
-    function updateHistoryState()
-    {
-        var url = document.URL;
-        if (url.indexOf("?") >= 0) // already contains a query string
-            url = url.substring(0, url.indexOf("?"));
-        
-        url += "?lat="+position.lat+"&lng="+position.lng+"&yaw="+viewAngleYaw.toFixed(1)+"&pitch="+viewAnglePitch.toFixed(1);
-        history.replaceState(null, document.title, url);
-    }
     
-    var updateTimeoutId;
-    // schedules a history state update so that the update is performed once
-    // no update request has been made for a second (1000ms). This keep the history state
-    // reasonably up-to-date while preventing excessive history state updates (which incur
-    // a performance penalty at least in Firefox).
-    function scheduleUpdateHistoryState()
+    function updatePositionMarker()
     {
-        if (updateTimeoutId)
-            window.clearTimeout(updateTimeoutId);
-        
-        updateTimeoutId = window.setTimeout(updateHistoryState, 1000);
-    }
-    
-    function onMapClick(e)
-    {
-        position = e.latlng;
-        map.panTo(e.latlng);
-        if (map.getZoom() < 16)
-            map.setZoom(16);
-        
-        mapPlane = new MapLayer(gl, position);
-        mapPlane.onProgress= scheduleFrameRendering;
-        
-        mapBuildings = new Buildings(gl, position);
-        mapBuildings.onLoaded = scheduleFrameRendering;
-        
         if (positionMarker)
             map.removeLayer(positionMarker);
         
-        positionMarker = L.marker([position.lat, position.lng])
-        
+        positionMarker = L.marker( Controller.getEffectivePosition() );
         positionMarker.addTo(map).bindPopup("You are here");
+    }
+    
+    function onChangeLocation()
+    {
+        Controller.localPosition.x = 0;
+        Controller.localPosition.y = 0;
+        
+        map.panTo(Controller.position);
+        if (map.getZoom() < 16)
+            map.setZoom(16);
+        
+        mapPlane = new MapLayer(gl, Controller.position);
+        mapPlane.onProgress= scheduleFrameRendering;
+        
+        mapBuildings = new Buildings(gl, Controller.position);
+        mapBuildings.onLoaded = scheduleFrameRendering;
+        
+        mapApartment = new Apartment(10/720.0, {lat:52.13376195, lng:11.63842729}, -74.5, 10);
+        
+        updatePositionMarker();
         //console.log("Setting map center to %o", position);
-        scheduleUpdateHistoryState();
+        Controller.updateHistoryState();
         renderFrustum();
         /* make sure the 3D view is visible when a user clicked on the map (as this is usually what the user wants
          * when he clicks on a map location. For the wide layout, the 3D view should align with the top of the screen ("true")
@@ -283,6 +249,12 @@
          * align with the bottom of the page to allow the map to be shown above. */
         
         webGlCanvas.scrollIntoView( narrowLayout ? !narrowLayout.matches : true);
+    }
+    
+    function onMapClick(e)
+    {
+        Controller.position = e.latlng;
+        onChangeLocation();
     }   
     
     function onSampleLocationSelected(e)
@@ -292,119 +264,19 @@
             var pos = JSON.parse(sampleLocations.value);
 
             if ("yaw" in pos)
-                viewAngleYaw = pos.yaw;
+                Controller.viewAngleYaw = pos.yaw;
             if ("pitch" in pos)
-                viewAnglePitch = pos.pitch;
-                
+                Controller.viewAnglePitch = pos.pitch;
+    
             if ("lat" in pos && "lng" in pos)
-                onMapClick( {"latlng":pos});
+            {
+                Controller.position = pos;
+                onChangeLocation();
+            }
             //window.location.href = sampleLocations.value;
         }
     }
 
-	var x,y;
-	//id of the touch event that currently tracked as 'down'; "mouse" if the mouse is tracked, null if none
-    var down = null;	
-    		
-	function onMouseDown(e)
-	{
-	    if (e.button != 0) 
-	        return;
-
-	    x = e.clientX;
-	    y = e.clientY;
-	    down = "mouse";
-	}
-	
-	function onMouseUp(e)
-	{
-	    if (e.button != 0) 
-	        return;
-	    down = null;
-	}
-	
-	function updateViewDirection(dx, dy)
-	{
-        viewAngleYaw += dx/5 ;
-        viewAnglePitch += dy/ 5;
-        if (viewAnglePitch > 180)
-            viewAnglePitch -= 180;
-        
-        if (viewAnglePitch < -60)
-            viewAnglePitch = -60;
-            
-        if (viewAnglePitch > 60)
-            viewAnglePitch = 60;
-
-        scheduleUpdateHistoryState();
-        scheduleFrameRendering();
-	}
-	
-    function onMouseMove(e)
-	{
-        if (down != "mouse" ) return;
-        var dx = e.clientX - x;
-        var dy = e.clientY - y;
-
-        //if (Math.abs(dx) + Math.abs(dy) < 5)
-        //    return;
-        x = e.clientX;
-        y = e.clientY;
-
-        updateViewDirection(dx, dy);
-	}	
-
-    function getTouchData(touches, identifier)
-    {
-        for (var i in touches)
-        {
-            if (touches[i].identifier == identifier)
-            {
-                return touches[i];
-            }
-        }
-        return null;
-    }
-    
-    function onTouchDown(ev)
-    {
-        ev.preventDefault();
-        var touch = ev.changedTouches[0];
-        down = touch.identifier;
-        x = touch.clientX;
-        y = touch.clientY;
-    }
-    
-    function onTouchEnd(ev)
-    {
-    
-        ev.preventDefault();
-        if (getTouchData(ev.changedTouches, down))
-        {
-            down = null;
-        }
-    }
-
-    function onTouchMove(ev)
-    {
-    
-        ev.preventDefault();
-        var touch = getTouchData(ev.changedTouches, down);
-        if (touch)
-        {
-            var dx = touch.clientX - x;
-            var dy = touch.clientY - y;
-
-            if (Math.abs(dx) < 5 && Math.abs(dy) < 5)
-                return;
-            x = touch.clientX;
-            y = touch.clientY;
-            updateViewDirection(dx, dy);
-            
-        }
-    }
-    
-    
     var frameRenderingScheduled = false;
     function scheduleFrameRendering()
     {
@@ -418,11 +290,20 @@
             executeFrameRendering();
     }
     
-    function executeFrameRendering(dummy)
+    function executeFrameRendering()
     {
+        if (Controller.keysStillPressed())
+            Controller.updateKeyInteraction();
+
+        updatePositionMarker();
         renderFrustum();
         renderScene();
         frameRenderingScheduled = false;
+        
+        // If at least one key is still pressed, schedule rendering of the next frame right away:
+        // A pressed key will potentially change the scene and require a re-rendering
+        if (Controller.keysStillPressed())   
+            scheduleFrameRendering();
     }
 
 	
@@ -436,14 +317,16 @@
 	        mapFrustum = null;
         }
 	    
+	    var effectivePosition = Controller.getEffectivePosition();
+	    
 	    /* One degree latitude on earth always corresponds to the same distance in meters ( 1/360th of the earth circumference).
 	     * But the distance of one degree longitude changes depending of the current latitude.
 	     * This aspect is the ration between the two distances. It is needed to correctly
 	     * draw that viewing frustum, which needs to be specified in lat/lnt
 	    */
-	    var localAspect = Math.cos( position.lat / 180 * Math.PI);
+	    var localAspect = Math.cos( effectivePosition.lat / 180 * Math.PI);
 	    
-        var yawRad = viewAngleYaw / 180 * Math.PI;
+        var yawRad = Controller.viewAngleYaw / 180 * Math.PI;
         /* compute only planar lookDir (ignoring pitch), as this is the relevant direction to render the frustum
            on a 2D map
          */
@@ -460,9 +343,9 @@
 
         var len = Math.pow(0.5, map.getZoom())*2000;
         //console.log(map.getZoom(), len);
-	    var pA = { lat: position.lat + leftDir[1]*len*localAspect,  lng: position.lng + leftDir[0]*len };
-	    var pB = { lat: position.lat + rightDir[1]*len*localAspect, lng: position.lng + rightDir[0]*len};
-	    var line = [position, pA, pB, position ]
+	    var pA = { lat: effectivePosition.lat + leftDir[1]*len*localAspect,  lng: effectivePosition.lng + leftDir[0]*len };
+	    var pB = { lat: effectivePosition.lat + rightDir[1]*len*localAspect, lng: effectivePosition.lng + rightDir[0]*len};
+	    var line = [effectivePosition, pA, pB, effectivePosition ]
 	    mapFrustum = L.polygon(line, {color: 'red', noClip: 'true', fillColor:"white", fillOpacity:0.4}).addTo(map);
 	}
 	
@@ -482,22 +365,17 @@
 	        contentDiv.removeChild(webGlCanvas);
 			return;
 		}
-		//gl = WebGLDebugUtils.makeDebugContext(gl);
+		gl = WebGLDebugUtils.makeDebugContext(gl);
 		
 		gl.clearColor(0.5, 0.5, 0.5, 1.0);
 
 		gl.clearDepth(1.0);
 		gl.enable(gl.DEPTH_TEST);
 		gl.depthFunc(gl.LEQUAL);
-		
-		gl.enable(gl.BLEND);
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.enable(gl.CULL_FACE);
 
         onResize();
 	
-        //view setup 
-        eye = [0,0,1.6];
-
         mapSkyDome = new SkyDome(gl);
         mapSkyDome.onLoaded = scheduleFrameRendering;
 
@@ -518,37 +396,21 @@
 	
 	function renderScene()
 	{
-	    if (!gl || !eye ) //not yet initialized
+	    if (!gl || !Controller.localPosition ) //not yet initialized
 	        return;
 	        
-	        
-        var yawRad = viewAngleYaw / 180 * Math.PI;
-        var pitchRad=viewAnglePitch / 180 * Math.PI;
-        var lookDir = [Math.sin( yawRad) * Math.cos(pitchRad), Math.cos(yawRad) * Math.cos( pitchRad ),  Math.sin( pitchRad)];
-	    //console.log("?lat="+position.lat+"&lng="+position.lng+"&lookx="+lookDir[0]+"&looky="+lookDir[1]);
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-        //determine look-at point
-	    var lookAt = vec3.create();
-        vec3.add(lookAt, eye, lookDir);
-	
-		var modelViewMatrix = mat4.create();
-		mat4.lookAt(modelViewMatrix, eye,  lookAt,[0, 0, 1]);
-		mat4.scale(modelViewMatrix, modelViewMatrix, [1,-1,1]);//negate y coordinate to make positive y go downward
-
+	        
+        var modelViewMatrix = glu.lookAt(Controller.viewAngleYaw, Controller.viewAnglePitch, Controller.localPosition);
 	    var projectionMatrix = mat4.create();
-	    mat4.perspective(projectionMatrix, fieldOfView/180*Math.PI, webGlCanvas.width / webGlCanvas.height, 1.0, 10000.0);
+	    mat4.perspective(projectionMatrix, fieldOfView/180*Math.PI, webGlCanvas.width / webGlCanvas.height, 0.1, 10000.0);
 
-        
-        if (mapPlane)
-            mapPlane.render(modelViewMatrix, projectionMatrix);
-        
-        if (mapBuildings)
-            mapBuildings.render(modelViewMatrix, projectionMatrix);
-        
-        if (mapSkyDome)
-            mapSkyDome.render(modelViewMatrix, projectionMatrix);
-            
+
+        var renderItems = [mapPlane, mapBuildings, mapSkyDome, mapApartment];
+        for (var i in renderItems)
+            if (renderItems[i])
+                renderItems[i].render(modelViewMatrix, projectionMatrix);
+
 		gl.flush();
 	}
 	
@@ -591,14 +453,14 @@
         <p>Here are some location suggestions: 
             <select id="sampleLocations">
               <option value="dummy">-- select one --</option>
-              <option value='{"lat":51.4979,  "lng":-0.1203,   "yaw":303, "pitch":7 }'>London (House of Parliament)</option>
-              <option value='{"lat":40.7683,  "lng":-73.9794,  "yaw":261, "pitch":14}'>New York City (Central Park)</option>
-              <option value='{"lat":38.9001,  "lng":-77.0364,  "yaw":187, "pitch":0 }'>Washington DC(The White House)</option>
-              <option value='{"lat":36.1132,  "lng":-115.1727, "yaw":284, "pitch":12}'>Las Vegas (The Bellagio)</option>
-              <option value='{"lat":52.509344,"lng":13.375242, "yaw":299, "pitch":15}'>Berlin (Potsdamer Platz)</option>
-              <option value='{"lat":52.5184,  "lng":13.3725,   "yaw":104, "pitch":10}'>Berlin (Bundestag, Brandenburger Tor)</option>
-              <option value='{"lat":51.3429,  "lng":12.3820,   "yaw":343, "pitch":11}'>Leipzig (Main Station)</option>
-              <option value='{"lat":52.1394,  "lng":11.6396,   "yaw":203, "pitch":17}'>Magdeburg (Universitätsplatz)</option>
+              <option value='{"lat":51.4979,   "lng":-0.1203,   "yaw":303, "pitch":7 }'>London (House of Parliament)</option>
+              <option value='{"lat":40.7683,   "lng":-73.9794,  "yaw":261, "pitch":14}'>New York City (Central Park)</option>
+              <option value='{"lat":38.9001,   "lng":-77.0364,  "yaw":187, "pitch":0 }'>Washington DC(The White House)</option>
+              <option value='{"lat":36.1132,   "lng":-115.1727, "yaw":284, "pitch":12}'>Las Vegas (The Bellagio)</option>
+              <option value='{"lat":52.509344, "lng":13.375242, "yaw":299, "pitch":15}'>Berlin (Potsdamer Platz)</option>
+              <option value='{"lat":52.5184,   "lng":13.3725,   "yaw":104, "pitch":10}'>Berlin (Bundestag, Brandenburger Tor)</option>
+              <option value='{"lat":51.3429,   "lng":12.3820,   "yaw":343, "pitch":11}'>Leipzig (Main Station)</option>
+              <option value='{"lat":52.1394,   "lng":11.6396,   "yaw":203, "pitch":17}'>Magdeburg (Universitätsplatz)</option>
             </select> 
         </p>
         <p>Buildings missing or inaccurate? <a href="howToEdit.html" target="_blank">Add them yourself</a>!</p>
