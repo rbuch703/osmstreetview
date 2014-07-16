@@ -218,8 +218,26 @@ Apartment.prototype.loadLayout = function(img, scaling, position, yaw, height)
 	/* manual conversion from PixelArray to Uint32Array, as pixel data in IE11 and below 
 	 * is not based on a typed array and thus cannot be converted to uint32 automatically 
 	 * (this would work fine on Firefox and Chrome) */
+	/* Also, on Android systems (tested on Nexus 7 2012), the image data is slightly noisy
+	 * (a value of actually 0 may become e.g. 1, 2, 7 or even 16), and so the geometry 
+	 * generation from the layout fails. Luckily, we know that our source image only contains 
+	 * the values 0, 128 and 255, and can correct this discrepancy by replacing each (noisy) 
+	 * value with the closest value from {0, 128, 255}.
+	*/
+	
 	for (var i = 0; i < imgData.data.length; i+= 4) {
-		pixels[i/4] = (imgData.data[i+3] << 24) | (imgData.data[i+2] << 16) | (imgData.data[i+1] << 8) | imgData.data[i];
+	    var pixelBytes = [ imgData.data[i+3], imgData.data[i+2], imgData.data[i+1], imgData.data[i]]
+	    
+        for (var j in pixelBytes)
+        {
+            if (pixelBytes[j] < 64)
+                pixelBytes[j] = 0;
+            else if (pixelBytes[j] > 192)
+                pixelBytes[j] = 255;
+            else
+                pixelBytes[j] = 128;
+        }
+		pixels[i/4] = ( pixelBytes[0] << 24) | (pixelBytes[1] << 16) | (pixelBytes[2] << 8) | pixelBytes[3];
 	}
 	
 
