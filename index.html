@@ -227,7 +227,7 @@
         if (map.getZoom() < 16)
             map.setZoom(16);
 
-        mapApartment = new Apartment(7029, 10/720.0, {lat:52.13376195, lng:11.63842729}, -74.5, 10);
+        mapApartment = new Apartment(7029, {lat:52.13376195, lng:11.63842729}, -74.5, 10);
         
         mapPlane = new MapLayer(gl, Controller.position);
         mapPlane.onProgress= scheduleFrameRendering;

@@ -1,6 +1,6 @@
 "use strict"
 
-function Apartment(id, scaling, position, yaw, height) {
+function Apartment(id, position, yaw, height) {
 
     this.textures = [];
     
@@ -11,11 +11,11 @@ function Apartment(id, scaling, position, yaw, height) {
 
     this.layoutId = id;
     this.layoutRequest = new XMLHttpRequest();
-    this.layoutRequest.open("GET", "http://localhost:1080/rest/get/layoutJson/" + id);
+    this.layoutRequest.open("GET", "http://localhost:1080/rest/get/layoutMetadata/" + id);
     this.layoutRequest.responseType = "json";
     //this.layoutRequest.apartment = this;
     var aptTmp = this;
-    this.layoutRequest.onreadystatechange = function() { var tmp = aptTmp.loadLayout(this, scaling, position, yaw, height); aptTmp.processLayout(tmp);}
+    this.layoutRequest.onreadystatechange = function() { var tmp = aptTmp.loadLayout(this, position, yaw, height); aptTmp.processLayout(tmp);}
     this.layoutRequest.send();
 }
 
@@ -164,36 +164,6 @@ var TOP_WALL_HEIGHT = HEIGHT - WINDOW_HIGH;
 function createVector3(x, y, z) { return [x, y, z];}
 function createRectangle( pos, width, height) { return {"pos": pos, "width": width, "height": height}; }
 
-Apartment.prototype.addWindowedWall = function(startX, startY, dx, dy, scaling, /*ref*/segments)
-{
-    startX *= scaling;
-    startY *= scaling;
-    dx *= scaling;
-    dy *= scaling;
-    
-    segments.push(createRectangle( createVector3(startX,startY,0+this.height),     //wall below window
-                                   createVector3(dx, dy, 0), 
-                                   createVector3(0, 0, WINDOW_LOW) ));
-    //the window itself. Hack: Window height set to zero to make it invisible while still being present (to not confuse the order of tile textures)
-    segments.push(createRectangle( createVector3(startX,startY,WINDOW_LOW+this.height), 
-                                   createVector3(dx, dy, 0), 
-                                   createVector3(0, 0, 0/*WINDOW_HEIGHT*/))); 
-    segments.push(createRectangle( createVector3(startX,startY,WINDOW_HIGH+this.height),   //wall above window 
-                                   createVector3(dx, dy, 0), 
-                                   createVector3(0, 0, TOP_WALL_HEIGHT)));
-}
-
-Apartment.prototype.addWall = function(startX, startY, dx, dy, scaling, /*ref*/segments)
-{
-    startX *= scaling;
-    startY *= scaling;
-    dx *= scaling;
-    dy *= scaling;
-
-    segments.push(createRectangle( createVector3(startX,startY,0+this.height),
-                                   createVector3(dx,dy,0),
-                                   createVector3(0,0,HEIGHT)));
-}
 
 Apartment.rotate = function (vector, angle)
 {
@@ -205,7 +175,7 @@ Apartment.rotate = function (vector, angle)
     vector[0] = v0;
 }
 
-Apartment.prototype.loadLayout = function(request, scaling, position, yaw, height)
+Apartment.prototype.loadLayout = function(request, position, yaw, height)
 {
         
     if (request.readyState != 4)
@@ -214,7 +184,10 @@ Apartment.prototype.loadLayout = function(request, scaling, position, yaw, heigh
     //console.log("request: %o", request);
 
     var segments = [];
-    var rectangles = request.response;
+    var rectangles = request.response.geometry;
+    // json geometry already has the correct x/y scale, 
+    // but is stored in [cm] while we need it in [m];
+    var scaling = 1/100.0;  
     for (var i in rectangles)
     {
         //console.log(rectangles[i]);
@@ -237,18 +210,7 @@ Apartment.prototype.loadLayout = function(request, scaling, position, yaw, heigh
 
     }
     
-    /*
-function createRectangle( pos, width, height) { return {"pos": pos, "width": width, "height": height}; }
-
-
-            if      (pxLeft == BLACK && pxHere == WHITE) this.addWall(x, endY,   0, startY - endY, scaling, segments); //transition from wall to inside area
-            else if (pxLeft == WHITE && pxHere == BLACK) this.addWall(x, startY, 0, endY - startY, scaling, segments);// transition from inside area to wall
-            else if (pxLeft == GREEN && pxHere == WHITE) this.addWindowedWall(x, endY,   0, startY - endY, scaling, segments);//transition from window to inside area
-            else if (pxLeft == WHITE && pxHere == GREEN) this.addWindowedWall(x, startY, 0, endY - startY, scaling, segments);
-        }
-    } */   
-    
-    //step 3: shift apartment to relocate its center to (0,0) to give its 'position' a canonical meaning
+    //step 2: shift apartment to relocate its center to (0,0) to give its 'position' a canonical meaning
     var aabb = getAABB( segments);
     var dx = aabb.max_x - aabb.min_x;
     var dy = aabb.max_y - aabb.min_y;
@@ -262,7 +224,7 @@ function createRectangle( pos, width, height) { return {"pos": pos, "width": wid
     }    
     
    
-    //step 4: rotate apartment;
+    //step 3: rotate apartment;
     for (var i in segments)
     {
         Apartment.rotate( segments[i].pos, yaw);
@@ -270,7 +232,7 @@ function createRectangle( pos, width, height) { return {"pos": pos, "width": wid
         Apartment.rotate( segments[i].height, yaw);
     }    
     
-    //step 5: move to selected position
+    //step 4: move to selected position
     var earthCircumference = 2 * Math.PI * (6378.1 * 1000);
     var metersPerDegreeLat = earthCircumference / 360;
     var metersPerDegreeLng = metersPerDegreeLat * Math.cos( Controller.position.lat / 180 * Math.PI);
