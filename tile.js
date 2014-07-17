@@ -16,7 +16,12 @@ function Tile( tileX, tileY, level, shaderProgram, mapLayer)
     im.tile = this;
     im.crossOrigin = "anonymous";   
     im.onload = this.onImageLoaded;
-    im.src = Tile.basePath + level + "/" + this.x + "/" + this.y + "." + Tile.fileExtension;
+    
+    var servers = ["a", "b", "c"];
+    
+    var idx = Math.floor(Math.random()*3);
+    
+    im.src = Tile.basePath.replace("{s}", servers[idx]) + level + "/" + this.x + "/" + this.y + "." + Tile.fileExtension;
     this.image = im;    
     
     
@@ -90,7 +95,7 @@ Tile.prototype.onImageLoaded = function(e)
 
 
 //Tile.basePath = "http://tile.openstreetmap.org/";   // attached to the constructor to be shared globally
-Tile.basePath = "http://tile.rbuch703.de/osm/";
+Tile.basePath = "http://{s}.tile.rbuch703.de/osm/";
 Tile.fileExtension = "png";
 
 //Tile.basePath = "http://otile1.mqcdn.com/tiles/1.0.0/sat/";   // attached to the constructor to be shared globally

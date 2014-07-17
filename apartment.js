@@ -52,7 +52,7 @@ Apartment.prototype.render = function(modelViewMatrix, projectionMatrix)
 			
 			
 Apartment.prototype.handleLoadedTexture = function(image) {
-    this.textures[ image.id] = glu.createNpotTexture( image );
+    this.textures[ image.id] = glu.createTexture( image );
     if (Controller.onRequestFrameRender)
         Controller.onRequestFrameRender();
 }
@@ -143,6 +143,7 @@ function getAABB( segments)
     
     return {"min_x":min_x, "max_x":max_x, "min_y":min_y, "max_y":max_y};
 }
+
 
 var BLACK = 0xFF000000;
 var WHITE = 0xFFFFFFFF;
@@ -277,7 +278,7 @@ function createRectangle( pos, width, height) { return {"pos": pos, "width": wid
     var dx = (position.lng - Controller.position.lng) * metersPerDegreeLng;
     var dy = (position.lat - Controller.position.lat) * metersPerDegreeLat;
     
-    console.log("distance to apartment: dx=%sm, dy=%sm", dx, dy);
+    //console.log("distance to apartment: dx=%sm, dy=%sm", dx, dy);
     for (var i in segments)
     {
         //FIXME: why do those signs have to be different?
