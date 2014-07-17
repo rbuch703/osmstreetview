@@ -230,14 +230,16 @@
         map.panTo(Controller.position);
         if (map.getZoom() < 16)
             map.setZoom(16);
+
+        mapApartment = new Apartment(7029, 10/720.0, {lat:52.13376195, lng:11.63842729}, -74.5, 10);
         
         mapPlane = new MapLayer(gl, Controller.position);
         mapPlane.onProgress= scheduleFrameRendering;
+
         
         mapBuildings = new Buildings(gl, Controller.position);
         mapBuildings.onLoaded = scheduleFrameRendering;
         
-        mapApartment = new Apartment(10/720.0, {lat:52.13376195, lng:11.63842729}, -74.5, 10);
         
         updatePositionMarker();
         //console.log("Setting map center to %o", position);

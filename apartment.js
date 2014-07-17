@@ -1,6 +1,6 @@
 "use strict"
 
-function Apartment(scaling, position, yaw, height) {
+function Apartment(id, scaling, position, yaw, height) {
 
     this.textures = [];
     
@@ -9,11 +9,14 @@ function Apartment(scaling, position, yaw, height) {
                                             ["vertexPosition", "vertexTexCoords"],
                                             ["modelViewProjectionMatrix", "tex"]);
 
-    this.layoutImage = new Image();
+    this.layoutId = id;
+    this.layoutRequest = new XMLHttpRequest();
+    this.layoutRequest.open("GET", "http://localhost:1080/rest/get/layoutJson/" + id);
+    this.layoutRequest.responseType = "json";
+    //this.layoutRequest.apartment = this;
     var aptTmp = this;
-    this.layoutImage.onload = function() { var tmp = aptTmp.loadLayout(this, scaling, position, yaw, height); aptTmp.processLayout(tmp);}
-    this.layoutImage.src = "out.png";
-
+    this.layoutRequest.onreadystatechange = function() { var tmp = aptTmp.loadLayout(this, scaling, position, yaw, height); aptTmp.processLayout(tmp);}
+    this.layoutRequest.send();
 }
 
 Apartment.prototype.render = function(modelViewMatrix, projectionMatrix)
@@ -59,17 +62,19 @@ Apartment.prototype.handleLoadedTexture = function(image) {
  *               the 'texture' and "j" variable would be shared between all 
  *               loop iterations, leading to the same texture being loaded 
  *               over and over again */
-Apartment.prototype.requestTexture = function(j)
+Apartment.prototype.requestTexture = function(layoutId, textureId)
 {
     var image = new Image();
-    image.id = j;
+    image.id = textureId;
     image.apartment = this;
 
     image.onload = function() {
       this.apartment.handleLoadedTexture(image)
     }
 
-    image.src = "tiles/tile_"+j+".png";
+    /*image.src = "tiles/tile_"+j+".png"; */
+    image.crossOrigin = "anonymous";
+    image.src = "http://localhost:1080/rest/get/texture/"+layoutId+"/"+textureId;
 }
 			
 /**
@@ -106,7 +111,7 @@ Apartment.prototype.processLayout = function(segments)
     this.texCoords= glu.createArrayBuffer(this.texCoords);
     
     for (var i = 0; i < this.numVertices/6; i++) {
-        this.requestTexture(i);
+        this.requestTexture(this.layoutId, i);
     }
 	
     //renderScene();
@@ -138,7 +143,6 @@ function getAABB( segments)
     
     return {"min_x":min_x, "max_x":max_x, "min_y":min_y, "max_y":max_y};
 }
-
 
 var BLACK = 0xFF000000;
 var WHITE = 0xFFFFFFFF;
@@ -200,87 +204,48 @@ Apartment.rotate = function (vector, angle)
     vector[0] = v0;
 }
 
-Apartment.prototype.loadLayout = function(img, scaling, position, yaw, height)
+Apartment.prototype.loadLayout = function(request, scaling, position, yaw, height)
 {
-    this.height = height;
-    var canvas = document.createElement('CANVAS');
-    canvas.width=  img.width;
-    canvas.height= img.height;
-    var width = img.width;
-    var height= img.height;
-    var ctx = canvas.getContext("2d");
-    ctx.drawImage(img,0, 0);
+        
+    if (request.readyState != 4)
+        return;
+
+    //console.log("request: %o", request);
+
     var segments = [];
-    var imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    var pixels = new Uint32Array(imgData.data.length/4);  // interpret image data (originally given as an uint8 array with one value per *channel*) as a UInt32 array with one value per *pixel*
-
-
-	/* manual conversion from PixelArray to Uint32Array, as pixel data in IE11 and below 
-	 * is not based on a typed array and thus cannot be converted to uint32 automatically 
-	 * (this would work fine on Firefox and Chrome) */
-	for (var i = 0; i < imgData.data.length; i+= 4) {
-		pixels[i/4] = (imgData.data[i+3] << 24) | (imgData.data[i+2] << 16) | (imgData.data[i+1] << 8) | imgData.data[i];
-	}
-	
-
-    for (var y = 1; y < height; y++)
+    var rectangles = request.response;
+    for (var i in rectangles)
     {
-        for (var x = 1; x < width;) {
-            var pxAbove = pixels[(y-1) * width + (x)];
-            var pxHere =  pixels[(y  ) * width + (x)];
-            if (pxAbove == pxHere)
-            {
-                x++;
-                continue;
-            }
-                
-            var startX = x;
-            
-            while ( x < width && 
-                   pxAbove == pixels[(y-1) * width + (x)] && 
-                   pxHere == pixels[(y) * width + (x)])
-                x++;
-                
-            /*assert(pxAbove != pxHere);
-            if (pxAbove != WHITE && pxHere != WHITE)
-                continue;*/
+        //console.log(rectangles[i]);
+        rectangles[i].pos[0] *= scaling;
+        rectangles[i].pos[1] *= scaling;
+        rectangles[i].pos[2] *= scaling;
+        
+        rectangles[i].width[0] *= scaling;
+        rectangles[i].width[1] *= scaling;
+        rectangles[i].width[2] *= scaling;
 
-            var endX = x;
-            
-            if      (pxAbove == BLACK && pxHere == WHITE) this.addWall(startX, y, endX - startX, 0, scaling, segments); //transition from wall to inside area
-            else if (pxAbove == WHITE && pxHere == BLACK) this.addWall(endX,   y, startX - endX, 0, scaling, segments);// transition from inside area to wall
-            else if (pxAbove == GREEN && pxHere == WHITE) this.addWindowedWall(startX, y, endX - startX, 0, scaling, segments); //transition from window to inside area
-            else if (pxAbove == WHITE && pxHere == GREEN) this.addWindowedWall(endX,   y, startX - endX, 0, scaling, segments);
-        }
+        rectangles[i].height[0] *= scaling;
+        rectangles[i].height[1] *= scaling;
+        rectangles[i].height[2] *= scaling;
+
+        rectangles[i].pos[2] += height;
+        
+        segments.push(rectangles[i]);
+
+
     }
-    //cout << "  == End of horizontal scan, beginning vertical scan ==" << endl;
+    
+    /*
+function createRectangle( pos, width, height) { return {"pos": pos, "width": width, "height": height}; }
 
-    for (var x = 1; x < width; x++)
-    {
-        for (var y = 1; y < height; ) {
-            var pxLeft = pixels[y * width + (x - 1) ];
-            var pxHere = pixels[y * width + (x    ) ];
-            if (pxLeft == pxHere)
-            {
-                y++;
-                continue;
-            }
-                
-            var startY = y;
-            
-            while (y < height && 
-                   pxLeft == pixels[y * width + (x-1)] && 
-                   pxHere == pixels[y * width + x])
-                y++;
-                
-            var endY = y;
-            
+
             if      (pxLeft == BLACK && pxHere == WHITE) this.addWall(x, endY,   0, startY - endY, scaling, segments); //transition from wall to inside area
             else if (pxLeft == WHITE && pxHere == BLACK) this.addWall(x, startY, 0, endY - startY, scaling, segments);// transition from inside area to wall
             else if (pxLeft == GREEN && pxHere == WHITE) this.addWindowedWall(x, endY,   0, startY - endY, scaling, segments);//transition from window to inside area
             else if (pxLeft == WHITE && pxHere == GREEN) this.addWindowedWall(x, startY, 0, endY - startY, scaling, segments);
         }
-    }    
+    } */   
     
     //step 3: shift apartment to relocate its center to (0,0) to give its 'position' a canonical meaning
     var aabb = getAABB( segments);
@@ -295,12 +260,7 @@ Apartment.prototype.loadLayout = function(img, scaling, position, yaw, height)
         segments[i].pos[1] -= mid_y;
     }    
     
-    
-    var front = [];
-    front.push( createRectangle( createVector3(-dx/2.0, -dy/2.0,this.height),          createVector3(0, dy, 0), createVector3( dx, 0, 0)));    // floor
-    front.push( createRectangle( createVector3(-dx/2.0, -dy/2.0,this.height + HEIGHT), createVector3(dx, 0, 0), createVector3( 0, dy, 0)));    // ceiling
-    segments = front.concat(segments);
-    
+   
     //step 4: rotate apartment;
     for (var i in segments)
     {
@@ -317,7 +277,7 @@ Apartment.prototype.loadLayout = function(img, scaling, position, yaw, height)
     var dx = (position.lng - Controller.position.lng) * metersPerDegreeLng;
     var dy = (position.lat - Controller.position.lat) * metersPerDegreeLat;
     
-    //console.log("distance to apartment: dx=%sm, dy=%sm", dx, dy);
+    console.log("distance to apartment: dx=%sm, dy=%sm", dx, dy);
     for (var i in segments)
     {
         //FIXME: why do those signs have to be different?
