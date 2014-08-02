@@ -230,7 +230,7 @@ Buildings.splitResponse = function(response)
         }
         else if (el.type == "relation")
         {
-            if (! (el.id in relations) || (el.tags && ! relations[el.id].tags))
+            if (! (el.id in relations) || (( "tags" in el) && (! ("tags" in relations[el.id]))))
                 relations[el.id] = el;
         }
         else
@@ -305,13 +305,12 @@ Buildings.joinWays = function(w1, w2) {
  * This method merges those ways that represent partial holes or outlines, so that all
  * (merged) ways in 'rel.outlines' are closed polygons
 */
-Buildings.mergeMultiPolygonSegments = function(rel, relations) {
+Buildings.mergeMultiPolygonSegments = function(rel, setOfRelations) {
 
     //var rel = relations[i];
     rel.outlines = [];
     
     var currentOutline = null;
-    
     for (var j in rel.members)
     {
         if (rel.members[j].type != "way")
@@ -321,8 +320,8 @@ Buildings.mergeMultiPolygonSegments = function(rel, relations) {
             if (rel.members[j].type == "relation")
             {
                 //console.log("rel: %o", rel);
-                var childRel = relations[rel.members[j].ref];
-                if (!childRel || !childRel.tags)
+                var childRel = setOfRelations[rel.members[j].ref];
+                if (!childRel)
                 {
                     console.log("[WARN] non-existent sub-relation %s of relation %s", rel.members[j].ref, rel.id);
                     continue;
@@ -396,9 +395,15 @@ Buildings.mergeMultiPolygonSegments = function(rel, relations) {
 }
 
 
-//distributes the attributes that a relationi may have buts its members may not to these members
+//distributes the attributes that a relation may have, but its members may not, to these members
 Buildings.distributeAttributes = function(rel) {
     var important_tags = ["building:levels", "roof:levels", "building:min_level", "height", "min_height"];
+
+
+    if (! ("tags" in rel))
+        return;
+
+    //console.log(rel, rel.id, rel.tags);
 
     for (var i in rel.outlines)
     {
@@ -438,7 +443,10 @@ Buildings.parseOSMQueryResult = function(res) {
     
     for (var i in relations)
     {
+
         var rel = relations[i];
+        //console.log(rel.id, rel.tags, rel);
+
         Buildings.mergeMultiPolygonSegments( rel, relations );
         Buildings.distributeAttributes( rel );
         
@@ -556,8 +564,10 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
     for (var i in outlines)
     {
         var bldg = outlines[i];
+        if (! ("tags" in bldg))
+            bldg.tags = {};
 
-        if (bldg.tags.height)
+        if ("height" in bldg.tags)
             bldg.height = getLengthInMeters(bldg.tags.height);
         else if (bldg.tags["building:levels"])
         {
@@ -572,9 +582,10 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
             bldg.min_height = parseInt(bldg.tags["building:min_level"])*3.5;
         else
             bldg.min_height = 0.0;
-        
-        var height = bldg.height ? bldg.height : 10;
-        var hf = bldg.height? 1 : 0;
+
+        //console.log("Height is %s", bldg.height);
+        var height = (!(bldg.height === undefined)) ? bldg.height : 10;
+        var hf = (!(bldg.height === undefined)) ? 1 : 0;
 
         if (bldg.nodes[0].dx != bldg.nodes[bldg.nodes.length-1].dx || bldg.nodes[0].dy != bldg.nodes[bldg.nodes.length-1].dy)
             console.log("[WARN] outline of building %s does not form a closed loop (%o)", i, bldg);
