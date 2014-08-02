@@ -575,6 +575,12 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
             if (bldg.tags["roof:levels"])
                 bldg.height += parseFloat(bldg.tags["roof:levels"])*3.5;
         }
+        
+        // zero-height buildings are usually outlines that are tagged this way to prevent 3D rendering
+        // additional geometry exists to render the actual buildings structure
+        if (bldg.height == 0)
+            continue;
+        
             
         if (bldg.tags.min_height)
             bldg.min_height = getLengthInMeters(bldg.tags.min_height);
