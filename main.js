@@ -97,7 +97,7 @@ function resetPosition(pos )
     onSunPositionChanged( $( "#slider-day" ).slider( "value"), $( "#slider-time" ).slider( "value"));
 
     mapBuildings = new Buildings(gl, Controller.position);
-    mapBuildings.onLoaded = scheduleFrameRendering();
+    mapBuildings.onLoaded = scheduleFrameRendering;
 
     Controller.localPosition.x = 0;
     Controller.localPosition.y = 0;
