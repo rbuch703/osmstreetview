@@ -436,7 +436,10 @@ Buildings.parseOSMQueryResult = function(res) {
     
     for (var i in relations)
     {
+
         var rel = relations[i];
+        //console.log(rel.id, rel.tags, rel);
+
         Buildings.mergeMultiPolygonSegments( rel, relations );
         Buildings.distributeAttributes( rel );
         
