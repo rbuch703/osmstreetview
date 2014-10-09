@@ -183,17 +183,18 @@ function onNewEyeHeight(newHeight)
 {
     //console.log("new eye height is %s", newHeight);
     Controller.localPosition.z = newHeight;
+    Controller.updateHistoryState();
     scheduleFrameRendering();
 }
     
 function init()
 {
     var idx = document.URL.indexOf("?");
+
+    Controller.position = {"lat": 52.13940000, "lng": 11.63960000};
+
     if (idx)
-    {
-        var params = toDictionary (document.URL.substring(idx + 1));
-        rowId = params.rowid ? parseInt(params.rowid) : 13;
-    }
+        Controller.initFromQueryString(document.URL.substring(idx + 1));
     
     initGl();  //initialize webGL canvas
     if (!gl)
@@ -221,10 +222,11 @@ function init()
         slide: function( event, ui ) { onSunPositionChanged(mapSun.dayOfYear, ui.value); }
         });
 
+    console.log("Local height is %s", Controller.localPosition.z);
     jQuery( "#slider-height" ).slider({
         min: 10,
         max: 200,
-        value: 20,
+        value: Math.sqrt(Controller.localPosition.z*100),
         step:0.5,
         stop:  function( event, ui ) { onNewEyeHeight((ui.value*ui.value)/100); },
         slide: function( event, ui ) { onNewEyeHeight((ui.value*ui.value)/100); }
@@ -237,7 +239,7 @@ function init()
     jQuery("#slider-time .ui-slider-handle").unbind('keydown');    
     
     VicinityMap.init("mapDiv", Controller.position.lat, Controller.position.lng);
-    resetPosition({"lat": 52.13940000, "lng": 11.63960000})
+    resetPosition(Controller.position)
 
     mqSaveSpace.addListener(onLayoutChange);
     onLayoutChange();

@@ -12,486 +12,105 @@
     
     <meta property="fb:admins" content="100001025041261" />
 
-    <link   type="text/css" rel="stylesheet" href="styles/global.css" media="screen" />
-    <link   type="text/css" rel="stylesheet" href="styles/leaflet.css" />
+    <link type="text/css" rel="stylesheet" href="styles/flatview.css" />
+    <link type="text/css" rel="stylesheet" href="styles/leaflet.css" />
+    <link type="text/css" rel="stylesheet" href="styles/jquery-ui.css">
 
-    <style>
-        @media (min-width: 1440px) {
-              #leftNavDiv { float:left; margin-right:20px; width:400px}
-              #contentDiv { margin-left: 420px; margin-right:10px; }
-              #mapDiv { width:400px; height:300px }
-          }
-
-        @media (max-width: 1439px) {
-              #leftNavDiv { margin-left: 10px; margin-right:50px; } /*leave a 50px bar on the right to */
-              #contentDiv { margin-left: 10px; margin-right:50px; } /*allow for mouse and touch scrolling */
-              #mapDiv { width:100%; height:600px }
-          }
-
-    </style>
-
-    <script type="text/javascript" src="leaflet.js"></script>
     <script type="text/javascript" src="tile.js"></script>
     <script type="text/javascript" src="mapLayer.js"></script>
-    <script type="text/javascript" src="buildings.js"></script>
+    <script type="text/javascript" src="buildingsStatic.js"></script>
     <script type="text/javascript" src="skydome.js"></script>
-    <script type="text/javascript" src="apartment.js"></script>
     <script type="text/javascript" src="controller.js"></script>
-    <script type="text/javascript" src="poly2tri.js"></script>
-
-	<script type="text/javascript" src="gl-matrix.js" ></script>
+    <script type="text/javascript" src="sun.js"></script>
+    <script type="text/javascript" src="shaders.js"></script>
+    <script type="text/javascript" src="vicinityMap.js"></script>
 	<script type="text/javascript" src="glu.js" ></script>
-	<script type="text/javascript" src="math.js" ></script>
+	<script type="text/javascript" src="math.js" ></script> 
+    <script type="text/javascript" src="main.js"></script> 
+	<script type="text/javascript" src="gl-matrix.js" ></script>
+    <script type="text/javascript" src="jquery.js"></script>
+    <script type="text/javascript" src="jquery-ui.js"></script>
+    <!-- <script type="text/javascript" src="poly2tri.js"></script> -->
+    <script type="text/javascript" src="webgl-debug.js"></script>
 
-    <script src="webgl-debug.js"></script>
+    <script type="text/javascript" src="leaflet.js"></script>
+
+	<!--<script type="text/javascript" src="combined.js" ></script> <!-- contains everything but leaflet (which is not closure-compiler compatible) -->
+
     
-	<!--<script id="map-shader-fs" type="x-shader/x-fragment">
-		precision mediump float;
-        varying vec2 texCoordV;
-        uniform sampler2D tex;
-		void main(void) {
-            gl_FragColor = texture2D(tex, texCoordV.st);
-		}
-	</script> -->
-
-	<script id="texture-shader-fs" type="x-shader/x-fragment">
-		precision mediump float;
-        varying vec2 texCoordV;
-        uniform sampler2D tex;
-		void main(void) {
-            gl_FragColor = texture2D(tex, texCoordV.st);
-		}
-	</script>
-
-	<script id="building-shader-fs" type="x-shader/x-fragment">
-		precision mediump float;
-        varying vec3 texCoordV;
-        varying vec3 normal;
-        varying vec3 worldPosition;
-        
-        uniform sampler2D tex;
-        uniform vec3 cameraPos;
-        //uniform float height;
-		void main(void) {
-		    const float c = 0.02;
-
-            vec3 vView = normalize( cameraPos - worldPosition); //direction vector from surface to camera (camera is always at (0,0,0) )
-            float diffuse = abs( 0.5 * dot(vView, normal) );
-
-            //gl_FragColor = vec4( (normal + 1.0)/2.0, 1.0);
-            gl_FragColor = diffuse > 0.0 ? vec4( vec3(diffuse+0.3), 1.0): vec4(-diffuse+0.3, 0.0, 0.0, 1.0);
-            
-            if (texCoordV.z == 0.0) //HACK: z==0 --> building height was just guessed --> tint it red
-                gl_FragColor = gl_FragColor * vec4(1.0, 0.9, 0.95, 1.0);
-
-		}
-	</script>
-	
-	<script id="shader-vs" type="x-shader/x-vertex">
-		attribute vec3 vertexPosition;
-        attribute vec2 vertexTexCoords;  			
-		
-		uniform mat4 modelViewProjectionMatrix;
-
-        varying vec2 texCoordV;
-
-		void main(void) {
-			gl_Position = modelViewProjectionMatrix * vec4(vertexPosition, 1.0);
-			texCoordV = vertexTexCoords;
-		}
-	</script>
-
-	<script id="building-shader-vs" type="x-shader/x-vertex">
-		attribute vec3 vertexPosition;
-        attribute vec3 vertexTexCoords; 			
-        attribute vec3 vertexNormal;
-		
-		uniform mat4 modelViewProjectionMatrix;
-
-        varying vec3 texCoordV;
-        varying vec3 normal;
-        varying vec3 worldPosition;
-
-		void main(void) {
-			gl_Position = modelViewProjectionMatrix * vec4(vertexPosition, 1.0);
-			worldPosition = vertexPosition; //pass through untransformed
-			texCoordV = vertexTexCoords;
-			normal = vertexNormal;
-		}
-	</script>
-
-    <script id="edge-shader-vs" type="x-shader/x-vertex">
-		attribute vec3 vertexPosition;
-		
-		uniform mat4 modelViewProjectionMatrix;
-
-		void main(void) {
-			gl_Position = modelViewProjectionMatrix * vec4(vertexPosition, 1.0);
-		}
-	</script>
-
-	<script id="edge-shader-fs" type="x-shader/x-fragment">
-		precision mediump float;
-
-		void main(void) {
-            gl_FragColor = vec4(0.2, 0.2, 0.2, 1.0);
-		}
-	</script>	
-    
-    <script type="text/javascript">
-    "use strict"
-    
-        
-    function init()
-    {
-        var idx;
-        Controller.initFromQueryString( (idx = document.URL.indexOf("?")) >= 0 ? 
-            document.URL.substring(idx + 1):
-            "lat=52.5184&lng=13.3725&yaw=104&pitch=10"); //default to a view of the Berlin Bundestag
-        Controller.onRequestFrameRender = scheduleFrameRendering;
-
-        map = L.map('mapDiv').setView([52.15, 11.63], 14); //global 
-        map.on("click", onMapClick);
-        map.on("zoomend", renderFrustum);
-
-        L.tileLayer('http://{s}.tile.rbuch703.de/osm/{z}/{x}/{y}.png', {
-            attribution: 'OpenStreetMap',
-            maxZoom: 20, minZoom:0
-        }).addTo(map);
-
-        L.control.scale({imperial:false, position:"topright"}).addTo(map);
-	    initGl();  //initialize webGL canvas
-
-        if (gl)
-        {
-		    //register event handlers
-		    webGlCanvas.addEventListener("mousedown",   function(ev) {Controller.onMouseDown(ev);}, false);
-		    webGlCanvas.addEventListener("mouseup",     function(ev) {Controller.onMouseUp(ev);},   false);
-		    webGlCanvas.addEventListener("mouseout",    function(ev) {Controller.onMouseUp(ev);},   false);
-		    webGlCanvas.addEventListener("mousemove",   function(ev) {Controller.onMouseMove(ev);}, false);
-            webGlCanvas.addEventListener("touchstart",  function(ev) {Controller.onTouchDown(ev);}, false);
-            webGlCanvas.addEventListener("touchcancel", function(ev) {Controller.onTouchEnd(ev);},  false);
-            webGlCanvas.addEventListener("touchend",    function(ev) {Controller.onTouchEnd(ev);},  false);
-            webGlCanvas.addEventListener("touchleave",  function(ev) {Controller.onTouchEnd(ev);},  false);
-            webGlCanvas.addEventListener("touchmove",   function(ev) {Controller.onTouchMove(ev);}, false);
-            
-        }
-
-        document.addEventListener("keydown", function(ev) {Controller.onKeyDown(ev);},  false);
-        document.addEventListener("keyup",   function(ev) {Controller.onKeyUp(ev);},  false);
-
-		document.body.onresize = onResize;
-		sampleLocations.onchange = onSampleLocationSelected;
-
-        onChangeLocation();
-
-
-        /* For the narrow layout, the 3D view should come directly after the map to reduce the need for scrolling and to
-         * improve chances that map and 3D view will fit on the same page.
-         * For the wide layout, the social media div (Facebook integration) should be in the left navigation column, 
-         * logically in between the map and the 3D view.
-         */
-        narrowLayout = window.matchMedia( "(max-width: 1439px)" );
-        narrowLayout.addListener(function() {(narrowLayout.matches ? contentDiv : leftNavDiv).appendChild(socialMediaDiv);});
-        (narrowLayout.matches ? contentDiv : leftNavDiv).appendChild(socialMediaDiv); //to handle the initial layout
-    }   
-    
-    var narrowLayout;
-
-    var map;
-    var mapPlane;
-    var mapBuildings;
-    var mapSkyDome;
-    var mapApartment;
-    var mapFrustum;
-    var gl;
-    var positionMarker;
-    var fieldOfView = 45;
-    
-    
-    function updatePositionMarker()
-    {
-        if (positionMarker)
-            map.removeLayer(positionMarker);
-        
-        positionMarker = L.marker( Controller.getEffectivePosition() );
-        positionMarker.addTo(map).bindPopup("You are here");
-    }
-    
-    function onChangeLocation()
-    {
-        Controller.localPosition.x = 0;
-        Controller.localPosition.y = 0;
-        
-        map.panTo(Controller.position);
-        if (map.getZoom() < 16)
-            map.setZoom(16);
-
-        mapApartment = new Apartment(7029, {lat:52.13376195, lng:11.63842729}, -74.5, 10);
-        
-        mapPlane = new MapLayer(gl, Controller.position);
-        mapPlane.onProgress= scheduleFrameRendering;
-
-        
-        mapBuildings = new Buildings(gl, Controller.position);
-        mapBuildings.onLoaded = scheduleFrameRendering;
-        
-        
-        updatePositionMarker();
-        //console.log("Setting map center to %o", position);
-        Controller.updateHistoryState();
-        renderFrustum();
-        /* make sure the 3D view is visible when a user clicked on the map (as this is usually what the user wants
-         * when he clicks on a map location. For the wide layout, the 3D view should align with the top of the screen ("true")
-         * to show the whole 3D view. For the narrow layout, the 3D view is the last important part on the page and should
-         * align with the bottom of the page to allow the map to be shown above. */
-        
-        webGlCanvas.scrollIntoView( narrowLayout ? !narrowLayout.matches : true);
-    }
-    
-    function onMapClick(e)
-    {
-        Controller.position = e.latlng;
-        onChangeLocation();
-    }   
-    
-    function onSampleLocationSelected(e)
-    {
-        if (sampleLocations.value !== "dummy")
-        {
-            var pos = JSON.parse(sampleLocations.value);
-
-            if ("yaw" in pos)
-                Controller.viewAngleYaw = pos.yaw;
-            if ("pitch" in pos)
-                Controller.viewAnglePitch = pos.pitch;
-    
-            if ("lat" in pos && "lng" in pos)
-            {
-                Controller.position = pos;
-                onChangeLocation();
-            }
-            //window.location.href = sampleLocations.value;
-        }
-    }
-
-    var frameRenderingScheduled = false;
-    function scheduleFrameRendering()
-    {
-        if (frameRenderingScheduled)
-            return;
-
-        frameRenderingScheduled = true;
-        if (window.requestAnimationFrame)
-            window.requestAnimationFrame(executeFrameRendering);
-        else
-            executeFrameRendering();
-    }
-    
-    function executeFrameRendering()
-    {
-        if (Controller.keysStillPressed())
-            Controller.updateKeyInteraction();
-
-        updatePositionMarker();
-        renderFrustum();
-        renderScene();
-        frameRenderingScheduled = false;
-        
-        // If at least one key is still pressed, schedule rendering of the next frame right away:
-        // A pressed key will potentially change the scene and require a re-rendering
-        if (Controller.keysStillPressed())   
-            scheduleFrameRendering();
-    }
-
-	
-	function renderFrustum()
-	{
-	    if (!gl)
-	        return;
-	    if (mapFrustum)
-	    {
-	        map.removeLayer(mapFrustum);
-	        mapFrustum = null;
-        }
-	    
-	    var effectivePosition = Controller.getEffectivePosition();
-	    
-	    /* One degree latitude on earth always corresponds to the same distance in meters ( 1/360th of the earth circumference).
-	     * But the distance of one degree longitude changes depending of the current latitude.
-	     * This aspect is the ration between the two distances. It is needed to correctly
-	     * draw that viewing frustum, which needs to be specified in lat/lnt
-	    */
-	    var localAspect = Math.cos( effectivePosition.lat / 180 * Math.PI);
-	    
-        var yawRad = Controller.viewAngleYaw / 180 * Math.PI;
-        /* compute only planar lookDir (ignoring pitch), as this is the relevant direction to render the frustum
-           on a 2D map
-         */
-        var lookDir = [Math.sin( yawRad), Math.cos(yawRad)];
-	    
-	    //console.log ("local aspect ratio at %s is %s", position.lat, localAspect );
-	    
-	    //console.log( webGlCanvas.height, webGlCanvas.width, fieldOfView / webGlCanvas.height * webGlCanvas.width);
-	    var phi = (0.5 * fieldOfView / webGlCanvas.height * webGlCanvas.width ) / 180 * Math.PI;
-	    var leftDir = [ Math.cos(phi) * lookDir[0]  - Math.sin(phi) * lookDir[1], 
-	                    Math.sin(phi) * lookDir[0]  + Math.cos(phi) * lookDir[1] ];
-	    var rightDir =[ Math.cos(-phi) * lookDir[0] - Math.sin(-phi) * lookDir[1], 
-	                    Math.sin(-phi) * lookDir[0] + Math.cos(-phi) * lookDir[1] ];
-
-        var len = Math.pow(0.5, map.getZoom())*2000;
-        //console.log(map.getZoom(), len);
-	    var pA = { lat: effectivePosition.lat + leftDir[1]*len*localAspect,  lng: effectivePosition.lng + leftDir[0]*len };
-	    var pB = { lat: effectivePosition.lat + rightDir[1]*len*localAspect, lng: effectivePosition.lng + rightDir[0]*len};
-	    var line = [effectivePosition, pA, pB, effectivePosition ]
-	    mapFrustum = L.polygon(line, {color: 'red', noClip: 'true', fillColor:"white", fillOpacity:0.4}).addTo(map);
-	}
-	
-	/**
-	 * Initialises WebGL and creates the 3D scene.
-	 */
-	function initGl()
-	{
-        //create context
-		gl = webGlCanvas.getContext("webgl") || webGlCanvas.getContext("experimental-webgl");
-		if(!gl)
-		{
-		    //remove controls that depend on webGL, and show error messages
-	        glErrorDiv.style.display = "inherit";
-	        leftNavDiv.style.display = "none";
-	        gl = null;
-	        contentDiv.removeChild(webGlCanvas);
-			return;
-		}
-		gl = WebGLDebugUtils.makeDebugContext(gl);
-		
-		gl.clearColor(0.5, 0.5, 0.5, 1.0);
-
-		gl.clearDepth(1.0);
-		gl.enable(gl.DEPTH_TEST);
-		gl.depthFunc(gl.LEQUAL);
-        gl.enable(gl.CULL_FACE);
-
-        onResize();
-	
-        mapSkyDome = new SkyDome(gl);
-        mapSkyDome.onLoaded = scheduleFrameRendering;
-
-	}
-	
-
-	function onResize()
-	{
-        webGlCanvas.height = webGlCanvas.clientHeight;
-        webGlCanvas.width  = webGlCanvas.clientWidth;
-	    
-	    if (gl)
-	    {
-			gl.viewport(0, 0, webGlCanvas.width, webGlCanvas.height);
-			scheduleFrameRendering();
-		}
-	}	
-	
-	function renderScene()
-	{
-	    if (!gl || !Controller.localPosition ) //not yet initialized
-	        return;
-	        
-		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-	        
-        var modelViewMatrix = glu.lookAt(Controller.viewAngleYaw, Controller.viewAnglePitch, Controller.localPosition);
-	    var projectionMatrix = mat4.create();
-	    mat4.perspective(projectionMatrix, fieldOfView/180*Math.PI, webGlCanvas.width / webGlCanvas.height, 0.1, 10000.0);
-
-
-        var renderItems = [mapPlane, mapBuildings, mapSkyDome, mapApartment];
-        for (var i in renderItems)
-            if (renderItems[i])
-                renderItems[i].render(modelViewMatrix, projectionMatrix);
-
-		gl.flush();
-	}
-	
-    </script>
-    <title>Open Street View</title>
+    <title>FlatMatch - virtuelle Wohnungsbesichtigung</title>
 </head>
 
-<body onload="init()"  > <!-- style ="padding: 0px; margin: 0px;" -->
+<body overflow="hidden"> <!-- style ="padding: 0px; margin: 0px;" -->
 
-<!-- initialization for Facebook integration --> 
-<div id="fb-root"></div>
-<script>(function(d, s, id) {
-  var js, fjs = d.getElementsByTagName(s)[0];
-  if (d.getElementById(id)) return;
-  js = d.createElement(s); js.id = id;
-  js.src = "//connect.facebook.net/en_US/sdk.js#xfbml=1&version=v2.0";
-  fjs.parentNode.insertBefore(js, fjs);
-}(document, 'script', 'facebook-jssdk'));</script>
-
-<div id="glErrorDiv" style="display:none">
-    <h2 style="">Open Street View</h2>
+<div id="glErrorDiv" style="display:none; max-width:800px">
+    <h2 style="">FlatMatch - virtuelle Wohnungsbesichtigung</h2>
 
     <p style="font-weight:bold; color:#F00">
-    Unfortunately, your browser does not support 3D web graphics ("WebGL"), which are required for this page to work.</p>
+    Ihr Internet-Browser unterstützt 3D-Grafik ("WebGL") leider nicht. Diese sind jedoch für diese Webseite notwendig.</p>
     <p>
-    This page should work on desktop and laptop computers with most recent browsers (e.g. Firefox, Chrome, Internet Explorer). To date, desktop Safari browsers require <a target="_blank" href="https://discussions.apple.com/thread/3300585?start=0">some tuning</a> to support 3D web graphics.</p>
+    Diese Seite sollte auf Desktops und Laptop-Computern mit den meisten aktuellen Internet-Browsern (z.B. Internet Explorer ab Version 11, Firefox, Chrome) funktionieren. Für den Browser Safari sind hierzu <a target="_blank" href="https://discussions.apple.com/thread/3300585?start=0">zusätzliche Einstellungen</a> notwendig.</p>
     <p>
-    For mobile devices (tablets and smartphones), most recent Android-based devices (usually those with Android 4.3 and newer) should support 3D web graphics. Apple's iPhone and iPad series of devices currently does not.
+    Unter den Mobilgeräten (Tablets und Smartphones) sollten aktuelle Android-Geräte (z.B. von Samsung, LG, HTC, Asus, Google, oder Huawei ab Android 4.4) und Apple's iPhones und iPads ab iOS 8 3D-Grafiken im Browser unterstützen.
     </p>
-    Here's a screenshot of what you are missing:<br>
-    <img src="images/screenshot.png">
 </div>
 
 
-<div id="leftNavDiv" style="">
-    <h2 style="">Open Street View</h2>
 
-    <div id="explanation"> 
-        <p>Click on any location on the map to see a 3D view of the world as seen from that position. Then click and drag the 3D view with your mouse to look around.</p>
-        <p>Here are some location suggestions: 
-            <select id="sampleLocations">
-              <option value="dummy">-- select one --</option>
-              <option value='{"lat":51.4979,   "lng":-0.1203,   "yaw":303, "pitch":7 }'>London (House of Parliament)</option>
-              <option value='{"lat":40.7683,   "lng":-73.9794,  "yaw":261, "pitch":14}'>New York City (Central Park)</option>
-              <option value='{"lat":38.9001,   "lng":-77.0364,  "yaw":187, "pitch":0 }'>Washington DC(The White House)</option>
-              <option value='{"lat":36.1132,   "lng":-115.1727, "yaw":284, "pitch":12}'>Las Vegas (The Bellagio)</option>
-              <option value='{"lat":52.509344, "lng":13.375242, "yaw":299, "pitch":15}'>Berlin (Potsdamer Platz)</option>
-              <option value='{"lat":52.5184,   "lng":13.3725,   "yaw":104, "pitch":10}'>Berlin (Bundestag, Brandenburger Tor)</option>
-              <option value='{"lat":51.3429,   "lng":12.3820,   "yaw":343, "pitch":11}'>Leipzig (Main Station)</option>
-              <option value='{"lat":52.1394,   "lng":11.6396,   "yaw":203, "pitch":17}'>Magdeburg (Universitätsplatz)</option>
-            </select> 
-        </p>
-        <p>Buildings missing or inaccurate? <a href="howToEdit.html" target="_blank">Add them yourself</a>!</p>
+<!--<div style="width:100%; height:100%"> -->
+<div id="navDiv" style="">
+    <div id="divNavContainer" style="padding-left:20px;padding-right: 20px; ">
+
+        <div id="divVicinity" style="">
+            <h3>Nähere Umgebung </h3>
+            <div id="mapDiv" style="width:100%; height:600px;"> </div>
+        </div>
+
+        <h3>Augenhöhe</h3>
+        <div id="slider-height" style="width:100%" > </div>
+        <!--
+        <div id="divUsageNotes" style="display:none">
+	        <ul>
+	            <li>Bewegen sie sich durch die 3D-Ansicht mit den Pfeiltasten ihrer Tastatur, oder durch Ziehen der Ansicht auf ihrem Touchscreen.</li>
+	            <li>Schauen sie sich um durch Klicken und Ziehen der Ansicht mit der Maus.</li>
+	            <li>Springen sie zu einer beliebigen Stelle in der Wohnung durch Klicken auf die entsprechende Stelle im Wohnungsgrundriss.</li>
+	        </ul>
+        </div>!-->
+
+
+        <div id="divSunPos" style="">
+            <h3>Sonnenstand </h3>
+            <p>
+            Tag: <span id="lblDay" ></span>
+            <div id="slider-day" style="width:100%"></div></p>
+            <p>
+            Zeit: <span id="lblTime" ></span>
+            <div id="slider-time" style="width:100%"></div>   
+            </p>
+        </div>
+
     </div>
-
-    <div id="mapDiv" style="margin-bottom:15px"> </div>
-    
-    <div id="socialMediaDiv" >
-    <p>
-    Let me know what you think about this page:</p>
-    <!-- Facebook like/share box box -->
-        <div class="fb-like" data-href="http://rbuch703.de/osmsv" data-layout="button_count" data-action="like" data-show-faces="false" data-share="true"></div>
-
-    <!-- Facebook comment box -->
-        <div class="fb-comments" data-href="http://rbuch703.de/osmsv" data-width="400px" data-numposts="5" data-colorscheme="light"></div>
-
-    </div>
-
 </div>
 
 
 <div id="contentDiv" >
     <!-- <div id="nav" style="background-color:#EEE; position:fixed; width:75%; top:50px; bottom:0px; right: 0px; overflow-y:scroll">-->
-		<canvas id="webGlCanvas" style="width:100%; height:auto;background:black" ></canvas>
-        <div style="font-size:80%; font-style:italic">
+		<canvas id="webGlCanvas" style="width:100%; background:black" ></canvas>
+        <div id="divDisclaimer" style="font-size:80%; font-style:italic">
 The map and building geometry are &copy;OpenStreetMap contributors and are <a href="http://www.openstreetmap.org/copyright">licensed</a> under the Creative Commons BY-SA (map) and Open Database License (buildings) licenses.<br> For administrative questions on this page please contact the <a href="mailto:rbuch703@gmail.com">webmaster</a>.
         </div>
+        
+        <span id="errorLog" style="color:#F00"></span>
+<!--        <span id="yawLog" style="color:#FF0000">YAW</span><br>
+        <span id="posLog" style="color:#0000FF">LAT LNG</span><br><br>
+        <span id="addressLog" style="color:#777">Address</span><br> -->
+</div>
 
-    </div>
-</div> 
+<!-- </div> -->
 
 
 </body>
 
 
 </html>
+
