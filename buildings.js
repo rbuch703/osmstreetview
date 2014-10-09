@@ -1,9 +1,11 @@
 "use strict"
 
+/**
+ * @constructor
+ */
 function Buildings(gl, position)
 {
 
-    this.gl = gl;
     if (!gl)
         return;
     this.mapCenter = position;//{lat:52.13850380245244, lng:11.64003610610962};
@@ -37,22 +39,13 @@ function Buildings(gl, position)
     oReq.open("get", Buildings.apiBaseUrl + "?data=" + encodeURIComponent(query), true);
     oReq.send();
     
-    
-    this.shaderProgram = glu.createShader(document.getElementById("building-shader-vs").text,
-                                          document.getElementById("building-shader-fs").text,
-                                          ["vertexPosition","vertexTexCoords", "vertexNormal"],
-                                          ["modelViewProjectionMatrix", "tex", "cameraPos"]);
-                                          
-    this.edgeShaderProgram = glu.createShader(document.getElementById("edge-shader-vs").text,
-                                              document.getElementById("edge-shader-fs").text,
-                                              ["vertexPosition"], ["modelViewProjectionMatrix"]);
 
     this.numVertices = 0;
     this.numEdgeVertices = 0;
 }    
 
-//Buildings.apiBaseUrl = "http://overpass-api.de/api/interpreter";
-Buildings.apiBaseUrl = "http://tile.rbuch703.de/api/interpreter";
+Buildings.apiBaseUrl = "http://overpass-api.de/api/interpreter";
+//Buildings.apiBaseUrl = "http://tile.rbuch703.de/api/interpreter";
 
 function vec(a) { return [a.dx, a.dy];}
 
@@ -230,7 +223,7 @@ Buildings.splitResponse = function(response)
         }
         else if (el.type == "relation")
         {
-            if (! (el.id in relations) || (el.tags && ! relations[el.id].tags))
+            if (! (el.id in relations) || (( "tags" in el) && (! ("tags" in relations[el.id]))))
                 relations[el.id] = el;
         }
         else
@@ -305,13 +298,12 @@ Buildings.joinWays = function(w1, w2) {
  * This method merges those ways that represent partial holes or outlines, so that all
  * (merged) ways in 'rel.outlines' are closed polygons
 */
-Buildings.mergeMultiPolygonSegments = function(rel, relations) {
+Buildings.mergeMultiPolygonSegments = function(rel, setOfRelations) {
 
     //var rel = relations[i];
     rel.outlines = [];
     
     var currentOutline = null;
-    
     for (var j in rel.members)
     {
         if (rel.members[j].type != "way")
@@ -321,8 +313,8 @@ Buildings.mergeMultiPolygonSegments = function(rel, relations) {
             if (rel.members[j].type == "relation")
             {
                 //console.log("rel: %o", rel);
-                var childRel = relations[rel.members[j].ref];
-                if (!childRel || !childRel.tags)
+                var childRel = setOfRelations[rel.members[j].ref];
+                if (!childRel)
                 {
                     console.log("[WARN] non-existent sub-relation %s of relation %s", rel.members[j].ref, rel.id);
                     continue;
@@ -396,9 +388,15 @@ Buildings.mergeMultiPolygonSegments = function(rel, relations) {
 }
 
 
-//distributes the attributes that a relationi may have buts its members may not to these members
+//distributes the attributes that a relation may have, but its members may not, to these members
 Buildings.distributeAttributes = function(rel) {
     var important_tags = ["building:levels", "roof:levels", "building:min_level", "height", "min_height"];
+
+
+    if (! ("tags" in rel))
+        return;
+
+    //console.log(rel, rel.id, rel.tags);
 
     for (var i in rel.outlines)
     {
@@ -556,8 +554,10 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
     for (var i in outlines)
     {
         var bldg = outlines[i];
+        if (! ("tags" in bldg))
+            bldg.tags = {};
 
-        if (bldg.tags.height)
+        if ("height" in bldg.tags)
             bldg.height = getLengthInMeters(bldg.tags.height);
         else if (bldg.tags["building:levels"])
         {
@@ -565,6 +565,12 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
             if (bldg.tags["roof:levels"])
                 bldg.height += parseFloat(bldg.tags["roof:levels"])*3.5;
         }
+        
+        // zero-height buildings are usually outlines that are tagged this way to prevent 3D rendering
+        // additional geometry exists to render the actual buildings structure
+        if (bldg.height == 0)
+            continue;
+        
             
         if (bldg.tags.min_height)
             bldg.min_height = getLengthInMeters(bldg.tags.min_height);
@@ -572,9 +578,10 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
             bldg.min_height = parseInt(bldg.tags["building:min_level"])*3.5;
         else
             bldg.min_height = 0.0;
-        
-        var height = bldg.height ? bldg.height : 10;
-        var hf = bldg.height? 1 : 0;
+
+        //console.log("Height is %s", bldg.height);
+        var height = (!(bldg.height === undefined)) ? bldg.height : 10;
+        var hf = (!(bldg.height === undefined)) ? 1 : 0;
 
         if (bldg.nodes[0].dx != bldg.nodes[bldg.nodes.length-1].dx || bldg.nodes[0].dy != bldg.nodes[bldg.nodes.length-1].dy)
             console.log("[WARN] outline of building %s does not form a closed loop (%o)", i, bldg);
@@ -665,44 +672,75 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
     this.edgeVertices = glu.createArrayBuffer(this.edgeVertices);
 }
 
-Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
-    if (! this.numVertices)
+Buildings.prototype.renderDepth = function(modelViewMatrix, projectionMatrix) {
+    if (! this.numVertices || !Shaders.ready)
         return;
         
-    var gl = this.gl;
 
+    gl.enable(gl.CULL_FACE);
+    //HACK: A building casts the same shadow regardless of whether its front of back faces are used in the shadow computation.
+    //      The only exception is the building the camera is located in: using front faces would prevent light to be casted on
+    //      anything inside the building walls, i.e. no light would fall on anything inside the apartment (since its windows
+    //      have to corresponding holes in the buiding geometry. Using only the front faces effectively ignores just the
+    //      building the camera is in for the shadow computation, which gives the desired effect to shading the apartment
+    gl.cullFace(gl.FRONT);
 
-    //draw faces
-	gl.useProgram(this.shaderProgram);   //    Install the program as part of the current rendering state
-	gl.enableVertexAttribArray(this.shaderProgram.locations.vertexPosition); // setup vertex coordinate buffer
-	gl.enableVertexAttribArray(this.shaderProgram.locations.vertexTexCoords); //setup texcoord buffer
-	gl.enableVertexAttribArray(this.shaderProgram.locations.vertexNormal); //setup texcoord buffer
+	gl.useProgram(Shaders.depth);   //    Install the program as part of the current rendering state
+	gl.enableVertexAttribArray(Shaders.depth.locations.vertexPosition); // setup vertex coordinate buffer
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vertices);   //select the vertex buffer as the currrently active ARRAY_BUFFER (for subsequent calls)
-	gl.vertexAttribPointer(this.shaderProgram.locations.vertexPosition, 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
+	gl.vertexAttribPointer(Shaders.depth.locations.vertexPosition, 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
+    
+    var mvpMatrix = mat4.create();
+    mat4.mul(mvpMatrix, projectionMatrix, modelViewMatrix);
+
+	gl.uniformMatrix4fv(Shaders.depth.locations.modelViewProjectionMatrix, false, mvpMatrix);
+
+    //gl.activeTexture(gl.TEXTURE0);  //successive commands (here 'gl.bindTexture()') apply to texture unit 0
+    //gl.bindTexture(gl.TEXTURE_2D, null); //render geometry without texture
+    
+    gl.drawArrays(gl.TRIANGLES, 0, this.numVertices);    
+
+    gl.cullFace(gl.BACK);   //reset to normal behavior
+
+}
+
+
+Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
+    if (! this.numVertices || !Shaders.ready)
+        return;
+        
+    //draw faces
+	gl.useProgram(Shaders.building);   //    Install the program as part of the current rendering state
+	gl.enableVertexAttribArray(Shaders.building.locations.vertexPosition); // setup vertex coordinate buffer
+	gl.enableVertexAttribArray(Shaders.building.locations.vertexTexCoords); //setup texcoord buffer
+	gl.enableVertexAttribArray(Shaders.building.locations.vertexNormal); //setup texcoord buffer
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.vertices);   //select the vertex buffer as the currrently active ARRAY_BUFFER (for subsequent calls)
+	gl.vertexAttribPointer(Shaders.building.locations.vertexPosition, 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
     
 	gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoords);
-	gl.vertexAttribPointer(this.shaderProgram.locations.vertexTexCoords, 3, gl.FLOAT, false, 0, 0);  //assigns array "texCoords" bound above as the vertex attribute "vertexTexCoords"
+	gl.vertexAttribPointer(Shaders.building.locations.vertexTexCoords, 3, gl.FLOAT, false, 0, 0);  //assigns array "texCoords" bound above as the vertex attribute "vertexTexCoords"
 
     // can apparently be -1 if the variable is not used inside the shader
-    if (this.shaderProgram.locations.vertexNormal > -1)
+    if (Shaders.building.locations.vertexNormal > -1)
     {
 	    gl.bindBuffer(gl.ARRAY_BUFFER, this.normals);
-	    gl.vertexAttribPointer(this.shaderProgram.locations.vertexNormal, 3, gl.FLOAT, false, 0, 0);  //assigns array "normals"
+	    gl.vertexAttribPointer(Shaders.building.locations.vertexNormal, 3, gl.FLOAT, false, 0, 0);  //assigns array "normals"
 	}
 
     var mvpMatrix = mat4.create();
     mat4.mul(mvpMatrix, projectionMatrix, modelViewMatrix);
 
-    gl.uniform1i(this.shaderProgram.locations.tex, 0); //select texture unit 0 as the source for the shader variable "tex" 
-	gl.uniformMatrix4fv(this.shaderProgram.locations.modelViewProjectionMatrix, false, mvpMatrix);
+    gl.uniform1i(Shaders.building.locations.tex, 0); //select texture unit 0 as the source for the shader variable "tex" 
+	gl.uniformMatrix4fv(Shaders.building.locations.modelViewProjectionMatrix, false, mvpMatrix);
 
     var pos = Controller.localPosition;
     //console.log(pos.x, pos.y, pos.z);
-    gl.uniform3f(this.shaderProgram.locations.cameraPos, pos.x, pos.y, pos.z);
+    gl.uniform3f(Shaders.building.locations.cameraPos, pos.x, pos.y, pos.z);
 
-    gl.activeTexture(gl.TEXTURE0);  //successive commands (here 'gl.bindTexture()') apply to texture unit 0
-    gl.bindTexture(gl.TEXTURE_2D, null); //render geometry without texture
+    //gl.activeTexture(gl.TEXTURE0);  //successive commands (here 'gl.bindTexture()') apply to texture unit 0
+    //gl.bindTexture(gl.TEXTURE_2D, null); //render geometry without texture
     
     gl.enable(gl.POLYGON_OFFSET_FILL);  //to prevent z-fighting between rendered edges and faces
     gl.polygonOffset(1,1);
@@ -714,15 +752,17 @@ Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
     
 
     //step 2: draw outline
-    gl.useProgram(this.edgeShaderProgram);   //    Install the program as part of the current rendering state
-	gl.enableVertexAttribArray(this.edgeShaderProgram.locations.vertexPosition); // setup vertex coordinate buffer
+    gl.useProgram(Shaders.flat);   //    Install the program as part of the current rendering state
+	gl.enableVertexAttribArray(Shaders.flat.locations.vertexPosition); // setup vertex coordinate buffer
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.edgeVertices);   //select the vertex buffer as the currrently active ARRAY_BUFFER (for subsequent calls)
-	gl.vertexAttribPointer(this.edgeShaderProgram.locations.vertexPosition, 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
+	gl.vertexAttribPointer(Shaders.flat.locations.vertexPosition, 3, gl.FLOAT, false, 0, 0);  //assigns array "edgeVertices" bound above as the vertex attribute "vertexPosition"
 
     var mvpMatrix = mat4.create();
     mat4.mul(mvpMatrix, projectionMatrix, modelViewMatrix);
-	gl.uniformMatrix4fv(this.edgeShaderProgram.locations.modelViewProjectionMatrix, false, mvpMatrix);
+	gl.uniformMatrix4fv(Shaders.flat.locations.modelViewProjectionMatrix, false, mvpMatrix);
+	
+	gl.uniform4fv( Shaders.flat.locations.color, [0.2, 0.2, 0.2, 1.0]);
 
     gl.drawArrays(gl.LINES, 0, this.numEdgeVertices);
     

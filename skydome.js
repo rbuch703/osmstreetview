@@ -1,13 +1,10 @@
 "use strict"
-function SkyDome(gl)
+
+/**
+ * @constructor
+ */
+function SkyDome()
 {
-
-    this.gl = gl;
-
-    this.shaderProgram = glu.createShader(  document.getElementById("shader-vs").text,
-                                            document.getElementById("texture-shader-fs").text,
-                                            ["vertexPosition", "vertexTexCoords"],
-                                            ["modelViewProjectionMatrix", "tex"] );
 
     this.buildGlGeometry();
 }    
@@ -46,9 +43,6 @@ SkyDome.prototype.buildGlGeometry = function() {
     im.onload = function() { onTextureLoaded(im, dome); };
     im.src = "skydome.jpg";
     	
-	var base = [];
-	var top = [];
-		
 	var NUM_H_SLICES = 20;
 	var NUM_V_SLICES = 10;
 	for (var i = 0; i < NUM_H_SLICES; i++)
@@ -78,7 +72,7 @@ SkyDome.prototype.buildGlGeometry = function() {
 		    /*var D = [0,0, SkyDome.RADIUS];
 		    var C = [0,0, SkyDome.RADIUS];*/
 		
-		    var verts = [].concat([], A, B, C, A, C, D);
+		    var verts = [].concat(A, B, C, A, C, D);
 		    this.vertices.push.apply( this.vertices, verts);
 		
 		    var tc_left = i/NUM_H_SLICES;
@@ -100,24 +94,26 @@ SkyDome.prototype.buildGlGeometry = function() {
     this.texCoords= glu.createArrayBuffer(this.texCoords);
 }
 
-SkyDome.prototype.render = function(modelViewMatrix, projectionMatrix) {
+SkyDome.prototype.render = function(modelViewMatrix, projectionMatrix) 
+{
+    if (!Shaders.ready)
+        return;
         
-    var gl = this.gl;
-	gl.useProgram(this.shaderProgram);   //    Install the program as part of the current rendering state
-	gl.enableVertexAttribArray(this.shaderProgram.locations.vertexPosition); // setup vertex coordinate buffer
-	gl.enableVertexAttribArray(this.shaderProgram.locations.vertexTexCoords); //setup texcoord buffer
+	gl.useProgram(Shaders.textured);   //    Install the program as part of the current rendering state
+	gl.enableVertexAttribArray(Shaders.textured.locations.vertexPosition); // setup vertex coordinate buffer
+	gl.enableVertexAttribArray(Shaders.textured.locations.vertexTexCoords); //setup texcoord buffer
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vertices);   //select the vertex buffer as the currrently active ARRAY_BUFFER (for subsequent calls)
-	gl.vertexAttribPointer(this.shaderProgram.locations.vertexPosition, 3, this.gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
+	gl.vertexAttribPointer(Shaders.textured.locations.vertexPosition, 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
     
 	gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoords);
-	gl.vertexAttribPointer(this.shaderProgram.locations.vertexTexCoords, 2, this.gl.FLOAT, false, 0, 0);  //assigns array "texCoords" bound above as the vertex attribute "vertexTexCoords"
+	gl.vertexAttribPointer(Shaders.textured.locations.vertexTexCoords, 2, gl.FLOAT, false, 0, 0);  //assigns array "texCoords" bound above as the vertex attribute "vertexTexCoords"
 
-    gl.uniform1i(this.shaderProgram.locations.tex, 0); //select texture unit 0 as the source for the shader variable "tex" 
+    gl.uniform1i(Shaders.textured.locations.tex, 0); //select texture unit 0 as the source for the shader variable "tex" 
 
     var mvpMatrix = mat4.create();
     mat4.mul(mvpMatrix, projectionMatrix, modelViewMatrix);
-	gl.uniformMatrix4fv(this.shaderProgram.locations.modelViewProjectionMatrix, false, mvpMatrix);
+	gl.uniformMatrix4fv(Shaders.textured.locations.modelViewProjectionMatrix, false, mvpMatrix);
     
     gl.activeTexture(gl.TEXTURE0);  //successive commands (here 'gl.bindTexture()') apply to texture unit 0
     gl.bindTexture(gl.TEXTURE_2D, this.tex); //render geometry without texture

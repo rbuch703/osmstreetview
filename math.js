@@ -12,18 +12,36 @@ function tile2lat(y,z) {
 
 function dist3(a, b)
 {
-    var dx = a[0]-b[0];
-    
     return Math.sqrt(   Math.pow(a[0]-b[0], 2)+
                         Math.pow(a[1]-b[1], 2)+ 
                         Math.pow(a[2]-b[2], 2) );
 }
 
 function len3(a) { return Math.sqrt(a[0]*a[0] + a[1]*a[1] + a[2]*a[2]); }
+function sub3(a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2] ]; }
+function add3(a, b) { return [a[0] + b[0], a[1] + b[1], a[2] + b[2] ]; }
+function mul3scalar(a, s) { return [a[0]*s, a[1]*s, a[2]*s]; }
+function neg3(a) { return [-a[0], -a[1], -a[2]]; }
 
-function sub2(a, b) { return [a[0] - b[0], a[1]-b[1]]; }
+
+
+function sub2(a, b) { return [a[0] - b[0], a[1] - b[1] ]; }
+function add2(a, b) { return [a[0] + b[0], a[1] + b[1] ]; }
+function len2(a)    { return Math.sqrt(a[0]*a[0] + a[1]*a[1]); }
+function dist2(a, b){ return len2 (sub(a, b)); }
 function norm2(a) { var len = Math.sqrt(a[0]*a[0] + a[1]*a[1]); return [a[0]/len, a[1]/len];}
 function dot2(a,b) { return a[0]*b[0] + a[1]*b[1];}
+
+function rotate(vector, angle)
+{
+    angle = angle /180 * Math.PI;
+
+    var v0    = Math.cos( angle ) * vector[0] - Math.sin( angle ) * vector[1] ;
+    vector[1] = Math.sin( angle ) * vector[0] + Math.cos( angle ) * vector[1] ;
+    
+    vector[0] = v0;
+}
+
 
 function norm3(v)
 {
@@ -31,6 +49,13 @@ function norm3(v)
     return [ v[0]/len, v[1]/len, v[2]/len];
 }
 
+function getNormal(p1, p2, p3)
+{
+    var v1 = [p2[0] - p1[0], p2[1] - p1[1], p2[2] - p1[2]];
+    var v2 = [p3[0] - p1[0], p3[1] - p1[1], p3[2] - p1[2]];
+//    console.log(v1, v2);
+    return norm3( [ v1[2]*v2[1] - v1[1]*v2[2], v1[0]*v2[2] - v1[2]*v2[0], v1[1]*v2[0] - v1[0]*v2[1]] );
+}
 
 //returns the angle (in degrees) between the vectors v1-v2 and v1-v3
 function openingAngle( v1, v2, v3) {
@@ -67,4 +92,5 @@ function getMinDistanceFromOrigin(x1, x2, y1, y2)
 
     return minDistance;
 }
+
 

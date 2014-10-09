@@ -1,120 +1,187 @@
 "use strict"    
 
+function getSign(pos, neg)
+{
+    if (pos && (!neg)) return  1;
+    if (neg && (!pos)) return -1;
+    return 0;
+}
 
+function toDictionary(queryString)
+{
+    var parts = queryString.split("&");
+    var res = {};
+    for (var i in parts)
+    {
+        var kv = parts[i].split("=");
+        if (kv.length == 2)
+        {
+            res[kv[0]] = parseFloat(kv[1]);
+        }
+    }
+    return res;
+}
 
 
 var Controller = {
 
-    position: {},
-    localPosition : { x:0, y:0, z: 1.5+10 }, //camera position in the local coordinate system ('z' is height)
-    viewAngleYaw : {},
-    viewAnglePitch : {},
+    position: {"lat": 0, "lng": 0},
+    localPosition : { x:0, y:0, z: 1.5 }, //camera position in the local coordinate system ('z' is height)
+    viewAngleYaw : 0,
+    viewAnglePitch : 0,
 
 
     getEffectivePosition : function() 
     {
         var earthCircumference = 2 * Math.PI * (6378.1 * 1000);
         var metersPerDegreeLat = earthCircumference / 360;
-        var metersPerDegreeLng = metersPerDegreeLat * Math.cos( this.position.lat / 180 * Math.PI);
+        var metersPerDegreeLng = metersPerDegreeLat * Math.cos( Controller.position.lat / 180 * Math.PI);
 
-        return {lat: this.position.lat + this.localPosition.y / metersPerDegreeLat,
-                lng: this.position.lng + this.localPosition.x / metersPerDegreeLng};
-        
+        return {lat: Controller.position.lat + Controller.localPosition.y / metersPerDegreeLat,
+                lng: Controller.position.lng + Controller.localPosition.x / metersPerDegreeLng};
+    },
+    
+    getLocalPosition: function()
+    {
+        return [Controller.localPosition.x, Controller.localPosition.y, Controller.localPosition.z];
     },
 
     buildQueryString: function(lat, lng)
     {
         var lat, lng;
-        if (!lat) lat = this.position.lat;
-        if (!lng) lng = this.position.lng;
+        if (!lat) lat = Controller.position.lat;
+        if (!lng) lng = Controller.position.lng;
         
         return "?lat=" + lat.toFixed(8) +
                "&lng=" + lng.toFixed(8) +
-               "&yaw="+this.viewAngleYaw.toFixed(1)+
-               "&pitch="+this.viewAnglePitch.toFixed(1);
+               "&yaw="+Controller.viewAngleYaw.toFixed(1)+
+               "&pitch="+Controller.viewAnglePitch.toFixed(1)+
+               "&height="+Controller.localPosition.z;
     },
 
     initFromQueryString: function(queryString)
     {
-        var query = this.toDictionary(queryString);
+        var query = toDictionary(queryString);
         if (query.lat && query.lng)
         {
-            this.position = {lat:query.lat, lng:query.lng};
+            Controller.position = {lat:query.lat, lng:query.lng};
             
-            if ( ("yaw" in  query) && ("pitch" in query) ) //if look direction is also given
-            {
-                this.viewAngleYaw = query.yaw;
-                this.viewAnglePitch=query.pitch;
-            }
-        }
-    },
+            if ("yaw" in query)
+                Controller.viewAngleYaw = query.yaw;
 
-    toDictionary: function(queryString)
-    {
-        var parts = queryString.split("&");
-        var res = {};
-        for (var i in parts)
-        {
-            var kv = parts[i].split("=");
-            if (kv.length == 2)
-            {
-                res[kv[0]] = parseFloat(kv[1]);
-            }
+            if ("pitch" in query )
+                Controller.viewAnglePitch=query.pitch;
+
+            if ("height" in query)
+                Controller.localPosition.z = query.height;
+            
         }
-        return res;
     },
-    
-    
 
 	onMouseDown: function(e)
 	{
 	    if (e.button != 0) 
 	        return;
 
-	    this.x = e.clientX;
-	    this.y = e.clientY;
-	    this.down = "mouse";
+	    Controller.x = e.clientX;
+	    Controller.y = e.clientY;
+	    Controller.down = "mouse";
 	},
 	
 	onMouseUp: function(e)
 	{
 	    if (e.button != 0) 
 	        return;
-	    this.down = null;
+	    Controller.down = null;
 	},
 	
 	keysDown: {},
 	
 	lastKeyEventProcessed: null,
-	
-	updateKeyInteraction: function()
-	{
-        var now = new Date().getTime();
 
-        if (this.lastKeyEventProcessed === null)
-        {
-            this.lastKeyEventProcessed = now;
-            return;
-        }
-
+    turn: function(yaw, pitch)
+    {
+        Controller.viewAngleYaw = Controller.viewAngleYaw % 360;
         
-        var dt = now - this.lastKeyEventProcessed;
-        this.lastKeyEventProcessed = now;
+        Controller.viewAngleYaw += yaw;
+        Controller.viewAnglePitch += pitch;
         
-        var arc = this.viewAngleYaw / 180 * Math.PI;
+        if (Controller.viewAnglePitch > 60)
+            Controller.viewAnglePitch = 60;
+        if (Controller.viewAnglePitch < -60)
+            Controller.viewAnglePitch = -60;
+    },
+    
+    move: function(dRight, dForward)
+    {
+        var arc = Controller.viewAngleYaw / 180 * Math.PI;
         var forwardX = Math.sin(arc);
         var forwardY = Math.cos(arc);
 
         var rightX = Math.sin(arc + Math.PI/2.0);
         var rightY = Math.cos(arc + Math.PI/2.0);
         
-        if (this.keysDown.D) { this.localPosition.x += rightX * dt/400; this.localPosition.y += rightY * dt/400;};
-        if (this.keysDown.A) { this.localPosition.x -= rightX * dt/400; this.localPosition.y -= rightY * dt/400;};
+        var dx = dRight*rightX + dForward*forwardX;
+        var dy = dRight*rightY + dForward*forwardY;
 
-        if (this.keysDown.W) { this.localPosition.x += forwardX * dt/400; this.localPosition.y +=forwardY * dt/400;}
-        if (this.keysDown.S) { this.localPosition.x -= forwardX * dt/400; this.localPosition.y -=forwardY * dt/400;}
-        
-        this.updateHistoryState();
+        Controller.localPosition.x += dx;
+        Controller.localPosition.y += dy;
+    },
+    
+    moveTo: function(localX, localY)
+    {
+        var newPixelPos = mapApartment.localToPixelCoordinates( {x:localX, y: localY} );
+
+        Controller.localPosition.x = localX;
+        Controller.localPosition.y = localY;
+    
+    },
+	
+	updateKeyInteraction: function()
+	{
+        var now = new Date().getTime();
+
+        //nothing to track anymore --> reset state
+        if (!Controller.keysStillPressed())
+        {
+            Controller.lastKeyEventProcessed = null;
+            return;
+        }
+
+        // Nothing tracked yet --> initialize state, but do nothing else.
+        // (there is not yet a 'dt' that we could base computations on)
+        if (Controller.lastKeyEventProcessed === null)
+        {
+            Controller.lastKeyEventProcessed = now;
+            return;
+        }
+
+        var dt = now - Controller.lastKeyEventProcessed;
+
+        Controller.lastKeyEventProcessed = now;
+
+        if (dt > 1000)
+        {
+            console.log("[WARN] extensive time step (%s ms)", dt);
+            dt = 1000;
+        }
+
+        var dy = dt/400 * getSign(("W" in Controller.keysDown) || ("up" in Controller.keysDown), 
+                                  ("S" in Controller.keysDown) || ("down" in Controller.keysDown));
+                                  
+        var dx = dt/400 * getSign( "D" in Controller.keysDown, "A" in Controller.keysDown);
+
+        Controller.move(dx, dy);
+
+        var turnX = dt/10 * getSign( "right" in Controller.keysDown, "left" in Controller.keysDown );
+
+        var turnY = 0;
+        if (Controller.keysStillPressed() && Controller.down != "mouse" && Math.abs(Controller.viewAnglePitch) > 1)
+            turnY = (Controller.viewAnglePitch < 0 ? 1 : -1) * dt/40;
+
+        Controller.turn(turnX, turnY);
+
+        Controller.updateHistoryState();
 	},
 	
 	x:null,
@@ -124,7 +191,6 @@ var Controller = {
     
 	onKeyDown: function(evt) 
 	{
-        //console.log("Key event: key %s", evt.keyCode);
         var key = null;
         switch (evt.keyCode)
         {
@@ -133,75 +199,72 @@ var Controller = {
             case 68: key = "D"; break;
             case 83: key = "S"; break;
             case 87: key = "W"; break;
+            case 37: key = "left"; break;
+            case 38: key = "up"; break;
+            case 39: key = "right";break;
+            case 40: key = "down"; break;
+
         }
         
-        if (key in this.keysDown) //is just a reoccuring event for a key that is still pressed
+        if (key in Controller.keysDown) //is just a reoccuring event for a key that is still pressed
             return;
 
         if (key != null)
         {            
-            this.updateKeyInteraction();
-            this.keysDown[key] = key;
+            Controller.updateKeyInteraction();
+            Controller.keysDown[key] = key;
         }
         
-        if (this.onRequestFrameRender)
-            this.onRequestFrameRender();
+        if (Controller.onRequestFrameRender)
+            Controller.onRequestFrameRender();
 
     },
 
 	onKeyUp: function(evt)
 	{
-        //console.log("Key event: key %s", evt.keyCode);
         switch (evt.keyCode)
         {
             
-            case 65: delete this.keysDown.A; break;
-            case 68: delete this.keysDown.D; break;
-            case 83: delete this.keysDown.S; break;
-            case 87: delete this.keysDown.W; break;
+            case 65: delete Controller.keysDown.A;     break;
+            case 68: delete Controller.keysDown.D;     break;
+            case 83: delete Controller.keysDown.S;     break;
+            case 87: delete Controller.keysDown.W;     break;
+            case 37: delete Controller.keysDown.left;  break;
+            case 38: delete Controller.keysDown.up;    break;
+            case 39: delete Controller.keysDown.right; break;
+            case 40: delete Controller.keysDown.down;  break;
         }
+        Controller.updateKeyInteraction();
     },
     
     keysStillPressed: function()
     {
-        return Object.keys(this.keysDown).length > 0;
+        return Object.keys(Controller.keysDown).length > 0;
     },
-	
-	updateViewDirection: function(dx, dy)
-	{
-        this.viewAngleYaw += dx/5 ;
-        this.viewAnglePitch += dy/ 5;
-        if (this.viewAnglePitch > 180)
-            this.viewAnglePitch -= 180;
-        
-        if (this.viewAnglePitch < -60)
-            this.viewAnglePitch = -60;
-            
-        if (this.viewAnglePitch > 60)
-            this.viewAnglePitch = 60;
-        /*localPosition.x += dx/100;
-        localPosition.y += dy/100;*/
-
-        this.updateHistoryState();
-        if (this.onRequestFrameRender)
-            this.onRequestFrameRender();
-	},
 	
     onMouseMove: function(e)
 	{
-        if (this.down != "mouse" ) return;
-        var dx = e.clientX - this.x;
-        var dy = e.clientY - this.y;
+	    //e.preventDefault();
+        if (Controller.down != "mouse" ) return;
+        var dx = e.clientX - Controller.x;
+        var dy = e.clientY - Controller.y;
 
-        this.x = e.clientX;
-        this.y = e.clientY;
+        Controller.x = e.clientX;
+        Controller.y = e.clientY;
 
-        //console.log("mouse move this: %s, %o", this, this);
-        this.updateViewDirection(dx, dy);
+        Controller.turn(dx / 5.0, - dy / 5.0);
+        
+        Controller.updateHistoryState();
+        if (Controller.onRequestFrameRender)
+            Controller.onRequestFrameRender();
+
 	},
 
     getTouchData: function(touches, identifier)
     {
+        if (identifier === null)
+            return null;
+            
         for (var i in touches)
         {
             if (touches[i].identifier == identifier)
@@ -216,38 +279,44 @@ var Controller = {
     {
         ev.preventDefault();
         var touch = ev.changedTouches[0];
-        this.down = touch.identifier;
-        this.x = touch.clientX;
-        this.y = touch.clientY;
+        Controller.down = touch.identifier;
+        Controller.x = touch.clientX;
+        Controller.y = touch.clientY;
+        //errorLog.textContent = "Touched down at (" + touch.identifier + ", " + touch.clientX + ", " + touch.clientY + ") - " + Controller.down;
     },
     
     onTouchEnd: function(ev)
     {
-    
         ev.preventDefault();
-        if (this.getTouchData(ev.changedTouches, this.down))
-        {
-            this.down = null;
-        }
+        Controller.down = null;
     },
 
     onTouchMove: function(ev)
     {
     
         ev.preventDefault();
-        var touch = this.getTouchData(ev.changedTouches, this.down);
-        if (touch)
-        {
-            var dx = touch.clientX - this.x;
-            var dy = touch.clientY - this.y;
+        //errorLog.textContent = "Touch move";
+        
+        
+        var touch = Controller.getTouchData(ev.changedTouches, Controller.down);
+        if (touch === null)
+            return;
 
-            /*if (Math.abs(dx) < 5 && Math.abs(dy) < 5)
-                return;*/
-            this.x = touch.clientX;
-            this.y = touch.clientY;
-            this.updateViewDirection(dx, dy);
             
-        }
+        var dx = touch.clientX - Controller.x;
+        var dy = touch.clientY - Controller.y;
+
+        Controller.x = touch.clientX;
+        Controller.y = touch.clientY;
+
+        //errorLog.textContent = "Touch move with down=" + Controller.down + ", delta =(" + dx + ", " + dy + ")";
+
+        Controller.move(0,        -dy / 100.0);
+        Controller.turn(dx / 5.0, 0       );
+
+        Controller.updateHistoryState();
+        if (Controller.onRequestFrameRender)
+            Controller.onRequestFrameRender();
     },
     
    
@@ -258,11 +327,12 @@ var Controller = {
     // a performance penalty at least in Firefox).
     updateHistoryState : function()
     {
-        if (this.updateTimeoutId)
-            window.clearTimeout(this.updateTimeoutId);
+        if (Controller.updateTimeoutId)
+            window.clearTimeout(Controller.updateTimeoutId);
         
-        this.updateTimeoutId = window.setTimeout( function() 
+        Controller.updateTimeoutId = window.setTimeout( function() 
             {
+                
                 var url = document.URL;
                 if (url.indexOf("?") >= 0) // already contains a query string --> remove it
                     url = url.substring(0, url.indexOf("?"));

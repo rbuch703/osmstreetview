@@ -1,0 +1,182 @@
+<shaders>
+<script id="depth-shader-vs" type="x-shader/x-vertex">
+	precision mediump float;
+    uniform mat4 modelViewProjectionMatrix;
+	attribute vec3 vertexPosition;
+
+	void main(void) {
+		gl_Position = modelViewProjectionMatrix * vec4(vertexPosition, 1.0);
+    }
+</script>
+
+<script id="depth-shader-fs" type="x-shader/x-fragment">
+	precision highp float;
+    
+	void main(void) {
+	    //float w = gl_FragCoord.w;
+	    float z = gl_FragCoord.z;
+	    float z1 = fract(z*255.0);
+	    float z2 = fract(z1*255.0);
+	    float z3 = fract(z2*255.0);
+	    //this biasing is necessary for shadow mapping to work correctly
+	    //source: http://forum.devmaster.net/t/shader-effects-shadow-mapping/3002
+	    // this might be due to the GPU *rounding* the float values to the nearest uint8_t instead of the expeected *truncating*
+	    z  -= 1.0/255.0*z1;
+	    z1 -= 1.0/255.0*z2;
+	    z2 -= 1.0/255.0*z3;
+        gl_FragColor = vec4(z, z1, z2, z3);//vec4(vec3(depth), 1.0);
+        //gl_FragColor = vec4((z-232.0/256.0)*25.0, z1, 0, 1.0);
+	}
+</script>
+
+<script id="building-shader-vs" type="x-shader/x-vertex">
+	attribute vec3 vertexPosition;
+    attribute vec2 vertexTexCoords; 			
+    attribute vec3 vertexNormal;
+    attribute vec3 vertexColorIn;
+	
+	uniform mat4 modelViewProjectionMatrix;
+    uniform vec3 cameraPos;
+
+    varying vec2 texCoordV;
+    varying vec3 normal;
+    varying vec3 vertexColor;
+
+	void main(void) {
+		gl_Position = modelViewProjectionMatrix * vec4(vertexPosition, 1.0);
+
+		texCoordV = vertexTexCoords;
+
+        vec3 vView = normalize( cameraPos - vertexPosition); 
+        float diffuse = abs( 0.5 * dot(vView, vertexNormal) );
+		vertexColor = vertexColorIn * (diffuse + 0.4);
+	}
+</script>
+
+
+<script id="building-shader-fs" type="x-shader/x-fragment">
+<![CDATA[
+	precision mediump float;
+    varying vec2 texCoordV;
+    varying vec3 vertexColor;
+    uniform sampler2D tex;
+    
+	void main(void) {
+        gl_FragColor = vec4(  texture2D(tex, texCoordV).rgb * vertexColor, 1.0);
+	}
+]]>
+</script>
+
+<script id="texture-shader-fs" type="x-shader/x-fragment">
+<![CDATA[
+    precision mediump float;
+    varying vec2 texCoordV;
+    uniform sampler2D tex;
+	void main(void) {
+        gl_FragColor = texture2D(tex, texCoordV.st);
+	}
+]]>
+</script>
+
+
+<script id="texture-shader-vs" type="x-shader/x-vertex"><![CDATA[
+	attribute vec3 vertexPosition;
+    attribute vec2 vertexTexCoords;  			
+	
+	uniform mat4 modelViewProjectionMatrix;
+
+    varying vec2 texCoordV;
+
+	void main(void) {
+		gl_Position = modelViewProjectionMatrix * vec4(vertexPosition, 1.0);
+		texCoordV = vertexTexCoords;
+	}
+]]>
+</script>
+
+<script id="shadowed-shader-vs" type="x-shader/x-vertex">
+	attribute vec3 vertexPosition;
+    attribute vec2 vertexTexCoords;  			
+    attribute vec3 normalIn;
+	
+	uniform mat4 modelViewProjectionMatrix;
+	uniform mat4 shadowMatrix;
+
+    varying vec2 texCoordV;
+    varying vec4 shadowTexPosition;
+    varying vec3 normalOut;
+
+	void main(void) {
+		gl_Position = modelViewProjectionMatrix * vec4(vertexPosition, 1.0);
+		shadowTexPosition = shadowMatrix * vec4(vertexPosition, 1.0);
+		texCoordV = vertexTexCoords;
+		normalOut = normalIn;
+	}
+</script>
+
+<script id="shadowed-texture-shader-fs" type="x-shader/x-fragment">
+<![CDATA[
+	precision mediump float;
+	
+	
+    varying vec2 texCoordV;
+    varying vec4 shadowTexPosition;
+    varying vec3 normalOut;
+    
+    uniform sampler2D tex;
+    uniform sampler2D shadowTex;    //light source depth texture
+	uniform vec3 sunDir;
+	void main(void) {
+	    vec4 col1 = texture2D(tex, texCoordV.st);
+	    //shadow position in normalized device coordinates
+        vec3 shadowNDC = (shadowTexPosition.xyz / shadowTexPosition.w) * 0.5 + 0.5;
+	    
+	    
+	    float depth = shadowNDC.z;
+	    int inLight = 0;
+	    const float delta = 0.5/2048.0;
+	    vec4 col = texture2D(shadowTex, vec2(shadowNDC.s,         shadowNDC.t        ) );
+	    float lightDepth = col.r + col.g/255.0 + col.b/(255.0*255.0) + col.a/(255.0*255.0*255.0);
+	    
+	    if (lightDepth + 0.00002 > depth)
+	        inLight++;
+	    //if (texture2D(shadowTex, vec2(shadowNDC.s,         shadowNDC.t        ) ).r + 0.00002 >= depth) inLight++;
+	    /*if (texture2D(shadowTex, vec2(shadowNDC.s,         shadowNDC.t + delta) ).r + 0.00001 >= depth) inLight++;
+	    if (texture2D(shadowTex, vec2(shadowNDC.s + delta, shadowNDC.t        ) ).r + 0.00001 >= depth) inLight++;
+	    if (texture2D(shadowTex, vec2(shadowNDC.s + delta, shadowNDC.t + delta) ).r + 0.00001 >= depth) inLight++;*/
+	    //float normDepth = a + b / 
+	    
+	    float sunDiff = dot(sunDir, normalOut);
+        if (( sunDiff < 0.00001) || (inLight == 0))
+            gl_FragColor = col1;
+        else		    
+        {
+            vec4 col_tmp = vec4(col1.rgb*(1.0 + float(inLight)/2.5 * sunDiff), 1.0);
+            //col_tmp.b = abs( depth - lightDepth);
+		    gl_FragColor = col_tmp;
+	    }
+	}
+]]>
+</script>
+
+<script id="flat-shader-vs" type="x-shader/x-vertex">
+	attribute vec3 vertexPosition;
+	
+	uniform mat4 modelViewProjectionMatrix;
+
+	void main(void) {
+		gl_Position = modelViewProjectionMatrix * vec4(vertexPosition, 1.0);
+	}
+</script>
+
+<script id="flat-shader-fs" type="x-shader/x-fragment">
+	precision mediump float;
+    
+    uniform vec4 color;
+	void main(void) {
+	
+        gl_FragColor = color;
+	}
+</script>
+</shaders>
+

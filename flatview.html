@@ -1,0 +1,116 @@
+<!DOCTYPE html> 
+
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no">
+    <meta property="og:image" content="http://rbuch703.de/osmsv/images/screenshot.png" />
+    <meta property="og:description" content="See a 3D view of any position of the world directly from your web browser." />
+    <meta property="og:title" content="Open Street View" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="http://rbuch703.de/osmsv/" />
+    
+    <meta property="fb:admins" content="100001025041261" />
+
+    <link type="text/css" rel="stylesheet" href="styles/flatview.css" />
+    <link type="text/css" rel="stylesheet" href="styles/leaflet.css" />
+    <link type="text/css" rel="stylesheet" href="styles/jquery-ui.css">
+
+    <script type="text/javascript" src="tile.js"></script>
+    <script type="text/javascript" src="mapLayer.js"></script>
+    <script type="text/javascript" src="buildingsStatic.js"></script>
+    <script type="text/javascript" src="skydome.js"></script>
+    <script type="text/javascript" src="controller.js"></script>
+    <script type="text/javascript" src="sun.js"></script>
+    <script type="text/javascript" src="shaders.js"></script>
+    <script type="text/javascript" src="vicinityMap.js"></script>
+	<script type="text/javascript" src="glu.js" ></script>
+	<script type="text/javascript" src="math.js" ></script> 
+    <script type="text/javascript" src="main.js"></script> 
+	<script type="text/javascript" src="gl-matrix.js" ></script>
+    <script type="text/javascript" src="jquery.js"></script>
+    <script type="text/javascript" src="jquery-ui.js"></script>
+    <!-- <script type="text/javascript" src="poly2tri.js"></script> -->
+    <script type="text/javascript" src="webgl-debug.js"></script>
+
+    <script type="text/javascript" src="leaflet.js"></script>
+
+	<!--<script type="text/javascript" src="combined.js" ></script> <!-- contains everything but leaflet (which is not closure-compiler compatible) -->
+
+    
+    <title>FlatMatch - virtuelle Wohnungsbesichtigung</title>
+</head>
+
+<body overflow="hidden"> <!-- style ="padding: 0px; margin: 0px;" -->
+
+<div id="glErrorDiv" style="display:none; max-width:800px">
+    <h2 style="">FlatMatch - virtuelle Wohnungsbesichtigung</h2>
+
+    <p style="font-weight:bold; color:#F00">
+    Ihr Internet-Browser unterstützt 3D-Grafik ("WebGL") leider nicht. Diese sind jedoch für diese Webseite notwendig.</p>
+    <p>
+    Diese Seite sollte auf Desktops und Laptop-Computern mit den meisten aktuellen Internet-Browsern (z.B. Internet Explorer ab Version 11, Firefox, Chrome) funktionieren. Für den Browser Safari sind hierzu <a target="_blank" href="https://discussions.apple.com/thread/3300585?start=0">zusätzliche Einstellungen</a> notwendig.</p>
+    <p>
+    Unter den Mobilgeräten (Tablets und Smartphones) sollten aktuelle Android-Geräte (z.B. von Samsung, LG, HTC, Asus, Google, oder Huawei ab Android 4.4) und Apple's iPhones und iPads ab iOS 8 3D-Grafiken im Browser unterstützen.
+    </p>
+</div>
+
+
+
+<!--<div style="width:100%; height:100%"> -->
+<div id="navDiv" style="">
+    <div id="divNavContainer" style="padding-left:20px;padding-right: 20px; ">
+
+        <div id="divVicinity" style="">
+            <h3>Nähere Umgebung </h3>
+            <div id="mapDiv" style="width:100%; height:600px;"> </div>
+        </div>
+
+        <h3>Augenhöhe</h3>
+        <div id="slider-height" style="width:100%" > </div>
+        <!--
+        <div id="divUsageNotes" style="display:none">
+	        <ul>
+	            <li>Bewegen sie sich durch die 3D-Ansicht mit den Pfeiltasten ihrer Tastatur, oder durch Ziehen der Ansicht auf ihrem Touchscreen.</li>
+	            <li>Schauen sie sich um durch Klicken und Ziehen der Ansicht mit der Maus.</li>
+	            <li>Springen sie zu einer beliebigen Stelle in der Wohnung durch Klicken auf die entsprechende Stelle im Wohnungsgrundriss.</li>
+	        </ul>
+        </div>!-->
+
+
+        <div id="divSunPos" style="">
+            <h3>Sonnenstand </h3>
+            <p>
+            Tag: <span id="lblDay" ></span>
+            <div id="slider-day" style="width:100%"></div></p>
+            <p>
+            Zeit: <span id="lblTime" ></span>
+            <div id="slider-time" style="width:100%"></div>   
+            </p>
+        </div>
+
+    </div>
+</div>
+
+
+<div id="contentDiv" >
+    <!-- <div id="nav" style="background-color:#EEE; position:fixed; width:75%; top:50px; bottom:0px; right: 0px; overflow-y:scroll">-->
+		<canvas id="webGlCanvas" style="width:100%; background:black" ></canvas>
+        <div id="divDisclaimer" style="font-size:80%; font-style:italic">
+The map and building geometry are &copy;OpenStreetMap contributors and are <a href="http://www.openstreetmap.org/copyright">licensed</a> under the Creative Commons BY-SA (map) and Open Database License (buildings) licenses.<br> For administrative questions on this page please contact the <a href="mailto:rbuch703@gmail.com">webmaster</a>.
+        </div>
+        
+        <span id="errorLog" style="color:#F00"></span>
+<!--        <span id="yawLog" style="color:#FF0000">YAW</span><br>
+        <span id="posLog" style="color:#0000FF">LAT LNG</span><br><br>
+        <span id="addressLog" style="color:#777">Address</span><br> -->
+</div>
+
+<!-- </div> -->
+
+
+</body>
+
+
+</html>
+

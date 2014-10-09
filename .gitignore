@@ -1,5 +1,6 @@
 
-syntax:glob
-
 *~
 tiles/*
+leaflet-src.js
+combined.js
+geometry.json
