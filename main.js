@@ -53,6 +53,7 @@ function initEventHandler()
     document.addEventListener("keyup",   function(ev) {Controller.onKeyUp(ev);},  false);
 	document.body.onresize = onResize;
 
+	sampleLocations.addEventListener("change", onSampleLocationSelected);
     Controller.onRequestFrameRender = scheduleFrameRendering;
     
     
@@ -163,14 +164,34 @@ function onNewEyeHeight(newHeight)
     scheduleFrameRendering();
 }
     
+function onSampleLocationSelected(e)
+{
+    if (sampleLocations.value !== "dummy")
+    {
+        var pos = JSON.parse(sampleLocations.value);
+
+        if ("yaw" in pos)
+            Controller.viewAngleYaw = pos.yaw;
+        if ("pitch" in pos)
+            Controller.viewAnglePitch = pos.pitch;
+
+        if ("lat" in pos && "lng" in pos)
+        {
+            resetPosition(pos);
+        }
+    }
+}
+    
 function init()
 {
     var idx = document.URL.indexOf("?");
 
-    Controller.position = {"lat": 52.13940000, "lng": 11.63960000};
+    //Controller.position = {"lat": 52.13940000, "lng": 11.63960000};
 
-    if (idx)
+    if (idx > 0)
         Controller.initFromQueryString(document.URL.substring(idx + 1));
+    else
+        Controller.initFromQueryString('lat=40.7683&lng=-73.9794&yaw=261&pitch=14');
     
     initGl();  //initialize webGL canvas
     if (!gl)

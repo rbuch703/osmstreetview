@@ -3,22 +3,22 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <link   type="text/css" rel="stylesheet" href="styles/global.css" media="screen" />
+    <link type="text/css" rel="stylesheet" href="global.css" />
     <meta name="viewport" content="width=device-width, user-scalable=no">
 
-    <title>Open Street View - Editing</title>
+    <title>OSM Street View - Editing</title>
 </head>
 
 <body onload="init()"  > <!-- style ="padding: 0px; margin: 0px;" -->
-<h2 style="">Open Street View - Editing the Map</h2>
+<h2 style="">OSM Street View - Editing the Map</h2>
 
 <div id="explanation" style="width:800px">
-<p>For OpenStreet<emph>View</emph>, we directly use data from <emph>OpenStreetMap</emph>, for the ground texture as well as for the building geometry. Thus, any change to OpenStreetMap data made by any of its hundreds of thousands of contributors should be reflected in our 3D OpenStreetView in a matter of hours.</p>
+<p>For OSM Street <emph>View</emph>, we directly use data from <emph>OpenStreetMap</emph>, for the ground texture as well as for the building geometry. Thus, any change to OpenStreetMap data made by any of its hundreds of thousands of contributors should be reflected in our 3D OSM Street View in a matter of minutes.</p>
 
 <p><a href="http://openstreetmap.org" target="_blank">OpenStreetMap</a> is a vast collection of geographical knowledge on our planet that can be edited and used by everybody free of charge. Is most well-know for its detailed world map, but its data is available to the public for any purpose.</p>
 
 
-<p>So if some buildings you know of are missing from OpenStreetMap or have the wrong height in OpenStreetView: Just add them yourselves! This page tells you how to do it.</p>
+<p>So if some buildings you know of are missing from OpenStreetMap or have the wrong height in OSM Street View: Just add them yourselves! This page tells you how to do it.</p>
 
 <h3>Step 1: Find the Right Map Spot</h3>
 Head over to <a href="http://www.openstreetmap.org" target="_blank">www.openstreetmap.org</a> and navigate to the map position where you want to modify the map. You should zoom in to zoom level 18 or higher before editing the map (the current zoom level is shown in your browser address bar right after the text "/#map=").
@@ -62,20 +62,20 @@ Your building should now turn red on the map and the left sidebar should show a 
 <h3>Step 4: Adjust the Building Height</h3>
 Now that you mapped your building (or found an existing one that you want to edit), you'll want to set its height. Click on the building to get a list of its properties on the left sidebar. Then scroll to the bottom of the left side bar and click on its entry "All tags" to expand the list of attributes of that building. Attributes are key/value pairs, where the left-hand side entry (the "key") gives the attribute name, and the right-hand side entry gives the value for that key.</p>
 
-There are two ways to affect the height at which a building is rendered in OpenStreetView: either by entering the building height directly, or by entering the number of building levels (if both values are present, OpenStreetView will use the actual height and ignore the number of building levels). The next paragraphs explain how to set these values.
+There are two ways to affect the height at which a building is rendered in OSM Street View: either by entering the building height directly, or by entering the number of building levels (if both values are present, OSM Street View will use the actual height and ignore the number of building levels). The next paragraphs explain how to set these values.
 
-<h4>Variant 4a: Set the Building Height Directly</h4>
+<h4>Method 4a: Set the Building Height Directly</h4>
 <p>If you know the actual building height, you can enter it directly: The attribute list should at least contain an entry "building", and may contain many more. If it already contains an entry "height", you can edit that entry. Otherwise create a new entry by clicking on the plus sign below the attribute list and entering "height" in the left column of the new entry. 
 
 <p><img src="images/osm_edit8.png" border="1px"></p>
 
-In the right column, enter the building height <emph>in meters</emph> (to convert other units of measurement to meters, you can use Google searches such as <a href="https://www.google.com/search?q=50+foot+in+meters" target="_blank">"50 foot in meters"</a>). The height value may have a fractional part (e.g. 10.7), but the decimal mark has to be a period/dot, not a comma.</p>
+In the right column, enter the building height <emph>in meters</emph> (to convert other units of measurement to meters, you can use Google searches such as <a href="https://www.google.com/search?q=50+feet+in+meters" target="_blank">"50 feet in meters"</a>). The height value may have a fractional part (e.g. 10.7), but the decimal mark has to be a period/dot, not a comma.</p>
 
 <p><img src="images/osm_edit9.png" border="1px"></p>
 
 
-<h4>Variant 4b: Set the Number of Building Levels</h4>
-<p>If you don't know the actual building height, but know the number of building levels, you can have OpenStreetMap store that number, and OpenStreetView will estimate the building height based on the number of building levels (currently by assuming a height of 3.5m per building level). In order to do so, find the attribute with the key "building:levels", or - if it does not exist yet - create an attribute with that name by clicking on the plus sign at the end of the attribute list and entering "building:levels" (without the quotes) into the left edit box. As its value (in the edit box to its right), enter the number of buildings levels that are <emph>completely above ground and not part of the roof</emph>. Additional roof building levels can be entered as values to the key "roof:levels".</p>
+<h4>Method 4b: Set the Number of Building Levels</h4>
+<p>If you don't know the actual building height, but know the number of building levels, you can have OpenStreetMap store that number, and OSM Street View will estimate the building height based on the number of building levels (currently by assuming a height of 3.5m per building level). In order to do so, find the attribute with the key "building:levels", or - if it does not exist yet - create an attribute with that name by clicking on the plus sign at the end of the attribute list and entering "building:levels" (without the quotes) into the left edit box. As its value (in the edit box to its right), enter the number of buildings levels that are <emph>completely above ground and not part of the roof</emph>. Additional roof building levels can be entered as values to the key "roof:levels".</p>
 
 <p><img src="images/osm_edit10.png" border="1px"></p>
 
@@ -95,10 +95,10 @@ Congratulations, you just made your first contribution to OpenStreetMap!
 <br>
 
 <h3>Viewing the results</h3>
-<p>Your changes to OpenStreetMap should be visible on the main map after a few minute. However, in order to see them, you'll have to tell your browser to refresh the page while bypassing its cache (usually by pressing CTRL+F5). These map changes should be visible in OpenStreetView as the ground texture at about the same time (also after pressing CTRL+F5 to refresh the view). The changes to building heights have to trickle through some additional servers, and thus are usually visible about an hour later.</p>
+<p>Your changes to OpenStreetMap should be visible on the main map after a few minutes. However, in order to see them, you'll have to tell your browser to refresh the page while bypassing its cache (usually by pressing CTRL+F5). These map changes should be visible in OSM Street View as the ground texture at about the same time (also after pressing CTRL+F5 to refresh the view).</p>
 
 <h3>Further Reading</h3>
-Beyond these simple attributes, the OpenStreetMap wiki page on <a href="http://wiki.openstreetmap.org/wiki/Simple_3D_Buildings" target="_blank">Simple 3D Buildings</a> lists additional attributes that can affect the appearance of 3D buildings. Currently, OpenStreetView considers the additional attributes "min_height", "building:min_level" and "building:part".
+Beyond these simple attributes, the OpenStreetMap wiki page on <a href="http://wiki.openstreetmap.org/wiki/Simple_3D_Buildings" target="_blank">Simple 3D Buildings</a> lists additional attributes that can affect the appearance of 3D buildings. Currently, OSM Street View considers the additional attributes "min_height", "building:min_level" and "building:part".
 </div>
 
 </body>

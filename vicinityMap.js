@@ -24,7 +24,7 @@ var VicinityMap = {
     
     resetView: function( latlng)
     {
-        VicinityMap.map.setView(latlng, 18);
+        VicinityMap.map.setView(latlng, 17);
     },
 
     updatePositionMarker: function(newPos)
