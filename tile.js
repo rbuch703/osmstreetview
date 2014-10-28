@@ -97,13 +97,8 @@ Tile.prototype.onImageLoaded = function(e)
 
 
 Tile.basePath = "http://{s}.tile.openstreetmap.org/";   // attached to the constructor to be shared globally
-//Tile.basePath = "http://{s}.tile.rbuch703.de/osm/";
-//Tile.basePath = "http://{s}.tile.rbuch703.de/tiles/mipmap/";
 Tile.fileExtension = "png";
 
-//Tile.basePath = "http://otile1.mqcdn.com/tiles/1.0.0/sat/";   // attached to the constructor to be shared globally
+//Tile.basePath = "http://otile1.mqcdn.com/tiles/1.0.0/sat/";   // MapQuest open aerial tiles
 //Tile.fileExtension = "jpg";
-
-//Tile.basePath = "http://ipsum4.rbuch703.de/osm/";   // attached to the constructor to be shared globally
-
 

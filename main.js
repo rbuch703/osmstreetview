@@ -8,16 +8,9 @@ var mapApartment;
 var mapSun;
 
 var gl;
-
-
 var fieldOfView = 90/16*9;
-var layoutId;// = 158;
-var rowId;
-var OFFER_REST_BASE_URL = "http://rbuch703.de/rest";
-//var OFFER_REST_BASE_URL = "http://localhost:1080/rest_v2"
 
 var mqSaveSpace = window.matchMedia( "(max-height: 799px), (orientation: portrait)" );
-
 
 //pasted from controller.js; FIXME: find better common place
 function toDictionary (queryString)
@@ -33,25 +26,6 @@ function toDictionary (queryString)
         }
     }
     return res;
-}
-
-
-//copied from helper.js; TODO. find better shared location
-function getFloorName( level)
-{
-    if (level == 0) return "Erdgeschoss";
-    if (level > 0) return level + ". Etage";
-    if (level < 0) return level + ". Untergeschoss";
-}
-
-//copied from helper.js; TODO. find better shared location
-function asPriceString( val)
-{
-    var tmp = Math.floor(val * 100);
-    var res = Math.floor(tmp / 100);
-    tmp = tmp % 100;
-    if (tmp < 10) tmp = "0" + tmp;
-    return res + "," + tmp + " €";
 }
 
 function initEventHandler()

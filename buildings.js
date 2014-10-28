@@ -45,7 +45,6 @@ function Buildings(gl, position)
 }    
 
 Buildings.apiBaseUrl = "http://overpass-api.de/api/interpreter";
-//Buildings.apiBaseUrl = "http://tile.rbuch703.de/api/interpreter";
 
 function vec(a) { return [a.dx, a.dy];}
 
@@ -668,7 +667,7 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
     this.numVertices = this.vertices.length/3.0;    // 3 coordinates per vertex
     this.numEdgeVertices = this.edgeVertices.length/3.0;
     console.log("'Buildings' total to %s faces and %s edges", this.numVertices/3, this.numEdgeVertices/2);
-
+    console.log("V/N/T: %s/%s/%s", this.vertices.length, this.normals.length, this.texCoords.length);
     this.vertices = glu.createArrayBuffer(this.vertices);
     this.texCoords= glu.createArrayBuffer(this.texCoords);
     this.normals  = glu.createArrayBuffer(this.normals);
@@ -717,7 +716,6 @@ Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
 	gl.useProgram(Shaders.building);   //    Install the program as part of the current rendering state
 	gl.enableVertexAttribArray(Shaders.building.locations.vertexPosition); // setup vertex coordinate buffer
 	gl.enableVertexAttribArray(Shaders.building.locations.vertexTexCoords); //setup texcoord buffer
-	gl.enableVertexAttribArray(Shaders.building.locations.vertexNormal); //setup texcoord buffer
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vertices);   //select the vertex buffer as the currrently active ARRAY_BUFFER (for subsequent calls)
 	gl.vertexAttribPointer(Shaders.building.locations.vertexPosition, 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
@@ -728,6 +726,7 @@ Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
     // can apparently be -1 if the variable is not used inside the shader
     if (Shaders.building.locations.vertexNormal > -1)
     {
+    	gl.enableVertexAttribArray(Shaders.building.locations.vertexNormal); //setup texcoord buffer
 	    gl.bindBuffer(gl.ARRAY_BUFFER, this.normals);
 	    gl.vertexAttribPointer(Shaders.building.locations.vertexNormal, 3, gl.FLOAT, false, 0, 0);  //assigns array "normals"
 	}

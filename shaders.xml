@@ -31,21 +31,18 @@
 
 <script id="building-shader-vs" type="x-shader/x-vertex">
 	attribute vec3 vertexPosition;
-    attribute vec2 vertexTexCoords; 			
+    attribute vec3 vertexTexCoords; 			
     attribute vec3 vertexNormal;
-    attribute vec3 vertexColorIn;
 	
 	uniform mat4 modelViewProjectionMatrix;
     uniform vec3 cameraPos;
 
-    varying vec2 texCoordV;
-    varying vec3 normal;
     varying vec3 vertexColor;
 
 	void main(void) {
 		gl_Position = modelViewProjectionMatrix * vec4(vertexPosition, 1.0);
 
-		texCoordV = vertexTexCoords;
+		vec3 vertexColorIn = vertexTexCoords.z > 0.0 ? vec3(0.8, 0.8, 0.8) : vec3(0.9, 0.6, 0.6);
 
         vec3 vView = normalize( cameraPos - vertexPosition); 
         float diffuse = abs( 0.5 * dot(vView, vertexNormal) );
@@ -57,12 +54,10 @@
 <script id="building-shader-fs" type="x-shader/x-fragment">
 <![CDATA[
 	precision mediump float;
-    varying vec2 texCoordV;
     varying vec3 vertexColor;
-    uniform sampler2D tex;
     
 	void main(void) {
-        gl_FragColor = vec4(  texture2D(tex, texCoordV).rgb * vertexColor, 1.0);
+        gl_FragColor = vec4(vertexColor, 1.0);
 	}
 ]]>
 </script>
