@@ -9,11 +9,9 @@ var VicinityMap = {
         VicinityMap.map.on("click", VicinityMap.onMapClick);
         VicinityMap.map.on("zoomend", VicinityMap.renderFrustum);
 
-        L.tileLayer('http://{s}.tile.rbuch703.de/tiles/mipmap/{z}/{x}/{y}.png', {
+        L.tileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: 'OpenStreetMap',
             maxZoom: 19, minZoom:0,
-            zoomOffset: -1,
-            tileSize:512
         }).addTo(VicinityMap.map);
 
         L.control.scale({imperial:false, position:"topright"}).addTo(VicinityMap.map);

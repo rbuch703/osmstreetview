@@ -14,8 +14,8 @@ function Tile( tileX, tileY, level, mapLayer)
     
         
     var im = new Image();
-    //required to get CORS approval, and thus to be able to draw this on a canvas without tainting that
     im.tile = this;
+    //required to get CORS approval, and thus to be able to draw this on a canvas without tainting that
     im.crossOrigin = "anonymous";   
     im.onload = this.onImageLoaded;
     
@@ -96,9 +96,9 @@ Tile.prototype.onImageLoaded = function(e)
 }
 
 
-//Tile.basePath = "http://{s}.tile.openstreetmap.org/";   // attached to the constructor to be shared globally
+Tile.basePath = "http://{s}.tile.openstreetmap.org/";   // attached to the constructor to be shared globally
 //Tile.basePath = "http://{s}.tile.rbuch703.de/osm/";
-Tile.basePath = "http://{s}.tile.rbuch703.de/tiles/mipmap/";
+//Tile.basePath = "http://{s}.tile.rbuch703.de/tiles/mipmap/";
 Tile.fileExtension = "png";
 
 //Tile.basePath = "http://otile1.mqcdn.com/tiles/1.0.0/sat/";   // attached to the constructor to be shared globally
