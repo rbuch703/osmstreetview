@@ -1,5 +1,10 @@
 "use strict"
 
+/* Copyright (c) 2014, Robert Buchholz <rbuch703@gmail.com> 
+   The contents of this file are licensed under the GNU General Public License version 3
+   (see the LICENSE file in the project root for details)
+*/
+
 function getDayOfYear( date ) {
     var year = new Date(date.getFullYear(), 0, 0);
     var dt = date.valueOf() - year.valueOf();  //milliseconds since beginning of year

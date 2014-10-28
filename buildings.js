@@ -1,4 +1,9 @@
 "use strict"
+/* Copyright (c) 2014, Robert Buchholz <rbuch703@gmail.com> 
+   The contents of this file are licensed under the GNU General Public License version 3
+   (see the LICENSE file in the project root for details)
+*/
+
 
 /**
  * @constructor
@@ -662,12 +667,11 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
 
             this.texCoords.push(0.5, 0.5,hf,  0.5, 0.5,hf,  0.5, 0.5,hf);
             this.normals.push( 0,0,1,  0,0,1,  0,0,1 ); //roof --> normal is pointing straight up
-        }        
+        }
     }
     this.numVertices = this.vertices.length/3.0;    // 3 coordinates per vertex
     this.numEdgeVertices = this.edgeVertices.length/3.0;
     console.log("'Buildings' total to %s faces and %s edges", this.numVertices/3, this.numEdgeVertices/2);
-    console.log("V/N/T: %s/%s/%s", this.vertices.length, this.normals.length, this.texCoords.length);
     this.vertices = glu.createArrayBuffer(this.vertices);
     this.texCoords= glu.createArrayBuffer(this.texCoords);
     this.normals  = glu.createArrayBuffer(this.normals);
@@ -678,15 +682,6 @@ Buildings.prototype.renderDepth = function(modelViewMatrix, projectionMatrix) {
     if (! this.numVertices || !Shaders.ready)
         return;
         
-
-    gl.enable(gl.CULL_FACE);
-    //HACK: A building casts the same shadow regardless of whether its front of back faces are used in the shadow computation.
-    //      The only exception is the building the camera is located in: using front faces would prevent light to be casted on
-    //      anything inside the building walls, i.e. no light would fall on anything inside the apartment (since its windows
-    //      have to corresponding holes in the buiding geometry. Using only the front faces effectively ignores just the
-    //      building the camera is in for the shadow computation, which gives the desired effect to shading the apartment
-    gl.cullFace(gl.FRONT);
-
 	gl.useProgram(Shaders.depth);   //    Install the program as part of the current rendering state
 	gl.enableVertexAttribArray(Shaders.depth.locations.vertexPosition); // setup vertex coordinate buffer
 

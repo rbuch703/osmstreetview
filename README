@@ -1,0 +1,11 @@
+
+This project should be executable as-is, from any web server, without any 
+additional setup.
+
+Depending on your web browser, it may even be possible to run it completely 
+from a local directory without using a web server at all. Just open the 
+index.html file in your web browser. This works (at least) in Firefox. Chrome/
+Chromium on the other hand block file access from local files, and thus 
+prevents loading of the shader code. To compensate, either start a minimal web
+server to serve the files, or start Chrome/Chromium with the 
+"--allow-file-access-from-files" parameter.

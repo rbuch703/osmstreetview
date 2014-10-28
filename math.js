@@ -1,5 +1,10 @@
 "use strict"
 
+/* Copyright (c) 2014, Robert Buchholz <rbuch703@gmail.com> 
+   The contents of this file are licensed under the GNU General Public License version 3
+   (see the LICENSE file in the project root for details)
+*/
+
 function long2tile(lon,zoom) { return ((lon+180)/360*Math.pow(2,zoom)); }
 function lat2tile(lat,zoom)  { return ((1-Math.log(Math.tan(lat*Math.PI/180) + 1/Math.cos(lat*Math.PI/180))/Math.PI)/2 *Math.pow(2,zoom)); }
 

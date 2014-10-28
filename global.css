@@ -6,7 +6,7 @@
 }
 
 body *{
-    font-family: Source Sans Pro,Verdana,Calibri,"Liberation Sans",Verdana,Arial,sans,sans-serif;
+    font-family: Source Sans Pro,Verdana,Calibri,"Liberation Sans",Arial,sans,sans-serif;
     color: #333;
 }
 
@@ -17,22 +17,6 @@ emph {
 
 h3 {
     font-size: 1.3em;
-}
-
-.tabHeader {
-    text-decoration:none;
-    color: #444;
-    padding-right:10px;
-    padding-left: 10px;
-    font-weight:bold;
-    border-bottom: 3px solid #777;
-    border-right: 1px solid #444;
-    border-left: 1px solid #444;
-}
-
-.tabHeaderSelected {
-    border-bottom: 3px solid #D44;
-    border-top: 1px solid white;
 }
 
 a {
@@ -60,7 +44,7 @@ a {
 
     #navDiv {
         width:30%;
-        top:20px;
+        top:0px;
     }
 }
 

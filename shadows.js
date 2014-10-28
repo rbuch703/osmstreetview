@@ -1,5 +1,10 @@
 "use strict"
 
+/* Copyright (c) 2014, Robert Buchholz <rbuch703@gmail.com> 
+   The contents of this file are licensed under the GNU General Public License version 3
+   (see the LICENSE file in the project root for details)
+*/
+
 var Shadows = {
     
     dirty: true,
@@ -86,7 +91,7 @@ var Shadows = {
 	    var projectionMatrix = mat4.create();
 	    mat4.perspective(projectionMatrix, fieldOfView/180*Math.PI/300, webGlCanvas.width / webGlCanvas.height, 3000, 5100.0);
 
-        // the apartment shader needs this later to access the shadow buffer
+        // is later needed to index the shadow buffer
         Shadows.shadowMvpMatrix = mat4.create();
         mat4.mul(Shadows.shadowMvpMatrix, projectionMatrix, modelViewMatrix);
 

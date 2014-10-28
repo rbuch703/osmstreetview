@@ -1,4 +1,8 @@
 "use strict"    
+/* Copyright (c) 2014, Robert Buchholz <rbuch703@gmail.com> 
+   The contents of this file are licensed under the GNU General Public License version 3
+   (see the LICENSE file in the project root for details)
+*/
 
 function getSign(pos, neg)
 {
@@ -128,15 +132,6 @@ var Controller = {
         Controller.localPosition.y += dy;
     },
     
-    moveTo: function(localX, localY)
-    {
-        var newPixelPos = mapApartment.localToPixelCoordinates( {x:localX, y: localY} );
-
-        Controller.localPosition.x = localX;
-        Controller.localPosition.y = localY;
-    
-    },
-	
 	updateKeyInteraction: function()
 	{
         var now = new Date().getTime();

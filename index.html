@@ -4,17 +4,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, user-scalable=no">
-    <meta property="og:image" content="http://rbuch703.de/osmsv/images/screenshot.png" />
-    <meta property="og:description" content="See a 3D view of any position of the world directly from your web browser." />
-    <meta property="og:title" content="Open Street View" />
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="http://rbuch703.de/osmsv/" />
-    
-    <meta property="fb:admins" content="100001025041261" />
 
-    <link type="text/css" rel="stylesheet" href="styles/global.css" />
-    <link type="text/css" rel="stylesheet" href="styles/leaflet.css" />
-    <link type="text/css" rel="stylesheet" href="styles/jquery-ui.css">
+    <link type="text/css" rel="stylesheet" href="global.css" />
+    <link type="text/css" rel="stylesheet" href="contrib/leaflet.css" />
+    <link type="text/css" rel="stylesheet" href="contrib/jquery-ui.css">
 
 	<script type="text/javascript" src="contrib/gl-matrix.js" ></script>
     <script type="text/javascript" src="contrib/jquery.js"></script>
@@ -35,40 +28,31 @@
 	<script type="text/javascript" src="math.js" ></script> 
     <script type="text/javascript" src="main.js"></script> 
 
-
-	<!--<script type="text/javascript" src="combined.js" ></script> <!-- contains everything but leaflet (which is not closure-compiler compatible) -->
-
-    
-    <title>FlatMatch - virtuelle Wohnungsbesichtigung</title>
+    <title>OSM Street View</title>
 </head>
 
 <body overflow="hidden"> <!-- style ="padding: 0px; margin: 0px;" -->
 
 <div id="glErrorDiv" style="display:none; max-width:800px">
-    <h2 style="">FlatMatch - virtuelle Wohnungsbesichtigung</h2>
+    <h2 style="">OSM Street View</h2>
 
     <p style="font-weight:bold; color:#F00">
-    Ihr Internet-Browser unterstützt 3D-Grafik ("WebGL") leider nicht. Diese sind jedoch für diese Webseite notwendig.</p>
+    Unfortunately, your web browser does not support 3D web graphics ("WebGL"). This feature is required for this web page to work.</p>
     <p>
-    Diese Seite sollte auf Desktops und Laptop-Computern mit den meisten aktuellen Internet-Browsern (z.B. Internet Explorer ab Version 11, Firefox, Chrome) funktionieren. Für den Browser Safari sind hierzu <a target="_blank" href="https://discussions.apple.com/thread/3300585?start=0">zusätzliche Einstellungen</a> notwendig.</p>
+    This page should work on all laptop and desktop computers with up-to-date web browsers (e.g. Internet Explorer since version 11, Firefox, Chrome). For the Safari browser some <a target="_blank" href="https://discussions.apple.com/thread/3300585?start=0">tweaks</a>are necessary.</p>
     <p>
-    Unter den Mobilgeräten (Tablets und Smartphones) sollten aktuelle Android-Geräte (z.B. von Samsung, LG, HTC, Asus, Google, oder Huawei ab Android 4.4) und Apple's iPhones und iPads ab iOS 8 3D-Grafiken im Browser unterstützen.
+    For mobile devices (tablets and smartphones), most recent Android devices with Android 4.4 (e.g. by Samsung, LG, HTC, Asus, Google, or Huawei) and Apple's iPhones und iPads with iOS 8 shoudl support 3D web graphics.
+    </p>
     </p>
 </div>
 
-
-
-<!--<div style="width:100%; height:100%"> -->
 <div id="navDiv" style="">
-    <div id="divNavContainer" style="padding-left:20px;padding-right: 20px; ">
+    <div id="divNavContainer" style="padding-left:10px;padding-right: 10px">
+        <h3>Vicinity </h3>
+        <div id="mapDiv" style="width:100%; height:400px;"> </div>
 
-        <div id="divVicinity" style="">
-            <h3>Nähere Umgebung </h3>
-            <div id="mapDiv" style="width:100%; height:600px;"> </div>
-        </div>
-
-        <h3>Augenhöhe</h3>
-        <div id="slider-height" style="width:100%" > </div>
+        <h3>Eye Height</h3>
+        <div id="slider-height" style="width:95%" > </div>
         <!--
         <div id="divUsageNotes" style="display:none">
 	        <ul>
@@ -80,12 +64,12 @@
 
 
         <div id="divSunPos" style="">
-            <h3>Sonnenstand </h3>
+            <h3>Sun Position </h3>
             <p>
-            Tag: <span id="lblDay" ></span>
+            Day: <span id="lblDay" ></span>
             <div id="slider-day" style="width:100%"></div></p>
             <p>
-            Zeit: <span id="lblTime" ></span>
+            Time: <span id="lblTime" ></span>
             <div id="slider-time" style="width:100%"></div>   
             </p>
         </div>

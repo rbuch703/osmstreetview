@@ -1,10 +1,14 @@
 "use strict"
 
+/* Copyright (c) 2014, Robert Buchholz <rbuch703@gmail.com> 
+   The contents of this file are licensed under the GNU General Public License version 3
+   (see the LICENSE file in the project root for details)
+*/
+
 //var map;
 var mapPlane;
 var mapBuildings;
 var mapSkyDome;
-var mapApartment;
 var mapSun;
 
 var gl;
@@ -59,8 +63,6 @@ function resetPosition(pos )
     if (!gl)
         return;
 
-    //var apartmentFloorHeight = offer.level * 3.0 + 1.0;
-    
     Controller.position = pos;
     VicinityMap.resetView(pos);
     Controller.updateHistoryState();
@@ -92,12 +94,12 @@ var daysPerMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 function getDayString(dayOfYear)
 {
     var day = ((dayOfYear % 366) | 0)+1;
-    var monthNames = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
+    var monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
     
     for (var month = 0; day > daysPerMonth[month]; month++)
         day -= daysPerMonth[month];
         
-    return "" + day + ". " + monthNames[month];
+    return monthNames[month] + ", " + day;
 }
 
 function getDayOfYear(date)
@@ -144,10 +146,10 @@ function onSunPositionChanged(day, time)
    lblTime.textContent =  "" + hour + ":" + minute;
    
    if (time == riseTime)
-    lblTime.textContent += " (Sonnenaufgang)";
+    lblTime.textContent += " (sunrise)";
     
    if (time == setTime)
-    lblTime.textContent += " (Sonnenuntergang)";
+    lblTime.textContent += " (sunset)";
 
     
     scheduleFrameRendering();
@@ -196,7 +198,7 @@ function init()
         slide: function( event, ui ) { onSunPositionChanged(mapSun.dayOfYear, ui.value); }
         });
 
-    console.log("Local height is %s", Controller.localPosition.z);
+    //console.log("Local height is %s", Controller.localPosition.z);
     jQuery( "#slider-height" ).slider({
         min: 10,
         max: 200,
@@ -308,8 +310,9 @@ function onResize()
 {
     /*Note: 
      *   - Canvas.style.height sets the size of the object on screen, but is a CSS property (may also be something like "100%")
+     *   - Canvas.clientHeight is the read-only value of the consequence of Canvas.style.height 
+     *     in pixels (even if style.height is given in percent, etc.)
      *   - Canvas.height sets the logical size of the drawing buffer is pixels (its content is later scaled to fit the object on screen)
-     *   - Canvas.clientHeight is the read-only value of the consequence of Canvas.style.height in pixels (even if style.height is given in percent, etc.)
      */	    
     if (window.matchMedia( "(orientation: landscape)" ).matches )
         webGlCanvas.style.height = webGlCanvas.clientWidth / 16 * 9 + "px";
@@ -319,8 +322,6 @@ function onResize()
     webGlCanvas.width  = webGlCanvas.clientWidth;// / 2;
 
 
-    //ApartmentMap.resize();
-    
     scheduleFrameRendering();
 }	
 
@@ -331,8 +332,7 @@ function renderScene()
         return;
 
     //var sunPos = mapSun ? mapSun.getPosition() : (mapSkyDome ? [0,0,mapSkyDome.RADIUS] : [0,0,5000]);
-    //Shadows.renderDepthTexture(sunPos, [0, 0, Controller.localPosition.z], [mapBuildings, mapApartment]);
-    
+    //Shadows.renderDepthTexture(sunPos, [0, 0, Controller.localPosition.z], [mapBuildings]);
     //select default frame buffer (do not render to texture);
     //gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 	gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT );
