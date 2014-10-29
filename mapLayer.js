@@ -8,16 +8,26 @@
 /**
  * @constructor
  */
-function MapLayer() {
-    
-    this.createTileHierarchy(  );
+function MapLayer(tileSet) {
+
+    if (tileSet === undefined)
+    tileSet = MapLayer.TileSets.OSM
+    this.createTileHierarchy( tileSet );
 
 }
 
-MapLayer.MIN_ZOOM = 12; //experimentally tested: everything beyond level 12 is beyond the far plane
-MapLayer.MAX_ZOOM = 19;
+//MapLayer.MIN_ZOOM = 12; //experimentally tested: everything beyond level 12 is beyond the far plane
+//MapLayer.MAX_ZOOM = 19;
 
-MapLayer.prototype.createTilesRecursive = function(tileX, tileY, level, maxDistance, hasRenderedParent, tileListOut)
+MapLayer.TileSets = { 
+    OSM:              { baseUrl:"http://{s}.tile.openstreetmap.org/",       fileExtension: "png", tileSize:256, minZoom:0, maxZoom:19 },
+    MapQuestOpen:     { baseUrl:"http://otile1.mqcdn.com/tiles/1.0.0/map/", fileExtension: "jpg", tileSize:256, minZoom:0, maxZoom:19 },
+    //same tile URL for US and non-US satellite imagery, but only the US is covered down to zoom level 18
+    MapQuestOpenSat:  { baseUrl:"http://otile1.mqcdn.com/tiles/1.0.0/sat/", fileExtension: "jpg", tileSize:256, minZoom:0, maxZoom:11 },
+    MapQuestOpenSatUS:{ baseUrl:"http://otile1.mqcdn.com/tiles/1.0.0/sat/", fileExtension: "jpg", tileSize:256, minZoom:0, maxZoom:18 }
+}
+
+MapLayer.prototype.createTilesRecursive = function(tileX, tileY, level, maxDistance, hasRenderedParent, tileSet, tileListOut)
 {
     var px = long2tile(Controller.position.lng,level);    
     var py = lat2tile( Controller.position.lat,level);
@@ -42,12 +52,12 @@ MapLayer.prototype.createTilesRecursive = function(tileX, tileY, level, maxDista
     {
         tileListOut.push( [[v1,v2,v3,v4], tileX, tileY, level]);
 
-        if (level < MapLayer.MAX_ZOOM)
+        if (level < tileSet.maxZoom)
         {
-            this.createTilesRecursive( tileX*2,   tileY*2,   level + 1, maxDistance, true, tileListOut);
-            this.createTilesRecursive( tileX*2+1, tileY*2,   level + 1, maxDistance, true, tileListOut);
-            this.createTilesRecursive( tileX*2,   tileY*2+1, level + 1, maxDistance, true, tileListOut);
-            this.createTilesRecursive( tileX*2+1, tileY*2+1, level + 1, maxDistance, true, tileListOut);
+            this.createTilesRecursive( tileX*2,   tileY*2,   level + 1, maxDistance, true, tileSet, tileListOut);
+            this.createTilesRecursive( tileX*2+1, tileY*2,   level + 1, maxDistance, true, tileSet, tileListOut);
+            this.createTilesRecursive( tileX*2,   tileY*2+1, level + 1, maxDistance, true, tileSet, tileListOut);
+            this.createTilesRecursive( tileX*2+1, tileY*2+1, level + 1, maxDistance, true, tileSet, tileListOut);
         }
     }
     
@@ -81,7 +91,7 @@ function getRadius(pixelLength, height)
         var cosAlpha = -(pixelLength*pixelLength - edge1*edge1 - edge2*edge2)/(2*edge1*edge2); //law of cosines
 
         // computation of cosAlpha is numerically unstable, may compute values slightly above 1.0.
-        // this would result in a cosAlpha of NaN, which screws up comparisons to that value
+        // this would result in a alpha of NaN, which screws up comparisons to that value
         if (cosAlpha > 1.0) 
             cosAlpha = 1.0;
             
@@ -97,48 +107,54 @@ function getRadius(pixelLength, height)
 }
 
 
-MapLayer.prototype.createTileHierarchy = function()
+MapLayer.prototype.createTileHierarchy = function(tileSet)
 {
+    this.activeTileSet = tileSet;
+
+    //experimentally tested: everything beyond level 12 is beyond the far plane
+    var MIN_ZOOM = 12;
+    
+    if (MIN_ZOOM < tileSet.minZoom)
+        MIN_ZOOM = tileSet.minZoom;
+    if (MIN_ZOOM > tileSet.maxZoom)
+        MIN_ZOOM = tileSet.maxZoom;
+        
+
     var height = Controller.localPosition.z;
     var earthCircumference = 2 * Math.PI * (6378.1 * 1000);
-    var physicalTileLength = earthCircumference* Math.cos(Controller.position.lat/180*Math.PI) / Math.pow(2, 17);
-    var pixelLength = physicalTileLength / 256;
+    //var physicalTileLength = earthCircumference* Math.cos(Controller.position.lat/180*Math.PI) / Math.pow(2, 17);
+    //var pixelLength = physicalTileLength / tileSet.tileSize;
     
     var maxDistance = {};
     
     for (var level = 0; level < 25; level++)
     {
         var physicalTileLength = earthCircumference* Math.cos(Controller.position.lat/180*Math.PI) / Math.pow(2, level);
-        var pixelLength = physicalTileLength / 256;
+        var pixelLength = physicalTileLength / tileSet.tileSize;
         maxDistance[level] = getRadius(pixelLength, height);
     }
 
-    /* at the lowest level (zoomed out the furthest), the user stands on a single tile. But he may be close 
-     * enough to the edge of that tile that rendering that single tile (and its subdivision) is not enough.
-     * One could render all adjacent tiles as well (eight-neighborhood), but that would be a waste of resources.
-     * Instead we render only on those tiles that are adjacent to the closest corner of the tile the user stands on.
-     */
-    var x = long2tile(Controller.position.lng, MapLayer.MIN_ZOOM);
-    var y = lat2tile( Controller.position.lat, MapLayer.MIN_ZOOM);
+    var x = Math.floor(long2tile(Controller.position.lng, MIN_ZOOM ));
+    var y = Math.floor(lat2tile( Controller.position.lat, MIN_ZOOM ));
     
     var listX = [-1, 0, 1];
     var listY = [-1, 0, 1];
-    //var listX = x % 1 > 0.5 ? [0, 1] : [-1, 0];
-    //var listY = y % 1 > 0.5 ? [0, 1] : [-1, 0];
-    
-    x = Math.floor(x);
-    y = Math.floor(y);
     
     var tileList = [];
     for (var i in listX)
         for (var j in listY)
-            this.createTilesRecursive(x+listX[i], y+listY[j], MapLayer.MIN_ZOOM, maxDistance, false, tileList);  
+            this.createTilesRecursive(x+listX[i], y+listY[j], MIN_ZOOM, maxDistance, false, tileSet, tileList);  
     
     tileList.sort( function(a, b) { return a[3] - b[3];});
     console.log("map layer consists of %s tiles", tileList.length);
+    
+    if (! this.tiles === undefined)
+        for (var i in this.tiles)
+            this.tiles[i].free();
+    
     this.tiles = [];
     for (var i in tileList)
-        this.tiles.push(new Tile(tileList[i][1], tileList[i][2], tileList[i][3], this ));
+        this.tiles.push(new Tile(tileList[i][1], tileList[i][2], tileList[i][3], this, tileSet ));
 }
 
 MapLayer.prototype.render = function(modelViewMatrix, projectionMatrix) 

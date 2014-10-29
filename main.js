@@ -54,6 +54,7 @@ function initEventHandler()
 	document.body.onresize = onResize;
 
 	sampleLocations.addEventListener("change", onSampleLocationSelected);
+	tileSetSelection.addEventListener("change", onTileSetSelected);
     Controller.onRequestFrameRender = scheduleFrameRendering;
     
     
@@ -79,7 +80,7 @@ function resetPosition(pos )
     Controller.localPosition.x = 0;
     Controller.localPosition.y = 0;
 
-    mapPlane = new MapLayer();
+    mapPlane = new MapLayer(eval( tileSetSelection.value));
     mapPlane.onProgress= scheduleFrameRendering;
 
 
@@ -181,6 +182,16 @@ function onSampleLocationSelected(e)
         }
     }
 }
+ 
+function onTileSetSelected()
+{
+    if (!!mapPlane)
+    {
+        var tileSet = eval( tileSetSelection.value);
+        
+        mapPlane.createTileHierarchy( tileSet );
+    }
+} 
     
 function init()
 {

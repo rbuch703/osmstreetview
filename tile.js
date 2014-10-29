@@ -8,7 +8,7 @@
 /**
  * @constructor
  */
-function Tile( tileX, tileY, level, mapLayer) 
+function Tile( tileX, tileY, level, mapLayer, tileSet) 
 {
 
     this.level = level;
@@ -28,7 +28,7 @@ function Tile( tileX, tileY, level, mapLayer)
     
     var idx = Math.floor(Math.random()*3);
     
-    im.src = Tile.basePath.replace("{s}", servers[idx]) + level + "/" + this.x + "/" + this.y + "." + Tile.fileExtension;
+    im.src = tileSet.baseUrl.replace("{s}", servers[idx]) + level + "/" + this.x + "/" + this.y + "." + tileSet.fileExtension;
     this.image = im;    
     
     
@@ -57,6 +57,13 @@ function Tile( tileX, tileY, level, mapLayer)
     
 }
 
+Tile.prototype.free = function()
+{
+    gl.deleteBuffer(this.vertices);
+    gl.deleteBuffer(this.texCoords);
+    gl.deleteTexture(this.texId);
+}
+
 Tile.prototype.render = function(modelViewMatrix, projectionMatrix) 
 {
     //texture is not yet ready --> cannot render
@@ -82,7 +89,7 @@ Tile.prototype.render = function(modelViewMatrix, projectionMatrix)
     gl.enable(gl.POLYGON_OFFSET_FILL);  //to prevent z-fighting between rendered edges and faces
     gl.activeTexture(gl.TEXTURE0);  //successive commands (here 'gl.bindTexture()') apply to texture unit 0
 
-    gl.polygonOffset(MapLayer.MAX_ZOOM - this.level + 1, MapLayer.MAX_ZOOM - this.level + 1);
+    gl.polygonOffset(mapPlane.activeTileSet.maxZoom - this.level + 1, mapPlane.activeTileSet.maxZoom - this.level + 1);
 
     gl.bindTexture(gl.TEXTURE_2D, this.texId); //render geometry using texture "tex" in texture unit 0
 	gl.drawArrays(gl.TRIANGLES, 0, 6);
@@ -99,11 +106,4 @@ Tile.prototype.onImageLoaded = function(e)
     if (tile.mapLayer.onProgress)    //call user-defined event handler
         tile.mapLayer.onProgress();
 }
-
-
-Tile.basePath = "http://{s}.tile.openstreetmap.org/";   // attached to the constructor to be shared globally
-Tile.fileExtension = "png";
-
-//Tile.basePath = "http://otile1.mqcdn.com/tiles/1.0.0/sat/";   // MapQuest open aerial tiles
-//Tile.fileExtension = "jpg";
 
