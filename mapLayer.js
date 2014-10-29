@@ -118,8 +118,8 @@ MapLayer.prototype.createTileHierarchy = function()
      * One could render all adjacent tiles as well (eight-neighborhood), but that would be a waste of resources.
      * Instead we render only on those tiles that are adjacent to the closest corner of the tile the user stands on.
      */
-    var x = long2tile(Controller.position.lng,12);
-    var y = lat2tile( Controller.position.lat,12);
+    var x = long2tile(Controller.position.lng, MapLayer.MIN_ZOOM);
+    var y = lat2tile( Controller.position.lat, MapLayer.MIN_ZOOM);
     
     var listX = [-1, 0, 1];
     var listY = [-1, 0, 1];
@@ -132,7 +132,7 @@ MapLayer.prototype.createTileHierarchy = function()
     var tileList = [];
     for (var i in listX)
         for (var j in listY)
-            this.createTilesRecursive(x+listX[i], y+listY[j], 12, maxDistance, false, tileList);  
+            this.createTilesRecursive(x+listX[i], y+listY[j], MapLayer.MIN_ZOOM, maxDistance, false, tileList);  
     
     tileList.sort( function(a, b) { return a[3] - b[3];});
     console.log("map layer consists of %s tiles", tileList.length);
