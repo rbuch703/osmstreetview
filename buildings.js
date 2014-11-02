@@ -15,6 +15,24 @@ function Buildings(gl, position)
         return;
     this.mapCenter = position;//{lat:52.13850380245244, lng:11.64003610610962};
 
+    this.windowTexture = glu.createTextureFromBytes( new Uint8Array([255, 255, 255]) );
+    gl.bindTexture(gl.TEXTURE_2D, this.windowTexture);
+    //to allow tiling of windows
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+
+    var image = new Image();
+    var bldgs = this;
+    image.onload = function() 
+    { 
+        glu.updateTexture( bldgs.windowTexture, image);
+        
+        if (Controller.onRequestFrameRender)
+            Controller.onRequestFrameRender();
+    };
+    image.src = "images/window.png";
+
+
     var earthCircumference = 2 * Math.PI * (6378.1 * 1000);
     var physicalTileLength = earthCircumference* Math.cos(position.lat/180*Math.PI) / Math.pow(2, /*zoom=*/19);
 
@@ -589,6 +607,9 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
         //console.log("Height is %s", bldg.height);
         var height = (!(bldg.height === undefined)) ? bldg.height : 10;
         var hf = (!(bldg.height === undefined)) ? 1 : 0;
+        
+        var vDist = height - bldg.min_height;
+        var numLevels = Math.floor( vDist/3.5);
 
         if (bldg.nodes[0].dx != bldg.nodes[bldg.nodes.length-1].dx || bldg.nodes[0].dy != bldg.nodes[bldg.nodes.length-1].dy)
             console.log("[WARN] outline of building %s does not form a closed loop (%o)", i, bldg);
@@ -606,6 +627,7 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
             var dx = bldg.nodes[j+1].dx - bldg.nodes[j].dx;
             var dy = bldg.nodes[j+1].dy - bldg.nodes[j].dy;
 
+            var hDist = Math.floor(Math.sqrt(dx*dx+dy*dy) / 2.0);
             var N = norm3( [dy, -dx, 0] );
             // D-C
             // |/|
@@ -615,16 +637,16 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
             //flatten array of 3-element-arrays to a single array
             //var coords = [].concat.apply([], [A, B, C, A, C, D]);
             var coords = [].concat(A, B, C, A, C, D);
-            this.vertices.push.apply(this.vertices, coords);
+            [].push.apply(this.vertices, coords);
             
-            var tc = [0,0,hf, 1,0,hf, 1,1,hf, 0,0,hf, 1,1,hf, 0,1,hf];
-            this.texCoords.push.apply( this.texCoords, tc); //this 'hack' is way faster than concat()
+            var tc = [0,0,hf,   hDist,0,hf,   hDist,numLevels,hf,   0,0,hf,   hDist,numLevels,hf, 0,numLevels,hf];
+            [].push.apply( this.texCoords, tc); //this 'hack' is way faster than concat()
             
             var norms = [].concat(N,N,N,N,N,N);
-            this.normals.push.apply( this.normals, norms);
+            [].push.apply( this.normals, norms);
             
             var edgeVertices = [].concat(A, D, B, C, A, B, D, C);
-            this.edgeVertices.push.apply(this.edgeVertices, edgeVertices);
+            [].push.apply(this.edgeVertices, edgeVertices);
             
         }
         
@@ -730,6 +752,9 @@ Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
     mat4.mul(mvpMatrix, projectionMatrix, modelViewMatrix);
 
     gl.uniform1i(Shaders.building.locations.tex, 0); //select texture unit 0 as the source for the shader variable "tex" 
+    gl.activeTexture(gl.TEXTURE0);  //successive commands (here 'gl.bindTexture()') apply to texture unit 0
+    gl.bindTexture(gl.TEXTURE_2D, this.windowTexture); //render geometry without texture
+
 	gl.uniformMatrix4fv(Shaders.building.locations.modelViewProjectionMatrix, false, mvpMatrix);
 
     var pos = Controller.localPosition;

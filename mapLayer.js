@@ -24,7 +24,8 @@ MapLayer.TileSets = {
     MapQuestOpen:     { baseUrl:"http://otile1.mqcdn.com/tiles/1.0.0/map/", fileExtension: "jpg", tileSize:256, minZoom:0, maxZoom:19 },
     //same tile URL for US and non-US satellite imagery, but only the US is covered down to zoom level 18
     MapQuestOpenSat:  { baseUrl:"http://otile1.mqcdn.com/tiles/1.0.0/sat/", fileExtension: "jpg", tileSize:256, minZoom:0, maxZoom:11 },
-    MapQuestOpenSatUS:{ baseUrl:"http://otile1.mqcdn.com/tiles/1.0.0/sat/", fileExtension: "jpg", tileSize:256, minZoom:0, maxZoom:18 }
+    MapQuestOpenSatUS:{ baseUrl:"http://otile1.mqcdn.com/tiles/1.0.0/sat/", fileExtension: "jpg", tileSize:256, minZoom:0, maxZoom:18 },
+    OsmBrightMagdeburg:{ baseUrl:"http://{s}.tile.rbuch703.de/tiles/map/",  fileExtension: "png", tileSize:512, minZoom:0, maxZoom:19 }
 }
 
 MapLayer.prototype.createTilesRecursive = function(tileX, tileY, level, maxDistance, hasRenderedParent, tileSet, tileListOut)
