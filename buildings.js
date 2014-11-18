@@ -10,7 +10,6 @@
  */
 function Buildings(gl, position)
 {
-
     if (!gl)
         return;
     this.mapCenter = position;//{lat:52.13850380245244, lng:11.64003610610962};
@@ -24,7 +23,7 @@ function Buildings(gl, position)
     var image = new Image();
     var bldgs = this;
     image.onload = function() 
-    { 
+    {
         glu.updateTexture( bldgs.windowTexture, image);
         
         if (Controller.onRequestFrameRender)
@@ -157,9 +156,9 @@ function isClockwise(outline)
 }
 
 
-/* in the osm3s response, nodes are individual entities with lon/lat properties, and ways refer to these nodes
+/* in the osm3s response, nodes are individual entities with lat/lng properties, and ways refer to these nodes
    via their id. This function removes that indirection by replacing the node ids in the way by the actual node
-   lon/lat data
+   lat/lng data
 */
 Buildings.integrateNodeData = function(nodes, ways) {
     for (var i in ways)
@@ -168,10 +167,8 @@ Buildings.integrateNodeData = function(nodes, ways) {
 
         for (var j in way.nodes)
         {
-            //var id = ;
             if (way.nodes[j] in nodes)
                 way.nodes[j] = nodes[way.nodes[j]];
-                //building.outline.push( nodes[id]);
             else
             {
                 delete way.nodes[j];

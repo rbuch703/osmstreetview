@@ -42,16 +42,17 @@ MapLayer.prototype.createTilesRecursive = function(tileX, tileY, level, maxDista
     var y1 = (tileY - py) * physicalTileLength;
     var y2 = (tileY - py + 1) * physicalTileLength
     
-    var v1 = [ x1, y1, 0 ];
+    /*var v1 = [ x1, y1, 0 ];
     var v2 = [ x2, y1, 0 ];
     var v3 = [ x2, y2, 0 ];
-    var v4 = [ x1, y2, 0 ];
+    var v4 = [ x1, y2, 0 ];*/
     
     var minDistance = getMinDistanceFromOrigin(x1, x2, y1, y2);
 
     if (minDistance  < maxDistance[level] || !hasRenderedParent)
     {
-        tileListOut.push( [[v1,v2,v3,v4], tileX, tileY, level]);
+    
+        tileListOut.push( {/*vertices:[v1,v2,v3,v4], */tileX:tileX, tileY:tileY, zoomLevel:level} );
 
         if (level < tileSet.maxZoom)
         {
@@ -64,17 +65,48 @@ MapLayer.prototype.createTilesRecursive = function(tileX, tileY, level, maxDista
     
 }
 
-function getRadius(pixelLength, height)
+
+// returns the angle alpha between edge1 and edge2
+function getViewAngle(height, distance, delta)
+{
+   /* x - Eye                _
+     * |\_                    |
+     * | \\_                  h
+     * |  \ \_                e
+     * |   \  \_              i
+     * |    \-e1\_            g
+     * |     \    \_-e2       h
+     * |      \     \_        t
+     * |_______\______\       _
+     * |-dist- |
+     * |-dist + delta-|       */
+     
+    var edge1 = Math.sqrt( height*height + distance*distance);
+    var edge2 = Math.sqrt( height*height + Math.pow(distance+delta,2) );
+    var cosAlpha = -(delta*delta - edge1*edge1 - edge2*edge2)/(2*edge1*edge2); //law of cosines
+
+    // computation of cosAlpha is numerically unstable, may compute values slightly above 1.0.
+    // this would result in a alpha of NaN, which screws up comparisons to that value
+    if (cosAlpha > 1.0)
+        cosAlpha = 1.0;
+        
+    return Math.acos(cosAlpha);
+}
+
+/* computes the distance (in [m]) at which a single texture pixel of the ground layer would cover less than a single screen pixel.
+   That is (approximately) the distance at which a texture will no longer be rendered at full resolution, and thus the distance
+   at which a lower-resolution texture would suffice */
+function getMipmapDistance(pixelLength /*in [m/px]*/, height /*in [m] */)
 {
     //assumptions:  
     var vFOV = 45 /180 * Math.PI; // vertical FOV is 45°
     var vView = 768; // vertical viewport size is ~ 768px on screen --> full sphere (360°) would be ~8000px
-    var vCircle = 2*Math.PI /vFOV * vView; //length of circumference of a circle/sphere centered at the eye position in screen pixels
+    var vCircle = 2*Math.PI /vFOV * vView; //pixel length of circumference of a circle/sphere centered at the eye position in screen pixels
 
-    var anglePerPixel = vFOV/vView; // angle per pixel
+    var anglePerPixel = vFOV/vView; // the corresponding view angle at which a single texture pixel would cover less than a single screen pixel
     
     
-    //initial test: for high camera positions, tiles would be too small already at radius 0.0
+    //early termination: for high camera positions, tiles would be too small already at radius 0.0
     var alpha = Math.atan(pixelLength/height);
     if (alpha < anglePerPixel)
         return 0;
@@ -83,21 +115,17 @@ function getRadius(pixelLength, height)
     var minR = 0;
     var maxR = 100000;
     
+    /* It is too complicated to determine the mipmap distance directly. But it is relatively easy to compute whether
+       a given distance is before or after the mipmap distance (or, equivalently, whether the view angle of a single
+       texture pixel at a given distance is smaller than the view angle of a single screen pixel). And since the function
+       of view angle depending on view distane is strictly monotonous, we can use an iterative midpoint bisection approach
+       on that function to approximate the mipmap distance.*/
     for (var i = 0; i < 100; i++)
     {
         var midR = (minR + maxR) / 2.0;
+ 
+        var alpha = getViewAngle(height, midR, pixelLength);
         
-        var edge1 = Math.sqrt( height*height + midR*midR);
-        var edge2 = Math.sqrt( height*height + (midR+pixelLength)*(midR+pixelLength) );
-        var cosAlpha = -(pixelLength*pixelLength - edge1*edge1 - edge2*edge2)/(2*edge1*edge2); //law of cosines
-
-        // computation of cosAlpha is numerically unstable, may compute values slightly above 1.0.
-        // this would result in a alpha of NaN, which screws up comparisons to that value
-        if (cosAlpha > 1.0) 
-            cosAlpha = 1.0;
-            
-        var alpha = Math.acos(cosAlpha);
-
         if (alpha < anglePerPixel)
             maxR = midR;
         else
@@ -126,13 +154,13 @@ MapLayer.prototype.createTileHierarchy = function(tileSet)
     //var physicalTileLength = earthCircumference* Math.cos(Controller.position.lat/180*Math.PI) / Math.pow(2, 17);
     //var pixelLength = physicalTileLength / tileSet.tileSize;
     
-    var maxDistance = {};
+    var mipmapDistance = {};
     
-    for (var level = 0; level < 25; level++)
+    for (var level = MIN_ZOOM; level <= tileSet.maxZoom; level++)
     {
         var physicalTileLength = earthCircumference* Math.cos(Controller.position.lat/180*Math.PI) / Math.pow(2, level);
-        var pixelLength = physicalTileLength / tileSet.tileSize;
-        maxDistance[level] = getRadius(pixelLength, height);
+        var pixelLength = physicalTileLength / tileSet.tileSize;    //in [m/pixel]
+        mipmapDistance[level] = getMipmapDistance(pixelLength, height);
     }
 
     var x = Math.floor(long2tile(Controller.position.lng, MIN_ZOOM ));
@@ -144,9 +172,9 @@ MapLayer.prototype.createTileHierarchy = function(tileSet)
     var tileList = [];
     for (var i in listX)
         for (var j in listY)
-            this.createTilesRecursive(x+listX[i], y+listY[j], MIN_ZOOM, maxDistance, false, tileSet, tileList);  
+            this.createTilesRecursive(x+listX[i], y+listY[j], MIN_ZOOM, mipmapDistance, false, tileSet, tileList);  
     
-    tileList.sort( function(a, b) { return a[3] - b[3];});
+    tileList.sort( function(a, b) { return a.zoomLevel - b.zoomLevel; } );
     console.log("map layer consists of %s tiles", tileList.length);
     
     if (! this.tiles === undefined)
@@ -155,7 +183,7 @@ MapLayer.prototype.createTileHierarchy = function(tileSet)
     
     this.tiles = [];
     for (var i in tileList)
-        this.tiles.push(new Tile(tileList[i][1], tileList[i][2], tileList[i][3], this, tileSet ));
+        this.tiles.push(new Tile(tileList[i].tileX, tileList[i].tileY, tileList[i].zoomLevel, this, tileSet ));
 }
 
 MapLayer.prototype.render = function(modelViewMatrix, projectionMatrix) 
