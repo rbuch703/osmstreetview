@@ -80,9 +80,17 @@ function resetPosition(pos )
     Controller.localPosition.x = 0;
     Controller.localPosition.y = 0;
 
-    mapPlane = new MapLayer(eval( tileSetSelection.value));
-    mapPlane.onProgress= scheduleFrameRendering;
-
+    var tileSet = eval( tileSetSelection.value);
+    
+    if (!mapPlane)
+    {
+        mapPlane = new MapLayer(tileSet, Controller.getEffectivePosition());
+        mapPlane.onProgress = scheduleFrameRendering;
+    }
+    else
+        mapPlane.updateTileGeometry( pos );
+        mapPlane.createTileHierarchy( tileSet, Controller.getEffectivePosition(), Controller.getLocalPosition()[2]);
+    
 
     initEventHandler();
     
@@ -189,7 +197,7 @@ function onTileSetSelected()
     {
         var tileSet = eval( tileSetSelection.value);
         
-        mapPlane.createTileHierarchy( tileSet );
+        mapPlane.createTileHierarchy( tileSet, Controller.getEffectivePosition(), Controller.getLocalPosition()[2]);
     }
 } 
     
@@ -357,6 +365,7 @@ function onResize()
     scheduleFrameRendering();
 }	
 
+var prevFrameEffectivePosition = {};
 
 function renderScene()
 {
@@ -381,6 +390,19 @@ function renderScene()
         if (renderItems[i])
             renderItems[i].render(modelViewMatrix, projectionMatrix);
 
+    var effPos = Controller.getEffectivePosition();
+    
+    var hasMoved = ((effPos.lat != prevFrameEffectivePosition.lat) ||
+                    (effPos.lng != prevFrameEffectivePosition.lng) ||
+                    (effPos.height != prevFrameEffectivePosition.height));
+                    
+    //console.log("%s, %o, %o", hasMoved, effPos, prevFrameEffectivePosition);
+
+    //update tile hierarchy in case something moved
+    if (hasMoved)
+        mapPlane.createTileHierarchy( eval( tileSetSelection.value), Controller.getEffectivePosition());
+    
+    prevFrameEffectivePosition = effPos;
 }
 
 //document.addEventListener("load", init, false);

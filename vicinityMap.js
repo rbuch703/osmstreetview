@@ -12,6 +12,7 @@ var VicinityMap = {
         //console.log(lat, lng);
         VicinityMap.map = L.map(div, {keyboard:false} );
         VicinityMap.map.on("click", VicinityMap.onMapClick);
+        VicinityMap.map.on("touchstart", VicinityMap.onMapClick);
         VicinityMap.map.on("zoomend", VicinityMap.renderFrustum);
 
         L.tileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {

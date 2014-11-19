@@ -26,17 +26,21 @@ function Tile( tileX, tileY, level, mapLayer, tileSet)
     
     var servers = ["a", "b", "c"];
     
-    var idx = Math.floor(Math.random()*3);
+    var idx = Math.floor(Math.random()* servers.length);
     
     im.src = tileSet.baseUrl.replace("{s}", servers[idx]) + level + "/" + this.x + "/" + this.y + "." + tileSet.fileExtension;
     this.image = im;    
     
-    
-    var px = long2tile(Controller.position.lng,level);
-    var py = lat2tile( Controller.position.lat,level);
+    this.updateGeometry(Controller.position);
+}
+
+Tile.prototype.updateGeometry = function(position)
+{
+    var px = long2tile(position.lng,this.level);
+    var py = lat2tile( position.lat,this.level);
 
     var earthCircumference = 2 * Math.PI * (6378.1 * 1000);
-    var physicalTileLength = earthCircumference* Math.cos(Controller.position.lat/180*Math.PI) / Math.pow(2, level);
+    var physicalTileLength = earthCircumference* Math.cos(position.lat/180*Math.PI) / Math.pow(2, this.level);
     
     var x1 = (this.x - px)     * physicalTileLength;
     var x2 = (this.x - px + 1) * physicalTileLength;
@@ -50,11 +54,14 @@ function Tile( tileX, tileY, level, mapLayer, tileSet)
     var v4 = [ x1, y2, 0 ];
 
     var vertexData = [].concat(v1, v4, v3, v1, v3, v2);
+    if (this.vertices)
+        gl.deleteBuffer(this.vertices);
+    if (this.texCoords)
+        gl.deleteBuffer(this.texCoords);
+        
     this.vertices =  glu.createArrayBuffer(vertexData);
     this.texCoords = glu.createArrayBuffer([0,0,  0,1,  1,1,  0,0,  1,1,  1,0]);
-    
-    
-    
+
 }
 
 Tile.prototype.free = function()

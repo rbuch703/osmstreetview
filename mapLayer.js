@@ -8,11 +8,11 @@
 /**
  * @constructor
  */
-function MapLayer(tileSet) {
+function MapLayer(tileSet, position) {
 
     if (tileSet === undefined)
-    tileSet = MapLayer.TileSets.OSM
-    this.createTileHierarchy( tileSet );
+        tileSet = MapLayer.TileSets.OSM
+    this.createTileHierarchy( tileSet, position);
 
 }
 
@@ -28,13 +28,13 @@ MapLayer.TileSets = {
     OsmBrightMagdeburg:{ baseUrl:"http://{s}.tile.rbuch703.de/tiles/map/",  fileExtension: "png", tileSize:512, minZoom:0, maxZoom:19 }
 }
 
-MapLayer.prototype.createTilesRecursive = function(tileX, tileY, level, maxDistance, hasRenderedParent, tileSet, tileListOut)
+MapLayer.prototype.createTilesRecursive = function(tileX, tileY, level, position, maxDistance, hasRenderedParent, tileSet, tileListOut)
 {
-    var px = long2tile(Controller.position.lng,level);    
-    var py = lat2tile( Controller.position.lat,level);
+    var px = long2tile(position.lng,level);    
+    var py = lat2tile( position.lat,level);
 
     var earthCircumference = 2 * Math.PI * (6378.1 * 1000);
-    var physicalTileLength = earthCircumference* Math.cos(Controller.position.lat/180*Math.PI) / Math.pow(2, level);
+    var physicalTileLength = earthCircumference* Math.cos(position.lat/180*Math.PI) / Math.pow(2, level);
     
     var x1 = (tileX - px)     * physicalTileLength;
     var x2 = (tileX - px + 1) * physicalTileLength;
@@ -56,10 +56,10 @@ MapLayer.prototype.createTilesRecursive = function(tileX, tileY, level, maxDista
 
         if (level < tileSet.maxZoom)
         {
-            this.createTilesRecursive( tileX*2,   tileY*2,   level + 1, maxDistance, true, tileSet, tileListOut);
-            this.createTilesRecursive( tileX*2+1, tileY*2,   level + 1, maxDistance, true, tileSet, tileListOut);
-            this.createTilesRecursive( tileX*2,   tileY*2+1, level + 1, maxDistance, true, tileSet, tileListOut);
-            this.createTilesRecursive( tileX*2+1, tileY*2+1, level + 1, maxDistance, true, tileSet, tileListOut);
+            this.createTilesRecursive( tileX*2,   tileY*2,   level + 1, position, maxDistance, true, tileSet, tileListOut);
+            this.createTilesRecursive( tileX*2+1, tileY*2,   level + 1, position, maxDistance, true, tileSet, tileListOut);
+            this.createTilesRecursive( tileX*2,   tileY*2+1, level + 1, position, maxDistance, true, tileSet, tileListOut);
+            this.createTilesRecursive( tileX*2+1, tileY*2+1, level + 1, position, maxDistance, true, tileSet, tileListOut);
         }
     }
     
@@ -135,9 +135,27 @@ function getMipmapDistance(pixelLength /*in [m/px]*/, height /*in [m] */)
     return midR;
 }
 
-
-MapLayer.prototype.createTileHierarchy = function(tileSet)
+MapLayer.prototype.updateTileGeometry = function(position)
 {
+    for (var i in this.tiles)
+    {
+        var tile = this.tiles[i];
+        tile.updateGeometry( position );
+    }
+}
+
+MapLayer.prototype.createTileHierarchy = function(tileSet, position)
+{
+
+    if (tileSet != this.activeTileSet)
+    {   //cannot recycle any tiles
+        for (var i in this.tiles)
+        {
+            this.tiles[i].free();   //deletes attached gl objects (vertex buffers, texture)
+            delete this.tiles[i];
+        }
+    }
+
     this.activeTileSet = tileSet;
 
     //experimentally tested: everything beyond level 12 is beyond the far plane
@@ -149,22 +167,18 @@ MapLayer.prototype.createTileHierarchy = function(tileSet)
         MIN_ZOOM = tileSet.maxZoom;
         
 
-    var height = Controller.localPosition.z;
     var earthCircumference = 2 * Math.PI * (6378.1 * 1000);
-    //var physicalTileLength = earthCircumference* Math.cos(Controller.position.lat/180*Math.PI) / Math.pow(2, 17);
-    //var pixelLength = physicalTileLength / tileSet.tileSize;
-    
     var mipmapDistance = {};
     
     for (var level = MIN_ZOOM; level <= tileSet.maxZoom; level++)
     {
-        var physicalTileLength = earthCircumference* Math.cos(Controller.position.lat/180*Math.PI) / Math.pow(2, level);
+        var physicalTileLength = earthCircumference* Math.cos(position.lat/180*Math.PI) / Math.pow(2, level);
         var pixelLength = physicalTileLength / tileSet.tileSize;    //in [m/pixel]
-        mipmapDistance[level] = getMipmapDistance(pixelLength, height);
+        mipmapDistance[level] = getMipmapDistance(pixelLength, position.height);
     }
 
-    var x = Math.floor(long2tile(Controller.position.lng, MIN_ZOOM ));
-    var y = Math.floor(lat2tile( Controller.position.lat, MIN_ZOOM ));
+    var x = Math.floor(long2tile(position.lng, MIN_ZOOM ));
+    var y = Math.floor(lat2tile( position.lat, MIN_ZOOM ));
     
     var listX = [-1, 0, 1];
     var listY = [-1, 0, 1];
@@ -172,18 +186,42 @@ MapLayer.prototype.createTileHierarchy = function(tileSet)
     var tileList = [];
     for (var i in listX)
         for (var j in listY)
-            this.createTilesRecursive(x+listX[i], y+listY[j], MIN_ZOOM, mipmapDistance, false, tileSet, tileList);  
+            this.createTilesRecursive(x+listX[i], y+listY[j], MIN_ZOOM, position, mipmapDistance, false, tileSet, tileList);  
     
     tileList.sort( function(a, b) { return a.zoomLevel - b.zoomLevel; } );
-    console.log("map layer consists of %s tiles", tileList.length);
-    
-    if (! this.tiles === undefined)
-        for (var i in this.tiles)
-            this.tiles[i].free();
-    
-    this.tiles = [];
+
+    var tileIds = {};
     for (var i in tileList)
-        this.tiles.push(new Tile(tileList[i].tileX, tileList[i].tileY, tileList[i].zoomLevel, this, tileSet ));
+        tileIds[ [tileList[i].tileX, tileList[i].tileY, tileList[i].zoomLevel] ] = tileList[i];
+        
+    
+    if (this.tiles === undefined)
+        this.tiles = {};
+    
+    for (var i in this.tiles)
+    {
+        var tile = this.tiles[i]
+
+        if ( ! ([tile.x, tile.y, tile.level] in tileIds))
+        {
+            //console.log("removing obsolete tile %o", tile)
+            this.tiles[i].free();   //delete attached gl objects (vertex buffers, texture)
+            delete this.tiles[i];
+        } else
+        {
+            //console.log("keeping tile %o", tile);
+        }
+    }
+    
+    //console.log("new map layer consists of %s tiles, %s of which are recycled", tileList.length, Object.keys(this.tiles).length);
+
+    
+    for (var i in tileList)
+    {
+        var tileId = [tileList[i].tileX, tileList[i].tileY, tileList[i].zoomLevel];
+        if (! (tileId in this.tiles))
+            this.tiles[ tileId] = new Tile(tileList[i].tileX, tileList[i].tileY, tileList[i].zoomLevel, this, tileSet );
+    }
 }
 
 MapLayer.prototype.render = function(modelViewMatrix, projectionMatrix) 

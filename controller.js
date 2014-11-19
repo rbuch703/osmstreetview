@@ -34,15 +34,20 @@ var Controller = {
     viewAngleYaw : 0,
     viewAnglePitch : 0,
 
+    getPosition : function()
+    {
+        return { "lat": position.lat, "lng": position.lng };
+    },
 
-    getEffectivePosition : function() 
+    getEffectivePosition : function()
     {
         var earthCircumference = 2 * Math.PI * (6378.1 * 1000);
         var metersPerDegreeLat = earthCircumference / 360;
         var metersPerDegreeLng = metersPerDegreeLat * Math.cos( Controller.position.lat / 180 * Math.PI);
 
         return {lat: Controller.position.lat + Controller.localPosition.y / metersPerDegreeLat,
-                lng: Controller.position.lng + Controller.localPosition.x / metersPerDegreeLng};
+                lng: Controller.position.lng + Controller.localPosition.x / metersPerDegreeLng,
+                height: Controller.localPosition.z};
     },
     
     getLocalPosition: function()
