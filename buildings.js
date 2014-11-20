@@ -33,19 +33,16 @@ function Buildings(gl, position)
 
 
     var earthCircumference = 2 * Math.PI * (6378.1 * 1000);
-    var physicalTileLength = earthCircumference* Math.cos(position.lat/180*Math.PI) / Math.pow(2, /*zoom=*/19);
+    var RADIUS = 1000;  //half-width of the bounding box around the position for which to download building data
+    var latInRadiants = position.lat/180*Math.PI;
+    var dLat = RADIUS                             /earthCircumference* 360;
+    var dLng = (RADIUS/ Math.cos(latInRadiants) ) /earthCircumference* 360;
 
-    var numTilesPer500m = 500 / physicalTileLength * 2; //HACK: increase radius to 1km
+    var lng_min = position.lng - dLng;
+    var lng_max = position.lng + dLng;
 
-    var x = long2tile(position.lng,19);
-    var y = lat2tile( position.lat,19);
-    
-    
-    var lng_min = tile2long(x - numTilesPer500m, 19);
-    var lng_max = tile2long(x + numTilesPer500m, 19);
-    
-    var lat_min = tile2lat( y + numTilesPer500m, 19);
-    var lat_max = tile2lat( y - numTilesPer500m, 19);
+    var lat_min = position.lat - dLat;
+    var lat_max = position.lat + dLat;
 
     //var query = '[out:json][timeout:25];way["building"]('+lat_min+","+lng_min+","+lat_max+","+lng_max+');out body;>;out skel qt;';
     var bbox = '('+lat_min+","+lng_min+","+lat_max+","+lng_max+')';
@@ -53,7 +50,9 @@ function Buildings(gl, position)
     
     var query = '[out:json][timeout:25];(way["building"]'+bbox+
                                        ';way["building:part"]'+bbox+
-                                       ';relation["building"]'+bbox+');out body;>;out skel qt;';
+                                       ';relation["type"="multipolygon"]["building"]'+bbox+
+                                       ';relation["type"="building"]'+bbox+
+                                       ');out body;>;out skel qt;';
 
     var bldgs = this;
     var oReq = new XMLHttpRequest();
@@ -191,13 +190,15 @@ Buildings.integrateWays = function(ways, relations) {
             
             if (member.ref in ways)
             {
-                /* way will not be handled as an explicit way, but as a part of the relation -> delete it.
+                /* way will not be handled as an explicit way, but as a part of a multipolygon -> delete it.
                  * Flag it first (instead of deleting it right away) as several relations may
                  * refer to the same way.
                  */
-                ways[member.ref].partOfRelation = true;   
-
-                member.ref = ways[member.ref];
+                if (rel.tags.type === "multipolygon")
+                {
+                    ways[member.ref].partOfRelation = true;   
+                    member.ref = ways[member.ref];
+                }
             }
             else
             {
@@ -242,7 +243,7 @@ Buildings.splitResponse = function(response)
         }
         else if (el.type == "relation")
         {
-            if (! (el.id in relations) || (( "tags" in el) && (! ("tags" in relations[el.id]))))
+            if (! (el.id in relations) || (( el.tags != undefined) && (relations[el.id].tags === undefined)))
                 relations[el.id] = el;
         }
         else
@@ -250,6 +251,19 @@ Buildings.splitResponse = function(response)
             console.log("Unknown element '" + el.type + "' in %o, skipping", el);
         }
     }
+
+    for (var i in ways)
+    {
+        if (ways[i].tags === undefined)
+            ways[i].tags = {};
+    }
+    
+    for (var i in relations)
+    {
+        if (relations[i].tags === undefined)
+            relations[i].tags = {};
+    }
+    
     return [nodes, ways, relations];
 }
 
@@ -319,32 +333,40 @@ Buildings.joinWays = function(w1, w2) {
 */
 Buildings.mergeMultiPolygonSegments = function(rel, setOfRelations) {
 
+    if (rel.tags.type != "multipolygon")
+    {
+        console.log("[ERROR] attempt to merge multipolygon segments in relation %s that is not a multipolygon", rel.id);
+        return;
+    }
     //var rel = relations[i];
     rel.outlines = [];
     
     var currentOutline = null;
     for (var j in rel.members)
     {
-        if (rel.members[j].type != "way")
+        var member = rel.members[j];
+        if (member.type == "node")
+            continue;
+
+        if (member.type == "relation")
         {
-            if (rel.members[j].type == "node")
-                continue;
-            if (rel.members[j].type == "relation")
+            //console.log("rel: %o", rel);
+            var childRel = setOfRelations[member.ref];
+            if (!childRel)
             {
-                //console.log("rel: %o", rel);
-                var childRel = setOfRelations[rel.members[j].ref];
-                if (!childRel)
-                {
-                    console.log("[WARN] non-existent sub-relation %s of relation %s", rel.members[j].ref, rel.id);
-                    continue;
-                }
-                //console.log("childRel: %o", childRel)
-                if ((! ("tags" in childRel)) || (!("building" in childRel.tags || "building:part" in childRel.tags)))
-                    console.log("[WARN] found sub-relation in %s that not itself a building(:part), ignoring", rel.id);
-                
+                console.log("[WARN] non-existent sub-relation %s of relation %s", member.ref, rel.id);
                 continue;
-            } 
-            console.log("[WARN] invalid member type '%s' on relation %s", rel.members[j].type, rel.id);
+            }
+            //console.log("childRel: %o", childRel)
+            if ((! ("tags" in childRel)) || (!("building" in childRel.tags || "building:part" in childRel.tags)))
+                console.log("[WARN] found sub-relation in %s that not itself a building(:part), ignoring", rel.id);
+            
+            continue;
+        } 
+        
+        if (member.type != "way")
+        {
+            console.log("[WARN] invalid member type '%s' on relation %s", member.type, rel.id);
             continue;
         }
 
@@ -438,6 +460,22 @@ Buildings.distributeAttributes = function(rel) {
     }
 }
 
+Buildings.sanitizeTags = function(tags, src) {
+    //console.log("%o", tags);
+    if ("building:height" in tags && !("height" in tags))
+    {
+        console.log("[INFO] depricated tag 'building:height' in %s %s", src.type, src.id);
+        tags.height = tags["building:height"];
+        delete tags["building:height"];
+    }
+    
+    if ("building:min_height" in tags && !("min_height" in tags))
+    {
+        console.log("[INFO] depricated tag 'building:min_height' in %s %s", src.type, src.id);
+        tags.height = tags["building:min_height"];
+        delete tags["building:min_height"];
+    }    
+}
 
 Buildings.parseOSMQueryResult = function(res) {
 
@@ -445,7 +483,30 @@ Buildings.parseOSMQueryResult = function(res) {
     var nodes = res[0];
     var ways = res[1];
     var relations = res[2];
-    
+
+    // remove outline relations and ways. Those are present in the OSM data for the sole purpose of 2D rendering,
+    // when there is additional 3D geometry superseeding it.
+    for (var i in relations)
+    {
+        Buildings.sanitizeTags(relations[i].tags, relations[i]);
+        if (relations[i].tags.type != "building")
+            continue;
+            
+        for (var j in relations[i].members)
+        {
+            var member = relations[i].members[j];
+            
+            if (member.role != "outline")
+                continue;
+                
+            if (member.type === "way")
+                delete ways[member.ref];
+
+            if (member.type === "relation")
+                delete relations[member.ref];
+        }
+    }
+
     Buildings.integrateNodeData(nodes, ways);
     Buildings.integrateWays(ways, relations);
     //console.log("Nodes: %o,\nWays: %o,\nRelations: %o", nodes, ways, relations);
@@ -456,19 +517,27 @@ Buildings.parseOSMQueryResult = function(res) {
     
     for (var i in relations)
     {
-
         var rel = relations[i];
-        //console.log(rel.id, rel.tags, rel);
+        if (rel.tags.type != "multipolygon")
+			continue;
 
+        
         Buildings.mergeMultiPolygonSegments( rel, relations );
         Buildings.distributeAttributes( rel );
         
         for (var j in rel.outlines)
             outlines.push( rel.outlines[j].ref);
     }
-    
+
     for (var i in ways)
-        outlines.push(ways[i]);
+    {
+        Buildings.sanitizeTags(ways[i].tags, ways[i]);
+
+        if ( "building" in ways[i].tags || "building:part" in ways[i].tags )
+        {
+            outlines.push(ways[i]);
+        }
+    }
     
     //console.log(relations);
     //console.log(outlines);
@@ -486,6 +555,7 @@ Buildings.prototype.onDataLoaded = function(response) {
     outlines = convertToLocalCoordinates(outlines, this.mapCenter);
     for (var i in outlines)
     {
+
         simplifyOutline(outlines[i]);
         if (isClockwise(outlines[i]))
         {
@@ -533,6 +603,8 @@ function triangulate(outline)
 }
 
 function getLengthInMeters(len_str) {
+    len_str = len_str.replace(",", "."); //workaround for lengths with the wrong decimal seperator
+
     // matches a float (including optional fractional part and optional 
     // exponent) followed by an optional unit of measurement
     var re = /^((\+|-)?\d+(\.\d+)?((e|E)-?\d+)?)\s*([a-zA-Z]*)?$/;
@@ -696,6 +768,7 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
             bldg.color = [0.9, 0.6, 0.6];
             bldg.roofColor=[0.9, 0.6, 0.6];
         }
+
         
         //step 1: build geometry for walls;
         for (var j = 0; j < bldg.nodes.length - 1; j++) //loop does not include the final vertex, as we in each case access the successor vertex as well
@@ -784,7 +857,7 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
     }
     this.numVertices = this.vertices.length/3.0;    // 3 coordinates per vertex
     this.numEdgeVertices = this.edgeVertices.length/3.0;
-    console.log("'Buildings' total to %s faces (%s colors), and %s edges", this.numVertices/3, this.vertexColors.length / 9.0, this.numEdgeVertices/2);
+    console.log("[INFO] 'Buildings' total to %s faces, and %s edges", this.numVertices/3, this.numEdgeVertices/2);
     this.vertices = glu.createArrayBuffer(this.vertices);
     this.vertexColors = glu.createArrayBuffer(this.vertexColors);
     this.texCoords= glu.createArrayBuffer(this.texCoords);
