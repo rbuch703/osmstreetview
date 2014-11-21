@@ -105,8 +105,7 @@ SkyDome.prototype.render = function(modelViewMatrix, projectionMatrix)
         return;
         
 	gl.useProgram(Shaders.textured);   //    Install the program as part of the current rendering state
-	gl.enableVertexAttribArray(Shaders.textured.locations.vertexPosition); // setup vertex coordinate buffer
-	gl.enableVertexAttribArray(Shaders.textured.locations.vertexTexCoords); //setup texcoord buffer
+	glu.enableVertexAttribArrays(Shaders.textured);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vertices);   //select the vertex buffer as the currrently active ARRAY_BUFFER (for subsequent calls)
 	gl.vertexAttribPointer(Shaders.textured.locations.vertexPosition, 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
@@ -128,6 +127,8 @@ SkyDome.prototype.render = function(modelViewMatrix, projectionMatrix)
 	//gl.uniform1i(this.shaderProgram.hasHeightLocation, 1); //select texture unit 0 as the source for the shader variable "tex" 
 	    
 	gl.drawArrays(gl.TRIANGLES, 0, this.numVertices);
+	glu.disableVertexAttribArrays(Shaders.textured); // setup vertex coordinate buffer
+	
 }
 
 

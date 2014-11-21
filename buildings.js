@@ -127,11 +127,10 @@ function isClockwise(outline)
 
 Buildings.prototype.requestGeometry = function(position)
 {
-    var earthCircumference = 2 * Math.PI * (6378.1 * 1000);
     var RADIUS = 1000;  //half-width of the bounding box around the position for which to download building data
     var latInRadiants = position.lat/180*Math.PI;
-    var dLat = RADIUS                             /earthCircumference* 360;
-    var dLng = (RADIUS/ Math.cos(latInRadiants) ) /earthCircumference* 360;
+    var dLat = RADIUS                             /Helpers.getEarthCircumference() * 360;
+    var dLng = (RADIUS/ Math.cos(latInRadiants) ) /Helpers.getEarthCircumference() * 360;
 
     var lng_min = position.lng - dLng;
     var lng_max = position.lng + dLng;
@@ -907,7 +906,7 @@ Buildings.prototype.renderDepth = function(modelViewMatrix, projectionMatrix) {
         return;
         
 	gl.useProgram(Shaders.depth);   //    Install the program as part of the current rendering state
-	gl.enableVertexAttribArray(Shaders.depth.locations.vertexPosition); // setup vertex coordinate buffer
+	glu.enableVertexAttribArrays(Shaders.depth);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vertices);   //select the vertex buffer as the currrently active ARRAY_BUFFER (for subsequent calls)
 	gl.vertexAttribPointer(Shaders.depth.locations.vertexPosition, 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
@@ -923,7 +922,7 @@ Buildings.prototype.renderDepth = function(modelViewMatrix, projectionMatrix) {
     gl.drawArrays(gl.TRIANGLES, 0, this.numVertices);    
 
     gl.cullFace(gl.BACK);   //reset to normal behavior
-
+    glu.disableVertexAttribArrays(Shaders.depth);
 }
 
 
@@ -933,19 +932,16 @@ Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
         
     //draw faces
 	gl.useProgram(Shaders.building);   //    Install the program as part of the current rendering state
-    glu.enableVertexAttribArray(Shaders.building);
+    glu.enableVertexAttribArrays(Shaders.building);
 
-	//gl.enableVertexAttribArray(Shaders.building.locations.vertexPosition); // setup vertex coordinate buffer
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vertices);   //select the vertex buffer as the currrently active ARRAY_BUFFER (for subsequent calls)
 	gl.vertexAttribPointer(Shaders.building.locations.vertexPosition, 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
     
-	//gl.enableVertexAttribArray(Shaders.building.locations.vertexTexCoords); //setup texcoord buffer
 	gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoords);
 	gl.vertexAttribPointer(Shaders.building.locations.vertexTexCoords, 2, gl.FLOAT, false, 0, 0);  //assigns array "texCoords" bound above as the vertex attribute "vertexTexCoords"
 
     if (Shaders.building.locations.vertexColorIn > -1)
     {
-    	//gl.enableVertexAttribArray(Shaders.building.locations.vertexColorIn); //setup texcoord buffer
 	    gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexColors);
 	    gl.vertexAttribPointer(Shaders.building.locations.vertexColorIn, 3, gl.FLOAT, false, 0, 0);
 	}
@@ -953,7 +949,6 @@ Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
     // can apparently be -1 if the variable is not used inside the shader
     if (Shaders.building.locations.vertexNormal > -1)
     {
-    	//gl.enableVertexAttribArray(Shaders.building.locations.vertexNormal); //setup texcoord buffer
 	    gl.bindBuffer(gl.ARRAY_BUFFER, this.normals);
 	    gl.vertexAttribPointer(Shaders.building.locations.vertexNormal, 3, gl.FLOAT, false, 0, 0);  //assigns array "normals"
 	}
@@ -968,11 +963,7 @@ Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
 	gl.uniformMatrix4fv(Shaders.building.locations.modelViewProjectionMatrix, false, mvpMatrix);
 
     var pos = Controller.localPosition;
-    //console.log(pos.x, pos.y, pos.z);
     gl.uniform3f(Shaders.building.locations.cameraPos, pos.x, pos.y, pos.z);
-
-    //gl.activeTexture(gl.TEXTURE0);  //successive commands (here 'gl.bindTexture()') apply to texture unit 0
-    //gl.bindTexture(gl.TEXTURE_2D, null); //render geometry without texture
     
     gl.enable(gl.POLYGON_OFFSET_FILL);  //to prevent z-fighting between rendered edges and faces
     gl.polygonOffset(1,1);
@@ -980,16 +971,12 @@ Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
     gl.drawArrays(gl.TRIANGLES, 0, this.numVertices);
 
     gl.disable(gl.POLYGON_OFFSET_FILL);
-    glu.disableVertexAttribArray(Shaders.building);
-	/*gl.disableVertexAttribArray(Shaders.building.locations.vertexPosition); 
-	gl.disableVertexAttribArray(Shaders.building.locations.vertexTexCoords);
-	gl.disableVertexAttribArray(Shaders.building.locations.vertexColorIn);
-	gl.disableVertexAttribArray(Shaders.building.locations.vertexNormal);*/
+    glu.disableVertexAttribArrays(Shaders.building);
     
     // ===
     //step 2: draw outline
     gl.useProgram(Shaders.flat);   //    Install the program as part of the current rendering state
-	gl.enableVertexAttribArray(Shaders.flat.locations.vertexPosition); // setup vertex coordinate buffer
+	glu.enableVertexAttribArrays(Shaders.flat); // setup vertex coordinate buffer
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.edgeVertices);   //select the vertex buffer as the currrently active ARRAY_BUFFER (for subsequent calls)
 	gl.vertexAttribPointer(Shaders.flat.locations.vertexPosition, 3, gl.FLOAT, false, 0, 0);  //assigns array "edgeVertices" bound above as the vertex attribute "vertexPosition"
@@ -1002,7 +989,7 @@ Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
 
     gl.drawArrays(gl.LINES, 0, this.numEdgeVertices);
 
-	gl.disableVertexAttribArray(Shaders.flat.locations.vertexPosition); // cleanup
+	glu.disableVertexAttribArrays(Shaders.flat); // cleanup
     
 }
 
@@ -1010,22 +997,20 @@ Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
 /* converts 'buildings' global coordinates (lat/lon) to local distances (in m) from mapCenter*/
 function convertToLocalCoordinates(buildings,  mapCenter)
 {
-    var y0 = lat2tile(mapCenter.lat, 19);
-    var x0 = long2tile(mapCenter.lng, 19);
-
-    var earthCircumference = 2 * Math.PI * (6378.1 * 1000);
-    var physicalTileLength = earthCircumference* Math.cos(mapCenter.lat/180*Math.PI) / Math.pow(2, /*zoom=*/19);
-
+    var circumference  = Helpers.getEarthCircumference();
+    var lngScale = Math.cos( mapCenter.lat / 180 * Math.PI);
+    
     for (var i in buildings)
     {
         var bld = buildings[i];
+    
         for (var j = 0; j < bld.nodes.length; j++)
         {
-            var y = lat2tile(bld.nodes[j].lat, 19);
-            var x = long2tile(bld.nodes[j].lon, 19);
-            
-            bld.nodes[j].dx = (x - x0) * physicalTileLength;
-            bld.nodes[j].dy = (y - y0) * physicalTileLength;
+            var dLat = bld.nodes[j].lat - mapCenter.lat;
+            var dLng = bld.nodes[j].lon - mapCenter.lng;
+
+            bld.nodes[j].dx = dLng / 360 * circumference * lngScale;
+            bld.nodes[j].dy = -dLat / 360 * circumference;
         }
     }
     return buildings;

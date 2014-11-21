@@ -41,13 +41,13 @@ glu.createProgram = function (vShader, fShader)
 	return [true, shaderProgram];
 }
 
-glu.enableVertexAttribArray = function(shaderProgram)
+glu.enableVertexAttribArrays = function(shaderProgram)
 {
     for (var i in shaderProgram.attribLocations)
         gl.enableVertexAttribArray( shaderProgram.attribLocations[i] );
 }
 
-glu.disableVertexAttribArray = function(shaderProgram)
+glu.disableVertexAttribArrays = function(shaderProgram)
 {
     for (var i in shaderProgram.attribLocations)
         gl.disableVertexAttribArray( shaderProgram.attribLocations[i] );

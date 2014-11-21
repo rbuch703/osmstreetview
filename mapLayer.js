@@ -33,8 +33,7 @@ MapLayer.prototype.createTilesRecursive = function(tileX, tileY, level, position
     var px = long2tile(position.lng,level);    
     var py = lat2tile( position.lat,level);
 
-    var earthCircumference = 2 * Math.PI * (6378.1 * 1000);
-    var physicalTileLength = earthCircumference* Math.cos(position.lat/180*Math.PI) / Math.pow(2, level);
+    var physicalTileLength = Helpers.getEarthCircumference() * Math.cos(position.lat/180*Math.PI) / Math.pow(2, level);
     
     var x1 = (tileX - px)     * physicalTileLength;
     var x2 = (tileX - px + 1) * physicalTileLength;

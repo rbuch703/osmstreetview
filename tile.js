@@ -39,8 +39,7 @@ Tile.prototype.updateGeometry = function(position)
     var px = long2tile(position.lng,this.level);
     var py = lat2tile( position.lat,this.level);
 
-    var earthCircumference = 2 * Math.PI * (6378.1 * 1000);
-    var physicalTileLength = earthCircumference* Math.cos(position.lat/180*Math.PI) / Math.pow(2, this.level);
+    var physicalTileLength = Helpers.getEarthCircumference()* Math.cos(position.lat/180*Math.PI) / Math.pow(2, this.level);
     
     var x1 = (this.x - px)     * physicalTileLength;
     var x2 = (this.x - px + 1) * physicalTileLength;
@@ -78,8 +77,7 @@ Tile.prototype.render = function(modelViewMatrix, projectionMatrix)
         return;
     
 	gl.useProgram(Shaders.textured);   //    Install the program as part of the current rendering state
-	gl.enableVertexAttribArray(Shaders.textured.locations.vertexPosition); // setup vertex coordinate buffer
-	gl.enableVertexAttribArray(Shaders.textured.locations.vertexTexCoords); //setup texcoord buffer
+	glu.enableVertexAttribArrays(Shaders.textured);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vertices);   //select the vertex buffer as the currrently active ARRAY_BUFFER (for subsequent calls)
 	gl.vertexAttribPointer(Shaders.textured.locations.vertexPosition, 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
@@ -102,9 +100,7 @@ Tile.prototype.render = function(modelViewMatrix, projectionMatrix)
 	gl.drawArrays(gl.TRIANGLES, 0, 6);
     gl.disable(gl.POLYGON_OFFSET_FILL);
 
-	gl.disableVertexAttribArray(Shaders.textured.locations.vertexPosition); 
-	gl.disableVertexAttribArray(Shaders.textured.locations.vertexTexCoords); //setup texcoord buffer
-
+	glu.disableVertexAttribArrays(Shaders.textured); 
 }
 
 Tile.prototype.onImageLoaded = function(e)

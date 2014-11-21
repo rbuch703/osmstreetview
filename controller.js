@@ -41,8 +41,7 @@ var Controller = {
 
     getEffectivePosition : function()
     {
-        var earthCircumference = 2 * Math.PI * (6378.1 * 1000);
-        var metersPerDegreeLat = earthCircumference / 360;
+        var metersPerDegreeLat = Helpers.getEarthCircumference() / 360;
         var metersPerDegreeLng = metersPerDegreeLat * Math.cos( Controller.position.lat / 180 * Math.PI);
 
         return {lat: Controller.position.lat + Controller.localPosition.y / metersPerDegreeLat,
@@ -337,8 +336,7 @@ var Controller = {
                 if (url.indexOf("?") >= 0) // already contains a query string --> remove it
                     url = url.substring(0, url.indexOf("?"));
                 
-                var earthCircumference = 2 * Math.PI * (6378.1 * 1000);
-                var metersPerDegreeLat = earthCircumference / 360;
+                var metersPerDegreeLat = Helpers.getEarthCircumference() / 360;
                 var metersPerDegreeLng = metersPerDegreeLat * Math.cos( Controller.position.lat / 180 * Math.PI);
                 //console.log("Resolution x: %s m/°, y: %s m/°", metersPerDegreeLng, metersPerDegreeLat);
 

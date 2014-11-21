@@ -245,7 +245,7 @@ Sun.prototype.render = function(modelViewMatrix, projectionMatrix) {
         return;
         
 	gl.useProgram( Shaders.flat );   //    Install the program as part of the current rendering state
-	gl.enableVertexAttribArray(Shaders.flat.locations.vertexPosition); // setup vertex coordinate buffer
+	glu.enableVertexAttribArrays(Shaders.flat);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vertices);   //select the vertex buffer as the currrently active ARRAY_BUFFER (for subsequent calls)
 	gl.vertexAttribPointer(Shaders.flat.locations.vertexPosition, 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
     
@@ -258,13 +258,14 @@ Sun.prototype.render = function(modelViewMatrix, projectionMatrix) {
 	
     //render orbit	
     gl.useProgram(Shaders.flat);   //    Install the program as part of the current rendering state
-	gl.enableVertexAttribArray(Shaders.flat.locations.vertexPosition); // setup vertex coordinate buffer
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.orbitVertices);   //select the vertex buffer as the currrently active ARRAY_BUFFER (for subsequent calls)
 	gl.vertexAttribPointer(Shaders.flat.locations.vertexPosition, 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
 	gl.uniformMatrix4fv(Shaders.flat.locations.modelViewProjectionMatrix, false, mvpMatrix);
 	gl.uniform4fv( Shaders.flat.locations.color, [0.6, 0.2, 0.2, 1.0]);
     gl.drawArrays(gl.LINES, 0, this.numOrbitVertices);
+
+	glu.disableVertexAttribArrays(Shaders.flat);
 	
 }
 

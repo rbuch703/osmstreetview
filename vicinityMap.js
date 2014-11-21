@@ -88,26 +88,6 @@ var VicinityMap = {
     onMapClick: function(e)
     {
         resetPosition(e.latlng);
-        /*var dLat = e.latlng.lat - Controller.position.lat;
-        var dLng = e.latlng.lng - Controller.position.lng;
-
-        var earthCircumference = 2 * Math.PI * (6378.1 * 1000);
-        var metersPerDegreeLat = earthCircumference / 360;
-        var metersPerDegreeLng = metersPerDegreeLat * Math.cos( Controller.position.lat / 180 * Math.PI);
-        
-        //var dx = dLng * metersPerDegreeLng - Controller.localPosition.x;
-        //var dy = dLat * metersPerDegreeLat - Controller.localPosition.y;
-        
-        //var dYaw = -(Math.atan2(dy, dx) / Math.PI * 180 - 90);
-        //console.log(e.latlng.lat, e.latlng.lng, dYaw);
-        console.log("Click position is %s, %s", e.latlng.lat, e.latlng.lng);
-        Controller.position.lat = e.latlng.lat;
-        Controller.position.lng = 0;//e.latlng.lng;
-        
-        Controller.localPosition.x = 0;
-        Controller.localPosition.y = 0;
-        scheduleFrameRendering();*/
-        //onChangeLocation();
     }   
 
 
