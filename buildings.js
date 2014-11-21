@@ -313,7 +313,11 @@ Buildings.splitResponse = function(response)
     return [nodes, ways, relations];
 }
 
+
 Buildings.joinWays = function(w1, w2) {
+
+    var areIdentical = function(n1, n2) { return n1.lat == n2.lat && n1.lon == n2.lon; }
+
     //step 1: formal checks for mergeability
     if (w1.role != w2.role)
         return false;
@@ -322,29 +326,35 @@ Buildings.joinWays = function(w1, w2) {
     if (w1.type != "way" || w2.type != "way")
         return false;
         
-    if (w1.ref.nodes[0].id == w1.ref.nodes[w1.ref.nodes.length-1].id||
-        w2.ref.nodes[0].id == w2.ref.nodes[w2.ref.nodes.length-1].id)
+    //one of the ways is already a closed polygon
+    if (areIdentical(w1.ref.nodes[0], w1.ref.nodes[w1.ref.nodes.length-1]) ||
+        areIdentical(w2.ref.nodes[0], w2.ref.nodes[w2.ref.nodes.length-1]))
         return false;
     
     //step 2: merging node chains
     var nodes;    
-    if (w1.ref.nodes[0].id == w2.ref.nodes[0].id)
+    var w1FirstNode = w1.ref.nodes[0];
+    var w1LastNode  = w1.ref.nodes[w1.ref.nodes.length-1];
+    var w2FirstNode = w2.ref.nodes[0];
+    var w2LastNode  = w2.ref.nodes[w2.ref.nodes.length-1];
+    
+    if (areIdentical(w1FirstNode, w2FirstNode))
     {
-        nodes = w2.ref.nodes.reverse().slice(1).concat(w1.ref.nodes);
-    } else if (w1.ref.nodes[0].id == w2.ref.nodes[w2.ref.nodes.length-1].id)
+        nodes = w2.ref.nodes.reverse().concat(w1.ref.nodes.slice(1));
+    } else if (areIdentical(w1FirstNode, w2LastNode))
     {
         nodes = w2.ref.nodes.concat(w1.ref.nodes.slice(1));
-    } else if (w2.ref.nodes[0].id == w1.ref.nodes[w1.ref.nodes.length-1].id)
+    } else if (areIdentical(w2FirstNode, w1LastNode))
     {
         nodes = w1.ref.nodes.concat(w2.ref.nodes.slice(1));
-    } else if (w1.ref.nodes[w1.ref.nodes.length-1].id == w2.ref.nodes[w2.ref.nodes.length-1].id)
+    } else if (areIdentical(w1LastNode, w1LastNode))
     {
         nodes = w1.ref.nodes.concat(w2.ref.nodes.reverse().slice(1));
     } else return false;
 
     /*step 3: merging tag sets. Strategy: hope that each attribute is either present in at most one of the
-              two sets, or that both sets agree on the value for that attribute. If they don't, discard 
-              the attribute belonging to the second set.
+              two sets, or that both sets agree on the value for that attribute. If they don't, (arbitrarily) 
+              discard the attribute belonging to the second set.
      */
     var tags = {};
     if (w1.ref.tags)
@@ -648,7 +658,7 @@ function triangulate(outline)
     
 }
 
-function getLengthInMeters(len_str) {
+function getLengthInMeters(len_str, src) {
     len_str = len_str.replace(",", "."); //workaround for lengths with the wrong decimal seperator
 
     // matches a float (including optional fractional part and optional 
@@ -657,7 +667,7 @@ function getLengthInMeters(len_str) {
     var m = re.exec(len_str);
     if (!m)
     {
-        console.log("cannot parse length string '" + len_str + "'");
+        console.log("cannot parse length string '%s' in %o", len_str, src);
         //fallback: if the string is not valid as a whole, let 
         //          JavaScript itself parse as much of it as possible
         return parseFloat(len_str); 
@@ -672,9 +682,7 @@ function getLengthInMeters(len_str) {
     if (unit == "m") //already in meters -> no conversion necessary
         return val; 
 
-    console.log("unit is '" + unit + "'");
-    if (console.warn)
-        console.warn("no unit conversion performed");
+    console.log("[WARN] Unknown unit '%s' in %o; skipping unit conversion", len_str, src);
 
     return val;
 }
@@ -737,7 +745,7 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
         //    console.log("building with color %s", bldg.tags["building:colour"]);
 
         if ("height" in bldg.tags)
-            bldg.height = getLengthInMeters(bldg.tags.height);
+            bldg.height = getLengthInMeters(bldg.tags.height, bldg);
         else if (bldg.tags["building:levels"])
         {
             bldg.height = parseFloat(bldg.tags["building:levels"])*3.5;
@@ -752,7 +760,7 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
         
             
         if (bldg.tags.min_height)
-            bldg.min_height = getLengthInMeters(bldg.tags.min_height);
+            bldg.min_height = getLengthInMeters(bldg.tags.min_height, bldg);
         else if (bldg.tags["building:min_level"])
             bldg.min_height = parseInt(bldg.tags["building:min_level"])*3.5;
         else
