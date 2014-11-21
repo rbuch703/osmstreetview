@@ -101,6 +101,10 @@ Tile.prototype.render = function(modelViewMatrix, projectionMatrix)
     gl.bindTexture(gl.TEXTURE_2D, this.texId); //render geometry using texture "tex" in texture unit 0
 	gl.drawArrays(gl.TRIANGLES, 0, 6);
     gl.disable(gl.POLYGON_OFFSET_FILL);
+
+	gl.disableVertexAttribArray(Shaders.textured.locations.vertexPosition); 
+	gl.disableVertexAttribArray(Shaders.textured.locations.vertexTexCoords); //setup texcoord buffer
+
 }
 
 Tile.prototype.onImageLoaded = function(e)

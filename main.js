@@ -66,19 +66,27 @@ function resetPosition(pos )
         return;
 
     Controller.position = pos;
-    VicinityMap.resetView(pos);
+    Controller.localPosition.x = 0;
+    Controller.localPosition.y = 0;
     Controller.updateHistoryState();
+
+    VicinityMap.resetView(pos);
     if (glu.performShadowMapping)
-        mapSun = new Sun( Controller.position.lat, Controller.position.lng );
+        mapSun = new Sun( Controller.position );
         
     //initialize mapSun date/time
     onSunPositionChanged( $( "#slider-day" ).slider( "value"), $( "#slider-time" ).slider( "value"));
 
-    mapBuildings = new Buildings(gl, Controller.position);
-    mapBuildings.onLoaded = scheduleFrameRendering;
+    if (!mapBuildings)
+    {
+        mapBuildings = new Buildings(gl, Controller.position);
+        mapBuildings.onLoaded = scheduleFrameRendering;
+    } else
+    {
+        mapBuildings.shiftGeometry(Controller.position);
+        mapBuildings.requestGeometry(Controller.position);
+    }
 
-    Controller.localPosition.x = 0;
-    Controller.localPosition.y = 0;
 
     var tileSet = eval( tileSetSelection.value);
     
@@ -89,7 +97,7 @@ function resetPosition(pos )
     }
     else
         mapPlane.updateTileGeometry( pos );
-        mapPlane.createTileHierarchy( tileSet, Controller.getEffectivePosition(), Controller.getLocalPosition()[2]);
+        mapPlane.createTileHierarchy( tileSet, Controller.getEffectivePosition());
     
 
     initEventHandler();

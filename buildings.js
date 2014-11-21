@@ -30,39 +30,10 @@ function Buildings(gl, position)
             Controller.onRequestFrameRender();
     };
     image.src = "images/window.png";
-
-
-    var earthCircumference = 2 * Math.PI * (6378.1 * 1000);
-    var RADIUS = 1000;  //half-width of the bounding box around the position for which to download building data
-    var latInRadiants = position.lat/180*Math.PI;
-    var dLat = RADIUS                             /earthCircumference* 360;
-    var dLng = (RADIUS/ Math.cos(latInRadiants) ) /earthCircumference* 360;
-
-    var lng_min = position.lng - dLng;
-    var lng_max = position.lng + dLng;
-
-    var lat_min = position.lat - dLat;
-    var lat_max = position.lat + dLat;
-
-    //var query = '[out:json][timeout:25];way["building"]('+lat_min+","+lng_min+","+lat_max+","+lng_max+');out body;>;out skel qt;';
-    var bbox = '('+lat_min+","+lng_min+","+lat_max+","+lng_max+')';
-    
-    
-    var query = '[out:json][timeout:25];(way["building"]'+bbox+
-                                       ';way["building:part"]'+bbox+
-                                       ';relation["type"="multipolygon"]["building"]'+bbox+
-                                       ';relation["type"="building"]'+bbox+
-                                       ');out body;>;out skel qt;';
-
-    var bldgs = this;
-    var oReq = new XMLHttpRequest();
-    oReq.onload = function() { bldgs.onDataLoaded(this); }
-    oReq.open("get", Buildings.apiBaseUrl + "?data=" + encodeURIComponent(query), true);
-    oReq.send();
-    
-
     this.numVertices = 0;
     this.numEdgeVertices = 0;
+
+    this.requestGeometry(position);
 }    
 
 Buildings.apiBaseUrl = "http://overpass-api.de/api/interpreter";
@@ -154,6 +125,81 @@ function isClockwise(outline)
     return det > 0;
 }
 
+Buildings.prototype.requestGeometry = function(position)
+{
+    var earthCircumference = 2 * Math.PI * (6378.1 * 1000);
+    var RADIUS = 1000;  //half-width of the bounding box around the position for which to download building data
+    var latInRadiants = position.lat/180*Math.PI;
+    var dLat = RADIUS                             /earthCircumference* 360;
+    var dLng = (RADIUS/ Math.cos(latInRadiants) ) /earthCircumference* 360;
+
+    var lng_min = position.lng - dLng;
+    var lng_max = position.lng + dLng;
+
+    var lat_min = position.lat - dLat;
+    var lat_max = position.lat + dLat;
+
+    //var query = '[out:json][timeout:25];way["building"]('+lat_min+","+lng_min+","+lat_max+","+lng_max+');out body;>;out skel qt;';
+    var bbox = '('+lat_min+","+lng_min+","+lat_max+","+lng_max+')';
+    
+    
+    var query = '[out:json][timeout:25];(way["building"]'+bbox+
+                                       ';way["building:part"]'+bbox+
+                                       ';relation["type"="multipolygon"]["building"]'+bbox+
+                                       ';relation["type"="building"]'+bbox+
+                                       ');out body;>;out skel qt;';
+
+    var bldgs = this;
+    var oReq = new XMLHttpRequest();
+    oReq.onload = function() { bldgs.onDataLoaded(this); }
+    oReq.open("get", Buildings.apiBaseUrl + "?data=" + encodeURIComponent(query), true);
+    oReq.send();
+
+}
+
+Buildings.prototype.shiftGeometry = function(newPosition)
+{
+    var dLat = newPosition.lat - this.mapCenter.lat;
+    var dLng = newPosition.lng - this.mapCenter.lng;
+    var avgLat = (newPosition.lat + this.mapCenter.lat) / 2.0;
+    this.mapCenter = newPosition;
+    
+    if (dLat > 1 || dLng > 1)   //distance too far for the old geometry to still be visible --> just don't display anything
+    {
+        this.numVertices = 0;
+        this.numEdgeVertices = 0;
+        return;
+    }
+    
+    var dy = dLat/360 * Helpers.getEarthCircumference();
+    var dx = dLng/360 * Helpers.getEarthCircumference() * Math.cos( avgLat / 180 * Math.PI);
+    //console.log("delta: %s, %s", dx, dy);
+    
+    for (var i = 0; i < this.verticesRaw.length; i+=3)
+    {
+        this.verticesRaw[i  ] -= dx;
+        this.verticesRaw[i+1] += dy;
+    }
+    
+    if (this.vertices) 
+        gl.deleteBuffer(this.vertices);
+        
+    this.vertices = glu.createArrayBuffer(this.verticesRaw);
+
+    for (var i = 0; i < this.edgeVerticesRaw.length; i+=3)
+    {
+        this.edgeVerticesRaw[i  ] -= dx;
+        this.edgeVerticesRaw[i+1] += dy;
+    }
+
+    if (this.edgeVertices) 
+        gl.deleteBuffer(this.edgeVertices);
+        
+    this.edgeVertices = glu.createArrayBuffer(this.edgeVerticesRaw);
+    
+    //this.edgeVerticesRaw
+    //this.mapCenter
+}
 
 /* in the osm3s response, nodes are individual entities with lat/lng properties, and ways refer to these nodes
    via their id. This function removes that indirection by replacing the node ids in the way by the actual node
@@ -181,24 +227,25 @@ Buildings.integrateWays = function(ways, relations) {
     for (var i in relations)
     {
         var rel = relations[i];
+        if (rel.tags.type != "multipolygon")
+            continue;
+
 
         for (var j in rel.members)
         {
             var member = rel.members[j];
             if (member.type != "way")
                 continue;
-            
+
             if (member.ref in ways)
             {
                 /* way will not be handled as an explicit way, but as a part of a multipolygon -> delete it.
                  * Flag it first (instead of deleting it right away) as several relations may
                  * refer to the same way.
                  */
-                if (rel.tags.type === "multipolygon")
-                {
-                    ways[member.ref].partOfRelation = true;   
-                    member.ref = ways[member.ref];
-                }
+                ways[member.ref].partOfRelation = true;   
+                member.ref = ways[member.ref];
+
             }
             else
             {
@@ -633,37 +680,6 @@ function getLengthInMeters(len_str) {
     return val;
 }
 
-//map of all default CSS color names
-Buildings.colors = {
-"aliceblue":"#f0f8ff","antiquewhite":"#faebd7","aqua":"#00ffff","aquamarine":"#7fffd4","azure":"#f0ffff",
-"beige":"#f5f5dc","bisque":"#ffe4c4","black":"#000000","blanchedalmond":"#ffebcd","blue":"#0000ff",
-"blueviolet":"#8a2be2","brown":"#a52a2a","burlywood":"#deb887","cadetblue":"#5f9ea0","chartreuse":"#7fff00",
-"chocolate":"#d2691e","coral":"#ff7f50","cornflowerblue":"#6495ed","cornsilk":"#fff8dc","crimson":"#dc143c",
-"cyan":"#00ffff","darkblue":"#00008b","darkcyan":"#008b8b","darkgoldenrod":"#b8860b","darkgray":"#a9a9a9",
-"darkgreen":"#006400","darkkhaki":"#bdb76b","darkmagenta":"#8b008b","darkolivegreen":"#556b2f","darkorange":"#ff8c00",
-"darkorchid":"#9932cc","darkred":"#8b0000","darksalmon":"#e9967a","darkseagreen":"#8fbc8f","darkslateblue":"#483d8b",
-"darkslategray":"#2f4f4f","darkturquoise":"#00ced1","darkviolet":"#9400d3","deeppink":"#ff1493","deepskyblue":"#00bfff",
-"dimgray":"#696969","dodgerblue":"#1e90ff","firebrick":"#b22222","floralwhite":"#fffaf0","forestgreen":"#228b22",
-"fuchsia":"#ff00ff","gainsboro":"#dcdcdc","ghostwhite":"#f8f8ff","gold":"#ffd700","goldenrod":"#daa520",
-"gray":"#808080","green":"#008000","greenyellow":"#adff2f","honeydew":"#f0fff0","hotpink":"#ff69b4",
-"indianred":"#cd5c5c","indigo":"#4b0082","ivory":"#fffff0","khaki":"#f0e68c","lavender":"#e6e6fa",
-"lavenderblush":"#fff0f5","lawngreen":"#7cfc00","lemonchiffon":"#fffacd","lightblue":"#add8e6","lightcoral":"#f08080",
-"lightcyan":"#e0ffff","lightgoldenrodyellow":"#fafad2","lightgrey":"#d3d3d3","lightgreen":"#90ee90",
-"lightpink":"#ffb6c1","lightsalmon":"#ffa07a","lightseagreen":"#20b2aa","lightskyblue":"#87cefa",
-"lightslategray":"#778899","lightsteelblue":"#b0c4de","lightyellow":"#ffffe0","lime":"#00ff00","limegreen":"#32cd32",
-"linen":"#faf0e6","magenta":"#ff00ff","maroon":"#800000","mediumaquamarine":"#66cdaa","mediumblue":"#0000cd",
-"mediumorchid":"#ba55d3","mediumpurple":"#9370d8","mediumseagreen":"#3cb371","mediumslateblue":"#7b68ee",
-"mediumspringgreen":"#00fa9a","mediumturquoise":"#48d1cc","mediumvioletred":"#c71585","midnightblue":"#191970",
-"mintcream":"#f5fffa","mistyrose":"#ffe4e1","moccasin":"#ffe4b5","navajowhite":"#ffdead","navy":"#000080",
-"oldlace":"#fdf5e6","olive":"#808000","olivedrab":"#6b8e23","orange":"#ffa500","orangered":"#ff4500","orchid":"#da70d6",
-"palegoldenrod":"#eee8aa","palegreen":"#98fb98","paleturquoise":"#afeeee","palevioletred":"#d87093",
-"papayawhip":"#ffefd5","peachpuff":"#ffdab9","peru":"#cd853f","pink":"#ffc0cb","plum":"#dda0dd","powderblue":"#b0e0e6",
-"purple":"#800080","red":"#ff0000","rosybrown":"#bc8f8f","royalblue":"#4169e1","saddlebrown":"#8b4513",
-"salmon":"#fa8072","sandybrown":"#f4a460","seagreen":"#2e8b57","seashell":"#fff5ee","sienna":"#a0522d",
-"silver":"#c0c0c0","skyblue":"#87ceeb","slateblue":"#6a5acd","slategray":"#708090","snow":"#fffafa",
-"springgreen":"#00ff7f","steelblue":"#4682b4","tan":"#d2b48c","teal":"#008080","thistle":"#d8bfd8","tomato":"#ff6347",
-"turquoise":"#40e0d0","violet":"#ee82ee","wheat":"#f5deb3","white":"#ffffff","whitesmoke":"#f5f5f5","yellow":"#ffff00",
-"yellowgreen":"#9acd32"};
 
 Buildings.toneDownColor = function(col, fac, brighten)
 {
@@ -681,8 +697,9 @@ Buildings.interpretColor = function(col, defaultColor)
     if (col === undefined)
         return defaultColor;
         
-    if (col in Buildings.colors)
-        col = Buildings.colors[col];
+    var hexColor = Helpers.getColor(col);
+    if (hexColor) 
+        col = hexColor;
     
     var re = new RegExp("^#([a-fA-F0-9]{6})$");   //a hash sign followed by exactly six hexadecimal characters
     var m = col.match(re)
@@ -705,11 +722,11 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
         return;
         
         
-    this.vertices= [];
-    this.vertexColors= [];
-    this.texCoords=[];
-    this.normals  =[];
-    this.edgeVertices = [];
+    var vertices= [];
+    var vertexColors= [];
+    var texCoords=[];
+    var normals  =[];
+    var edgeVertices = [];
     
     for (var i in outlines)
     {
@@ -748,6 +765,12 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
         
         var vDist = height - bldg.min_height;
         var numLevels = Math.floor( vDist/3.5);
+        if (bldg.tags["building:levels"] != undefined)
+        {
+            numLevels = bldg.tags["building:levels"] | 0;
+            if (bldg.tags["roof:levels"] != undefined)
+                numLevels += bldg.tags["roof:levels"];
+        }
 
         if (bldg.nodes[0].dx != bldg.nodes[bldg.nodes.length-1].dx || bldg.nodes[0].dy != bldg.nodes[bldg.nodes.length-1].dy)
             console.log("[WARN] outline of building %s does not form a closed loop (%o)", i, bldg);
@@ -793,19 +816,19 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
             //flatten array of 3-element-arrays to a single array
             //var coords = [].concat.apply([], [A, B, C, A, C, D]);
             var coords = [].concat(A, B, C, A, C, D);
-            [].push.apply(this.vertices, coords);
+            [].push.apply(vertices, coords);
             
             var colors = [].concat(bldg.color, bldg.color, bldg.color, bldg.color, bldg.color, bldg.color);
-            [].push.apply( this.vertexColors, colors);
+            [].push.apply( vertexColors, colors);
             
             var tc = [0,0,   hDist,0,   hDist,numLevels,   0,0,   hDist,numLevels,   0,numLevels];
-            [].push.apply( this.texCoords, tc); //this 'hack' is way faster than concat()
+            [].push.apply( texCoords, tc); //this 'hack' is way faster than concat()
             
             var norms = [].concat(N,N,N,N,N,N);
-            [].push.apply( this.normals, norms);
+            [].push.apply( normals, norms);
             
-            var edgeVertices = [].concat(A, D, B, C, A, B, D, C);
-            [].push.apply(this.edgeVertices, edgeVertices);
+            var edgeVerts = [].concat(A, D, B, C, A, B, D, C);
+            [].push.apply(edgeVertices, edgeVerts);
             
         }
         
@@ -825,10 +848,10 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
         {
             for (var j = 0; j < coords.length; j+=2)
             {
-                [].push.apply(this.vertexColors, bldg.color);
-                this.vertices.push(coords[j], coords[j+1], min_height);
-                this.texCoords.push(0.0, 0.0);
-                this.normals.push( 0,0,-1 ); //floor --> normal is pointing straight down
+                [].push.apply(vertexColors, bldg.color);
+                vertices.push(coords[j], coords[j+1], min_height);
+                texCoords.push(0.0, 0.0);
+                normals.push( 0,0,-1 ); //floor --> normal is pointing straight down
             }
 
         }
@@ -843,26 +866,40 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
         for (var j = 0; j < coords.length; j+=6)
         {
         
-            this.vertices.push(coords[j], coords[j+1], height);
-            this.vertices.push(coords[j+4], coords[j+5], height);   //order reversed to change orientation
-            this.vertices.push(coords[j+2], coords[j+3], height);
+            vertices.push(coords[j], coords[j+1], height);
+            vertices.push(coords[j+4], coords[j+5], height);   //order of vertices reversed to change orientation
+            vertices.push(coords[j+2], coords[j+3], height);
 
             var colors = [].concat(bldg.roofColor, bldg.roofColor, bldg.roofColor);
-            [].push.apply( this.vertexColors, colors);
+            [].push.apply( vertexColors, colors);
 
 
-            this.texCoords.push(0.5, 0.5,  0.5, 0.5,  0.5, 0.5);
-            this.normals.push( 0,0,1,  0,0,1,  0,0,1 ); //roof --> normal is pointing straight up
+            texCoords.push(0.5, 0.5,  0.5, 0.5,  0.5, 0.5);
+            normals.push( 0,0,1,  0,0,1,  0,0,1 ); //roof --> normal is pointing straight up
         }
     }
-    this.numVertices = this.vertices.length/3.0;    // 3 coordinates per vertex
-    this.numEdgeVertices = this.edgeVertices.length/3.0;
+    if (this.vertices)     gl.deleteBuffer(this.vertices);
+    if (this.vertexColors) gl.deleteBuffer(this.vertexColors);
+    if (this.texCoords)    gl.deleteBuffer(this.texCoords);
+    if (this.normals)      gl.deleteBuffer(this.normals);
+    if (this.edgeVertices) gl.deleteBuffer(this.edgeVertices);
+    
+    this.numVertices = vertices.length/3.0;    // 3 coordinates per vertex
+    this.numEdgeVertices = edgeVertices.length/3.0;
     console.log("[INFO] 'Buildings' total to %s faces, and %s edges", this.numVertices/3, this.numEdgeVertices/2);
-    this.vertices = glu.createArrayBuffer(this.vertices);
-    this.vertexColors = glu.createArrayBuffer(this.vertexColors);
-    this.texCoords= glu.createArrayBuffer(this.texCoords);
-    this.normals  = glu.createArrayBuffer(this.normals);
-    this.edgeVertices = glu.createArrayBuffer(this.edgeVertices);
+    this.vertices = glu.createArrayBuffer(vertices);
+    this.vertexColors = glu.createArrayBuffer(vertexColors);
+    this.texCoords= glu.createArrayBuffer(texCoords);
+    this.normals  = glu.createArrayBuffer(normals);
+    this.edgeVertices = glu.createArrayBuffer(edgeVertices);
+    
+    /* Store vertex positions in an array accesible by JavaScript, in addition to the GL vertex buffers.
+     * When a new map position is selected, the existing geometry needs to be shifted to correspond to that new position.
+     * For this to work, the vertex positions have to be modifiable by Javascript, which the GL vertex buffers are not.
+     * Shifting the geometry does not require modification of the texCoords, colors or normals, so those are not backup up.
+     */
+    this.verticesRaw = vertices;
+    this.edgeVerticesRaw = edgeVertices;
 }
 
 Buildings.prototype.renderDepth = function(modelViewMatrix, projectionMatrix) {
@@ -896,18 +933,19 @@ Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
         
     //draw faces
 	gl.useProgram(Shaders.building);   //    Install the program as part of the current rendering state
+    glu.enableVertexAttribArray(Shaders.building);
 
-	gl.enableVertexAttribArray(Shaders.building.locations.vertexPosition); // setup vertex coordinate buffer
+	//gl.enableVertexAttribArray(Shaders.building.locations.vertexPosition); // setup vertex coordinate buffer
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vertices);   //select the vertex buffer as the currrently active ARRAY_BUFFER (for subsequent calls)
 	gl.vertexAttribPointer(Shaders.building.locations.vertexPosition, 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
     
-	gl.enableVertexAttribArray(Shaders.building.locations.vertexTexCoords); //setup texcoord buffer
+	//gl.enableVertexAttribArray(Shaders.building.locations.vertexTexCoords); //setup texcoord buffer
 	gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoords);
 	gl.vertexAttribPointer(Shaders.building.locations.vertexTexCoords, 2, gl.FLOAT, false, 0, 0);  //assigns array "texCoords" bound above as the vertex attribute "vertexTexCoords"
 
     if (Shaders.building.locations.vertexColorIn > -1)
     {
-    	gl.enableVertexAttribArray(Shaders.building.locations.vertexColorIn); //setup texcoord buffer
+    	//gl.enableVertexAttribArray(Shaders.building.locations.vertexColorIn); //setup texcoord buffer
 	    gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexColors);
 	    gl.vertexAttribPointer(Shaders.building.locations.vertexColorIn, 3, gl.FLOAT, false, 0, 0);
 	}
@@ -915,7 +953,7 @@ Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
     // can apparently be -1 if the variable is not used inside the shader
     if (Shaders.building.locations.vertexNormal > -1)
     {
-    	gl.enableVertexAttribArray(Shaders.building.locations.vertexNormal); //setup texcoord buffer
+    	//gl.enableVertexAttribArray(Shaders.building.locations.vertexNormal); //setup texcoord buffer
 	    gl.bindBuffer(gl.ARRAY_BUFFER, this.normals);
 	    gl.vertexAttribPointer(Shaders.building.locations.vertexNormal, 3, gl.FLOAT, false, 0, 0);  //assigns array "normals"
 	}
@@ -942,9 +980,13 @@ Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
     gl.drawArrays(gl.TRIANGLES, 0, this.numVertices);
 
     gl.disable(gl.POLYGON_OFFSET_FILL);
-    // ===
+    glu.disableVertexAttribArray(Shaders.building);
+	/*gl.disableVertexAttribArray(Shaders.building.locations.vertexPosition); 
+	gl.disableVertexAttribArray(Shaders.building.locations.vertexTexCoords);
+	gl.disableVertexAttribArray(Shaders.building.locations.vertexColorIn);
+	gl.disableVertexAttribArray(Shaders.building.locations.vertexNormal);*/
     
-
+    // ===
     //step 2: draw outline
     gl.useProgram(Shaders.flat);   //    Install the program as part of the current rendering state
 	gl.enableVertexAttribArray(Shaders.flat.locations.vertexPosition); // setup vertex coordinate buffer
@@ -959,6 +1001,8 @@ Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
 	gl.uniform4fv( Shaders.flat.locations.color, [0.2, 0.2, 0.2, 1.0]);
 
     gl.drawArrays(gl.LINES, 0, this.numEdgeVertices);
+
+	gl.disableVertexAttribArray(Shaders.flat.locations.vertexPosition); // cleanup
     
 }
 

@@ -167,12 +167,11 @@ MapLayer.prototype.createTileHierarchy = function(tileSet, position)
         MIN_ZOOM = tileSet.maxZoom;
         
 
-    var earthCircumference = 2 * Math.PI * (6378.1 * 1000);
     var mipmapDistance = {};
     
     for (var level = MIN_ZOOM; level <= tileSet.maxZoom; level++)
     {
-        var physicalTileLength = earthCircumference* Math.cos(position.lat/180*Math.PI) / Math.pow(2, level);
+        var physicalTileLength = Helpers.getEarthCircumference() * Math.cos(position.lat/180*Math.PI) / Math.pow(2, level);
         var pixelLength = physicalTileLength / tileSet.tileSize;    //in [m/pixel]
         mipmapDistance[level] = getMipmapDistance(pixelLength, position.height);
     }

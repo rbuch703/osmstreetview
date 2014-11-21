@@ -15,9 +15,9 @@ function getDayOfYear( date ) {
 /**
  * @constructor
  */
-function Sun(lat, lng) {
-    this.lat = lat;
-    this.lng = lng;
+function Sun(position) {
+    this.lat = position.lat;
+    this.lng = position.lng;
 
     this.dayOfYear = 229;
     this.time = 12; //noon;

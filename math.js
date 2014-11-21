@@ -70,6 +70,8 @@ function openingAngle( v1, v2, v3) {
     var c = dist3(v1, v3);
     
     var cosAlpha = - ( a*a - b*b - c*c)/ ( 2*b*c);
+    cosAlpha = Math.min(1, Math.max( -1, cosAlpha)); //clamp to [-1..1] to reduce the effect of numerical inaccuracy
+    
     return Math.acos(cosAlpha) / Math.PI * 180;
 }
 
