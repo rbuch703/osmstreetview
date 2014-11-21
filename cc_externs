@@ -1,0 +1,51 @@
+/*this files holds the javascript symbols that the closure compiler should assume to be external*/
+
+//var parseInt = function(a){};
+
+var mat4 = {};
+mat4.lookAt = function(a, b, c, d){};
+mat4.mul = function(a, b, c){};
+
+
+var vec3 = {};
+vec3.add = function(a,b,c){};
+vec3.create=function(){};
+
+//var gl = {};
+
+var history = {};
+
+var L = {};
+L.polygon = function(a,b){};
+L.marker = function(a){};
+L.tileLayer = function(a,b){};
+L.tileLayer.prototype.addTo = function(a,b){};
+L.map.prototype.setView = function(a,b){};
+L.map.prototype.on = function(a,b){};
+L.map.prototype.getZoom = function(){};
+L.map.prototype.removeLayer = function(a){};
+
+var jQuery = {};
+jQuery.slider = function(){};
+
+var poly2tri = {};
+/** @constructor */
+poly2tri.Point = function(a,b){};
+/** @constructor */
+poly2tri.SweepContext = function(a){};
+poly2tri.SweepContext.prototype.getTriangles = function(){};
+
+var tri = {};
+
+
+var webGlCanvas = {};
+var sampleLocations = {};
+var tileSetSelection = {}
+var lblDay = {};
+var lblTime = {};
+var errorLog = {};
+var glErrorDiv = {};
+var navDiv= {};
+var divDisclaimer = {};
+var contentDiv = {};
+

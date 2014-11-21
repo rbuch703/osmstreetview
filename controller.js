@@ -11,32 +11,17 @@ function getSign(pos, neg)
     return 0;
 }
 
-function toDictionary(queryString)
-{
-    var parts = queryString.split("&");
-    var res = {};
-    for (var i in parts)
-    {
-        var kv = parts[i].split("=");
-        if (kv.length == 2)
-        {
-            res[kv[0]] = parseFloat(kv[1]);
-        }
-    }
-    return res;
-}
-
 
 var Controller = {
 
-    position: {"lat": 0, "lng": 0},
+    position: {lat: 0, lng: 0},
     localPosition : { x:0, y:0, z: 1.5 }, //camera position in the local coordinate system ('z' is height)
     viewAngleYaw : 0,
     viewAnglePitch : 0,
 
     getPosition : function()
     {
-        return { "lat": position.lat, "lng": position.lng };
+        return { "lat": Controller.position.lat, "lng": Controller.position.lng };
     },
 
     getEffectivePosition : function()
@@ -54,14 +39,12 @@ var Controller = {
         return [Controller.localPosition.x, Controller.localPosition.y, Controller.localPosition.z];
     },
 
-    buildQueryString: function(lat, lng)
+    buildQueryString: function()
     {
-        var lat, lng;
-        if (!lat) lat = Controller.position.lat;
-        if (!lng) lng = Controller.position.lng;
+        var effPos = Controller.getEffectivePosition();
         
-        return "?lat=" + lat.toFixed(8) +
-               "&lng=" + lng.toFixed(8) +
+        return "?lat=" + effPos.lat.toFixed(8) +
+               "&lng=" + effPos.lng.toFixed(8) +
                "&yaw="+Controller.viewAngleYaw.toFixed(1)+
                "&pitch="+Controller.viewAnglePitch.toFixed(1)+
                "&height="+Controller.localPosition.z;
@@ -70,18 +53,18 @@ var Controller = {
     initFromQueryString: function(queryString)
     {
         var query = toDictionary(queryString);
-        if (query.lat && query.lng)
+        if ("lat" in query && "lng" in query)
         {
-            Controller.position = {lat:query.lat, lng:query.lng};
+            Controller.position = {lat:query["lat"], lng: query["lng"]};
             
             if ("yaw" in query)
-                Controller.viewAngleYaw = query.yaw;
+                Controller.viewAngleYaw = query["yaw"];
 
             if ("pitch" in query )
-                Controller.viewAnglePitch=query.pitch;
+                Controller.viewAnglePitch=query["pitch"];
 
             if ("height" in query)
-                Controller.localPosition.z = query.height;
+                Controller.localPosition.z = query["height"];
             
         }
     },
@@ -224,14 +207,14 @@ var Controller = {
         switch (evt.keyCode)
         {
             
-            case 65: delete Controller.keysDown.A;     break;
-            case 68: delete Controller.keysDown.D;     break;
-            case 83: delete Controller.keysDown.S;     break;
-            case 87: delete Controller.keysDown.W;     break;
-            case 37: delete Controller.keysDown.left;  break;
-            case 38: delete Controller.keysDown.up;    break;
-            case 39: delete Controller.keysDown.right; break;
-            case 40: delete Controller.keysDown.down;  break;
+            case 65: delete Controller.keysDown["A"];     break;
+            case 68: delete Controller.keysDown["D"];     break;
+            case 83: delete Controller.keysDown["S"];     break;
+            case 87: delete Controller.keysDown["W"];     break;
+            case 37: delete Controller.keysDown["left"];  break;
+            case 38: delete Controller.keysDown["up"];    break;
+            case 39: delete Controller.keysDown["right"]; break;
+            case 40: delete Controller.keysDown["down"];  break;
         }
         Controller.updateKeyInteraction();
     },
@@ -340,8 +323,7 @@ var Controller = {
                 var metersPerDegreeLng = metersPerDegreeLat * Math.cos( Controller.position.lat / 180 * Math.PI);
                 //console.log("Resolution x: %s m/°, y: %s m/°", metersPerDegreeLng, metersPerDegreeLat);
 
-                url += Controller.buildQueryString(Controller.position.lat + Controller.localPosition.y / metersPerDegreeLat, 
-                                                   Controller.position.lng + Controller.localPosition.x / metersPerDegreeLng );
+                url += Controller.buildQueryString();
 
                 history.replaceState(null, document.title, url);
             },1000);

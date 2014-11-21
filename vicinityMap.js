@@ -17,7 +17,7 @@ var VicinityMap = {
 
         L.tileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: 'OpenStreetMap',
-            maxZoom: 19, minZoom:0,
+            maxZoom: 19, minZoom:0
         }).addTo(VicinityMap.map);
 
         L.control.scale({imperial:false, position:"topright"}).addTo(VicinityMap.map);
@@ -25,7 +25,7 @@ var VicinityMap = {
     
     resetView: function( latlng)
     {
-        VicinityMap.map.setView(latlng, 17);
+        VicinityMap.map.setView( {"lat": latlng.lat, "lng": latlng.lng}, 17);
     },
 
     updatePositionMarker: function(newPos)
@@ -36,7 +36,7 @@ var VicinityMap = {
         if (VicinityMap.positionMarker)
             VicinityMap.map.removeLayer(VicinityMap.positionMarker);
         
-        VicinityMap.positionMarker = L.marker( newPos );
+        VicinityMap.positionMarker = L.marker( {"lat": newPos.lat, "lng": newPos.lng} );
         VicinityMap.positionMarker.addTo(VicinityMap.map);//.bindPopup("You are here");
     },
 
@@ -79,15 +79,19 @@ var VicinityMap = {
 
         var len = Math.pow(0.5, VicinityMap.map.getZoom())*2000;
         //console.log(map.getZoom(), len);
-	    var pA = { lat: effectivePosition.lat + leftDir[1]*len*localAspect,  lng: effectivePosition.lng + leftDir[0]*len };
-	    var pB = { lat: effectivePosition.lat + rightDir[1]*len*localAspect, lng: effectivePosition.lng + rightDir[0]*len};
+	    var pA = { "lat": effectivePosition.lat + leftDir[1]*len*localAspect,  "lng": effectivePosition.lng + leftDir[0]*len };
+	    var pB = { "lat": effectivePosition.lat + rightDir[1]*len*localAspect, "lng": effectivePosition.lng + rightDir[0]*len};
+
+        //conversion for closure compiler
+	    effectivePosition = {"lat": effectivePosition.lat, "lng": effectivePosition.lng};
+
 	    var line = [effectivePosition, pA, pB, effectivePosition ]
-	    VicinityMap.frustum = L.polygon(line, {color: 'red', noClip: 'true', fillColor:"white", fillOpacity:0.4}).addTo(VicinityMap.map);
+	    VicinityMap.frustum = L.polygon(line, {"color": 'red', "noClip": 'true', "fillColor":"white", "fillOpacity":0.4}).addTo(VicinityMap.map);
 	},
 
     onMapClick: function(e)
     {
-        resetPosition(e.latlng);
+        resetPosition(e["latlng"]);
     }   
 
 

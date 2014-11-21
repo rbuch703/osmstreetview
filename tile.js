@@ -22,7 +22,14 @@ function Tile( tileX, tileY, level, mapLayer, tileSet)
     im.tile = this;
     //required to get CORS approval, and thus to be able to draw this on a canvas without tainting that
     im.crossOrigin = "anonymous";   
-    im.onload = this.onImageLoaded;
+    im.onload  = function(e)
+    { 
+        this.tile.texId = glu.createTexture(this);
+        delete this.tile.image;
+        
+        if (this.tile.mapLayer.onProgress)    //call user-defined event handler
+            this.tile.mapLayer.onProgress();
+    };
     
     var servers = ["a", "b", "c"];
     
@@ -80,16 +87,16 @@ Tile.prototype.render = function(modelViewMatrix, projectionMatrix)
 	glu.enableVertexAttribArrays(Shaders.textured);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vertices);   //select the vertex buffer as the currrently active ARRAY_BUFFER (for subsequent calls)
-	gl.vertexAttribPointer(Shaders.textured.locations.vertexPosition, 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
+	gl.vertexAttribPointer(Shaders.textured.locations["vertexPosition"], 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
     
 	gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoords);
-	gl.vertexAttribPointer(Shaders.textured.locations.vertexTexCoords, 2, gl.FLOAT, false, 0, 0);  //assigns array "texCoords" bound above as the vertex attribute "vertexTexCoords"*/
+	gl.vertexAttribPointer(Shaders.textured.locations["vertexTexCoords"], 2, gl.FLOAT, false, 0, 0);  //assigns array "texCoords" bound above as the vertex attribute "vertexTexCoords"*/
 
-    gl.uniform1i(Shaders.textured.locations.tex, 0); //select texture unit 0 as the source for the shader variable "tex" 
+    gl.uniform1i(Shaders.textured.locations["tex"], 0); //select texture unit 0 as the source for the shader variable "tex" 
     
     var mvpMatrix = mat4.create();
     mat4.multiply(mvpMatrix, projectionMatrix, modelViewMatrix);
-	gl.uniformMatrix4fv(Shaders.textured.locations.modelViewProjectionMatrix, false, mvpMatrix);
+	gl.uniformMatrix4fv(Shaders.textured.locations["modelViewProjectionMatrix"], false, mvpMatrix);
 
     gl.enable(gl.POLYGON_OFFSET_FILL);  //to prevent z-fighting between rendered edges and faces
     gl.activeTexture(gl.TEXTURE0);  //successive commands (here 'gl.bindTexture()') apply to texture unit 0
@@ -102,15 +109,3 @@ Tile.prototype.render = function(modelViewMatrix, projectionMatrix)
 
 	glu.disableVertexAttribArrays(Shaders.textured); 
 }
-
-Tile.prototype.onImageLoaded = function(e)
-{ 
-    var tile = this.tile;
-
-    tile.texId = glu.createTexture(this);
-    delete tile.image;
-    
-    if (tile.mapLayer.onProgress)    //call user-defined event handler
-        tile.mapLayer.onProgress();
-}
-

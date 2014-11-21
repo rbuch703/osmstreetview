@@ -16,22 +16,6 @@ var fieldOfView = 90/16*9;
 
 var mqSaveSpace = window.matchMedia( "(max-height: 799px), (orientation: portrait)" );
 
-//pasted from controller.js; FIXME: find better common place
-function toDictionary (queryString)
-{
-    var parts = queryString.split("&");
-    var res = {};
-    for (var i in parts)
-    {
-        var kv = parts[i].split("=");
-        if (kv.length == 2)
-        {
-            res[kv[0]] = parseFloat(kv[1]);
-        }
-    }
-    return res;
-}
-
 function initEventHandler()
 {
    /* prevention of default event handling is required for:
@@ -75,7 +59,7 @@ function resetPosition(pos )
         mapSun = new Sun( Controller.position );
         
     //initialize mapSun date/time
-    onSunPositionChanged( $( "#slider-day" ).slider( "value"), $( "#slider-time" ).slider( "value"));
+    onSunPositionChanged( jQuery( "#slider-day" ).slider( "value"), jQuery( "#slider-time" ).slider( "value"));
 
     if (!mapBuildings)
     {
@@ -88,7 +72,7 @@ function resetPosition(pos )
     }
 
 
-    var tileSet = eval( tileSetSelection.value);
+    var tileSet = getTileSet( tileSetSelection.value);
     
     if (!mapPlane)
     {
@@ -106,39 +90,6 @@ function resetPosition(pos )
 
 }    
 
-
-var daysPerMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-
-function getDayString(dayOfYear)
-{
-    var day = ((dayOfYear % 366) | 0)+1;
-    var monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-    
-    for (var month = 0; day > daysPerMonth[month]; month++)
-        day -= daysPerMonth[month];
-        
-    return monthNames[month] + ", " + day;
-}
-
-function getDayOfYear(date)
-{
-    var month = date.getMonth();        //Note the JavaScript Date API is 0-based for the getMonth(),
-    var dayOfYear = date.getDate()-1;   //but 1-based for getDate()
-    
-    for (var i = 0; i < month; i++)
-        dayOfYear += daysPerMonth[i];
-
-    //for now, we just ignore leap years altogether        
-    //var year = date.getFullYear();
-    //var isLeapYear =  (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0));
-    
-    //in a leap year, every day after February 28th is one day further from the beginning of that year than normal
-    //if (isLeapYear && dayOfYear > daysPerMonth[0] + daysPerMonth[1])
-    //    dayOfYear += 1;
-        
-    return dayOfYear;
-}
-
 function onSunPositionChanged(day, time)
 {
     if (!mapSun)
@@ -152,8 +103,8 @@ function onSunPositionChanged(day, time)
     var setTime = mapSun.getSunsetTime();
     if (setTime == null) setTime = 24.0;
     
-    $( "#slider-time" ).slider("option", "min", riseTime);
-    $( "#slider-time" ).slider("option", "max", setTime);
+    jQuery( "#slider-time" ).slider("option", "min", riseTime);
+    jQuery( "#slider-time" ).slider("option", "max", setTime);
     
     lblDay.textContent = getDayString(day);
     var hour = time | 0;
@@ -194,16 +145,30 @@ function onSampleLocationSelected(e)
 
         if ("lat" in pos && "lng" in pos)
         {
-            resetPosition(pos);
+            resetPosition( {"lat": pos["lat"], "lng": pos["lng"]} );
         }
     }
+}
+
+function getTileSet(tileSetName)
+{
+    if (tileSetName == "MapLayer.TileSets.OSM")
+        return MapLayer.TileSets.OSM;
+    
+    if (tileSetName == "MapLayer.TileSets.MapQuestOpen")
+        return MapLayer.TileSets.MapQuestOpen;
+        
+    if (tileSetName == "MapLayer.TileSets.MapQuestOpenSatUS")
+        return MapLayer.TileSets.MapQuestOpenSatUS;
+        
+    return null;
 }
  
 function onTileSetSelected()
 {
     if (!!mapPlane)
     {
-        var tileSet = eval( tileSetSelection.value);
+        var tileSet = getTileSet( tileSetSelection.value);
         
         mapPlane.createTileHierarchy( tileSet, Controller.getEffectivePosition(), Controller.getLocalPosition()[2]);
     }
@@ -248,20 +213,20 @@ function init()
 
     //console.log("Local height is %s", Controller.localPosition.z);
     jQuery( "#slider-height" ).slider({
-        min: 10,
-        max: 200,
-        value: Math.sqrt(Controller.localPosition.z*100),
-        step:0.5,
-        stop:  function( event, ui ) { onNewEyeHeight((ui.value*ui.value)/100); },
-        slide: function( event, ui ) { onNewEyeHeight((ui.value*ui.value)/100); }
+        "min": 10,
+        "max": 200,
+        "value": Math.sqrt(Controller.localPosition.z*100),
+        "step":0.5,
+        "stop":  function( event, ui ) { onNewEyeHeight((ui.value*ui.value)/100); },
+        "slide": function( event, ui ) { onNewEyeHeight((ui.value*ui.value)/100); }
         });
 
 
     //disallow slider manipulation via keyboard, as keyboard input is alredy used for movement inside the scene
-    jQuery("#slider-height .ui-slider-handle").unbind('keydown');    
-    jQuery("#slider-day .ui-slider-handle").unbind('keydown');    
-    jQuery("#slider-time .ui-slider-handle").unbind('keydown');    
-    
+    jQuery("#slider-height .ui-slider-handle")["unbind"]('keydown');    
+    jQuery("#slider-day .ui-slider-handle")["unbind"]('keydown');    
+    jQuery("#slider-time .ui-slider-handle")["unbind"]('keydown');    
+
     VicinityMap.init("mapDiv", Controller.position.lat, Controller.position.lng);
     resetPosition(Controller.position)
 
@@ -271,11 +236,11 @@ function init()
 
 function onLayoutChange()
 {
-    if (mqSaveSpace.matches)
+    /*if (mqSaveSpace.matches)
     {
     } else
     {
-    }
+    }*/
 }
 
 
@@ -373,7 +338,7 @@ function onResize()
     scheduleFrameRendering();
 }	
 
-var prevFrameEffectivePosition = {};
+var prevFrameEffectivePosition = {lat:0, lng:0, height:0};
 
 function renderScene()
 {
@@ -408,7 +373,7 @@ function renderScene()
 
     //update tile hierarchy in case something moved
     if (hasMoved)
-        mapPlane.createTileHierarchy( eval( tileSetSelection.value), Controller.getEffectivePosition());
+        mapPlane.createTileHierarchy( getTileSet( tileSetSelection.value), Controller.getEffectivePosition());
     
     prevFrameEffectivePosition = effPos;
 }

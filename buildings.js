@@ -216,7 +216,7 @@ Buildings.integrateNodeData = function(nodes, ways) {
             else
             {
                 delete way.nodes[j];
-                console.log("[WARN] Way %o contains node %d, but server response does not include that node data. Skipping.", way, id);
+                console.log("[WARN] Way %o contains node %d, but server response does not include that node data. Skipping.", way, way.id);
             }
         }
     }
@@ -230,9 +230,9 @@ Buildings.integrateWays = function(ways, relations) {
             continue;
 
 
-        for (var j in rel.members)
+        for (var j in rel["members"])
         {
-            var member = rel.members[j];
+            var member = rel["members"][j];
             if (member.type != "way")
                 continue;
 
@@ -316,7 +316,7 @@ Buildings.splitResponse = function(response)
 
 Buildings.joinWays = function(w1, w2) {
 
-    var areIdentical = function(n1, n2) { return n1.lat == n2.lat && n1.lon == n2.lon; }
+    var areIdentical = function(n1, n2) { return n1["lat"] == n2["lat"] && n1["lon"] == n2["lon"]; }
 
     //step 1: formal checks for mergeability
     if (w1.role != w2.role)
@@ -398,9 +398,9 @@ Buildings.mergeMultiPolygonSegments = function(rel, setOfRelations) {
     rel.outlines = [];
     
     var currentOutline = null;
-    for (var j in rel.members)
+    for (var j in rel["members"])
     {
-        var member = rel.members[j];
+        var member = rel["members"][j];
         if (member.type == "node")
             continue;
 
@@ -426,8 +426,8 @@ Buildings.mergeMultiPolygonSegments = function(rel, setOfRelations) {
             continue;
         }
 
-        var way = rel.members[j];
-        delete rel.members[j];
+        var way = rel["members"][j];
+        delete rel["members"][j];
         /* if we currently have an open outline segment, then this next ways must be connectable
          * to that outline. If not then we have to fallback to close that open outline segment with a
          * straight line (which is usually not the intended result), store it, and continue with the next one
@@ -548,9 +548,9 @@ Buildings.parseOSMQueryResult = function(res) {
         if (relations[i].tags.type != "building")
             continue;
             
-        for (var j in relations[i].members)
+        for (var j in relations[i]["members"])
         {
-            var member = relations[i].members[j];
+            var member = relations[i]["members"][j];
             
             if (member.role != "outline")
                 continue;
@@ -649,9 +649,9 @@ function triangulate(outline)
     {
         var tri = triangles[i];
         //console.log(tri);
-        vertexData.push( tri.points_[0].x, tri.points_[0].y);
-        vertexData.push( tri.points_[1].x, tri.points_[1].y);
-        vertexData.push( tri.points_[2].x, tri.points_[2].y);
+        vertexData.push( tri["points_"][0].x, tri["points_"][0].y);
+        vertexData.push( tri["points_"][1].x, tri["points_"][1].y);
+        vertexData.push( tri["points_"][2].x, tri["points_"][2].y);
     }
     return vertexData;
     //console.log(vertexData);
@@ -762,7 +762,7 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
         if (bldg.tags.min_height)
             bldg.min_height = getLengthInMeters(bldg.tags.min_height, bldg);
         else if (bldg.tags["building:min_level"])
-            bldg.min_height = parseInt(bldg.tags["building:min_level"])*3.5;
+            bldg.min_height = parseInt(bldg.tags["building:min_level"], 10)*3.5;
         else
             bldg.min_height = 0.0;
 
@@ -917,12 +917,12 @@ Buildings.prototype.renderDepth = function(modelViewMatrix, projectionMatrix) {
 	glu.enableVertexAttribArrays(Shaders.depth);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vertices);   //select the vertex buffer as the currrently active ARRAY_BUFFER (for subsequent calls)
-	gl.vertexAttribPointer(Shaders.depth.locations.vertexPosition, 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
+	gl.vertexAttribPointer(Shaders.depth.locations["vertexPosition"], 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
     
     var mvpMatrix = mat4.create();
     mat4.mul(mvpMatrix, projectionMatrix, modelViewMatrix);
 
-	gl.uniformMatrix4fv(Shaders.depth.locations.modelViewProjectionMatrix, false, mvpMatrix);
+	gl.uniformMatrix4fv(Shaders.depth.locations["modelViewProjectionMatrix"], false, mvpMatrix);
 
     //gl.activeTexture(gl.TEXTURE0);  //successive commands (here 'gl.bindTexture()') apply to texture unit 0
     //gl.bindTexture(gl.TEXTURE_2D, null); //render geometry without texture
@@ -943,35 +943,35 @@ Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
     glu.enableVertexAttribArrays(Shaders.building);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vertices);   //select the vertex buffer as the currrently active ARRAY_BUFFER (for subsequent calls)
-	gl.vertexAttribPointer(Shaders.building.locations.vertexPosition, 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
+	gl.vertexAttribPointer(Shaders.building.locations["vertexPosition"], 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
     
 	gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoords);
-	gl.vertexAttribPointer(Shaders.building.locations.vertexTexCoords, 2, gl.FLOAT, false, 0, 0);  //assigns array "texCoords" bound above as the vertex attribute "vertexTexCoords"
+	gl.vertexAttribPointer(Shaders.building.locations["vertexTexCoords"], 2, gl.FLOAT, false, 0, 0);  //assigns array "texCoords" bound above as the vertex attribute "vertexTexCoords"
 
-    if (Shaders.building.locations.vertexColorIn > -1)
+    if (Shaders.building.locations["vertexColorIn"] > -1)
     {
 	    gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexColors);
-	    gl.vertexAttribPointer(Shaders.building.locations.vertexColorIn, 3, gl.FLOAT, false, 0, 0);
+	    gl.vertexAttribPointer(Shaders.building.locations["vertexColorIn"], 3, gl.FLOAT, false, 0, 0);
 	}
 
     // can apparently be -1 if the variable is not used inside the shader
-    if (Shaders.building.locations.vertexNormal > -1)
+    if (Shaders.building.locations["vertexNormal"] > -1)
     {
 	    gl.bindBuffer(gl.ARRAY_BUFFER, this.normals);
-	    gl.vertexAttribPointer(Shaders.building.locations.vertexNormal, 3, gl.FLOAT, false, 0, 0);  //assigns array "normals"
+	    gl.vertexAttribPointer(Shaders.building.locations["vertexNormal"], 3, gl.FLOAT, false, 0, 0);  //assigns array "normals"
 	}
 
     var mvpMatrix = mat4.create();
     mat4.mul(mvpMatrix, projectionMatrix, modelViewMatrix);
 
-    gl.uniform1i(Shaders.building.locations.tex, 0); //select texture unit 0 as the source for the shader variable "tex" 
+    gl.uniform1i(Shaders.building.locations["tex"], 0); //select texture unit 0 as the source for the shader variable "tex" 
     gl.activeTexture(gl.TEXTURE0);  //successive commands (here 'gl.bindTexture()') apply to texture unit 0
     gl.bindTexture(gl.TEXTURE_2D, this.windowTexture); //render geometry without texture
 
-	gl.uniformMatrix4fv(Shaders.building.locations.modelViewProjectionMatrix, false, mvpMatrix);
+	gl.uniformMatrix4fv(Shaders.building.locations["modelViewProjectionMatrix"], false, mvpMatrix);
 
     var pos = Controller.localPosition;
-    gl.uniform3f(Shaders.building.locations.cameraPos, pos.x, pos.y, pos.z);
+    gl.uniform3f(Shaders.building.locations["cameraPos"], pos.x, pos.y, pos.z);
     
     gl.enable(gl.POLYGON_OFFSET_FILL);  //to prevent z-fighting between rendered edges and faces
     gl.polygonOffset(1,1);
@@ -987,13 +987,13 @@ Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
 	glu.enableVertexAttribArrays(Shaders.flat); // setup vertex coordinate buffer
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.edgeVertices);   //select the vertex buffer as the currrently active ARRAY_BUFFER (for subsequent calls)
-	gl.vertexAttribPointer(Shaders.flat.locations.vertexPosition, 3, gl.FLOAT, false, 0, 0);  //assigns array "edgeVertices" bound above as the vertex attribute "vertexPosition"
+	gl.vertexAttribPointer(Shaders.flat.locations["vertexPosition"], 3, gl.FLOAT, false, 0, 0);  //assigns array "edgeVertices" bound above as the vertex attribute "vertexPosition"
 
-    var mvpMatrix = mat4.create();
+    mvpMatrix = mat4.create();
     mat4.mul(mvpMatrix, projectionMatrix, modelViewMatrix);
-	gl.uniformMatrix4fv(Shaders.flat.locations.modelViewProjectionMatrix, false, mvpMatrix);
+	gl.uniformMatrix4fv(Shaders.flat.locations["modelViewProjectionMatrix"], false, mvpMatrix);
 	
-	gl.uniform4fv( Shaders.flat.locations.color, [0.2, 0.2, 0.2, 1.0]);
+	gl.uniform4fv( Shaders.flat.locations["color"], [0.2, 0.2, 0.2, 1.0]);
 
     gl.drawArrays(gl.LINES, 0, this.numEdgeVertices);
 
@@ -1014,8 +1014,8 @@ function convertToLocalCoordinates(buildings,  mapCenter)
     
         for (var j = 0; j < bld.nodes.length; j++)
         {
-            var dLat = bld.nodes[j].lat - mapCenter.lat;
-            var dLng = bld.nodes[j].lon - mapCenter.lng;
+            var dLat = bld.nodes[j]["lat"] - mapCenter.lat;
+            var dLng = bld.nodes[j]["lon"] - mapCenter.lng;
 
             bld.nodes[j].dx = dLng / 360 * circumference * lngScale;
             bld.nodes[j].dy = -dLat / 360 * circumference;

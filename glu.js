@@ -5,9 +5,9 @@
    (see the LICENSE file in the project root for details)
 */
 
-var glu = {};
+var glu = {
 
-glu.compileShader = function (src_str, type)
+compileShader: function (src_str, type)
 {
     var shader = gl.createShader(type); //create abstract shader object
     gl.shaderSource(shader, src_str);   //set its GLSL source
@@ -21,9 +21,9 @@ glu.compileShader = function (src_str, type)
         return [false, "Couldn't compile the shader: " + errorMsg + "\nSource is: " + src_str];
     }
     return [true,shader];
-}
+},
 
-glu.createProgram = function (vShader, fShader)
+createProgram: function (vShader, fShader)
 {
     var shaderProgram = gl.createProgram();
 	
@@ -39,44 +39,50 @@ glu.createProgram = function (vShader, fShader)
 		return [false, errorMsg];
 	}			   
 	return [true, shaderProgram];
-}
+},
 
-glu.enableVertexAttribArrays = function(shaderProgram)
+enableVertexAttribArrays: function(shaderProgram)
 {
-    for (var i in shaderProgram.attribLocations)
+    var i;
+    for (i in shaderProgram.attribLocations)
+    {
         gl.enableVertexAttribArray( shaderProgram.attribLocations[i] );
-}
+    }
+},
 
-glu.disableVertexAttribArrays = function(shaderProgram)
+disableVertexAttribArrays: function(shaderProgram)
 {
-    for (var i in shaderProgram.attribLocations)
+    var i;
+    for (i in shaderProgram.attribLocations)
+    {
         gl.disableVertexAttribArray( shaderProgram.attribLocations[i] );
-}
+    }
+},
 
-glu.createShader = function( vertexShaderCode, fragmentShaderCode, attribLocations, uniformLocations, errorOutput)
+createShader : function( vertexShaderCode, fragmentShaderCode, attribLocations, uniformLocations, errorOutput)
 {
     var tmp = glu.compileShader( vertexShaderCode, gl.VERTEX_SHADER);
     if (!tmp[0])
     {
-        if (errorOutput)
-            errorOutput.textContent = tmp[1];
+        if (errorOutput) {
+            errorOutput.textContent = tmp[1]; }
         return null;
     }
     var vShader = tmp[1];
-    var tmp = glu.compileShader( fragmentShaderCode, gl.FRAGMENT_SHADER);
+    tmp = glu.compileShader( fragmentShaderCode, gl.FRAGMENT_SHADER);
     if (!tmp[0])
     {
-        if (errorOutput)
-            errorOutput.textContent = tmp[1];
+        if (errorOutput) {
+            errorOutput.textContent = tmp[1]; }
         return null;
     }
     var fShader = tmp[1];
     
-	var tmp  = glu.createProgram( vShader, fShader);
+	tmp  = glu.createProgram( vShader, fShader);
 	if (!tmp[0])
     {
-        if (errorOutput)
-            errorOutput.textContent = tmp[1] + "; vShader was:" + vertexShaderCode + "; fShader was: " + fragmentShaderCode;
+        if (errorOutput) {
+            errorOutput.textContent = tmp[1] + "; vShader was:" + vertexShaderCode + "; fShader was: " + fragmentShaderCode; }
         
         return null;
     }
@@ -86,32 +92,35 @@ glu.createShader = function( vertexShaderCode, fragmentShaderCode, attribLocatio
 
     shaderProgram.locations = {};
     shaderProgram.attribLocations = [];
-    
+    var i;
+    var location;
     //get location of variables in shader program (to later bind them to values);
-    for (var i in attribLocations)
+    for (i in attribLocations)
     {
-        var location = gl.getAttribLocation( shaderProgram, attribLocations[i]);
+        location = gl.getAttribLocation( shaderProgram, attribLocations[i]);
         shaderProgram.attribLocations.push(location);
         shaderProgram.locations[ attribLocations[i]] = location; 
     }
         
-    for (var i in uniformLocations)
+    for (i in uniformLocations)
+    {
         shaderProgram.locations[ uniformLocations[i] ] = gl.getUniformLocation( shaderProgram, uniformLocations[i]); 
+    }
     
     return shaderProgram;
-}
+},
 
 
-glu.createArrayBuffer = function(data)
+createArrayBuffer : function(data)
 {
 	    
     var buffer = gl.createBuffer(); //    create a buffer to store our data in
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer); //    Bind the buffer object to the ARRAY_BUFFER target.
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW); //fill the bound array buffer
 	return buffer;
-}
+},
 
-glu.lookAt = function(yaw, pitch, translate)
+lookAt : function(yaw, pitch, translate)
 {
     var yawRad = yaw / 180 * Math.PI;
     var pitchRad= pitch / 180 * Math.PI;
@@ -128,13 +137,13 @@ glu.lookAt = function(yaw, pitch, translate)
 	mat4.scale(modelViewMatrix, modelViewMatrix, [1,-1,1]);//negate y coordinate to make positive y go downward
     return modelViewMatrix;
 
-}
+},
 
-glu.init = function()
+init : function()
 {
     glu.anisotropyExtension = gl.getExtension("EXT_texture_filter_anisotropic");
-    if (glu.anisotrophyExtension)
-        glu.anisotropyExtension.MAX_TEXTURE_MAX_ANISOTROPY_EXT = gl.getParameter(glu.anisotropyExtension.MAX_TEXTURE_MAX_ANISOTROPY_EXT);
+    if (glu.anisotropyExtension) {
+        glu.anisotropyExtension.maxAnisotropyLevel = gl.getParameter(glu.anisotropyExtension.MAX_TEXTURE_MAX_ANISOTROPY_EXT); }
 
     glu.depthTextureExtension = gl.getExtension("WEBGL_depth_texture");
 
@@ -148,19 +157,19 @@ glu.init = function()
     var format = gl.getShaderPrecisionFormat(gl.VERTEX_SHADER, gl.MEDIUM_FLOAT);
     glu.vertexShaderMediumFloatPrecision = format.precision;
     //console.log("Shader precision: %o", precision);
-}
+},
 
-glu.setMaxAnisotropy = function()
+setMaxAnisotropy : function()
 {
-    if (glu.anisotropyExtension == null)
-        return;
+    if (glu.anisotropyExtension === null) {
+        return; }
         
-    gl.texParameterf(gl.TEXTURE_2D, glu.anisotropyExtension.TEXTURE_MAX_ANISOTROPY_EXT, glu.anisotropyExtension.MAX_TEXTURE_MAX_ANISOTROPY_EXT);
-}
+    gl.texParameterf(gl.TEXTURE_2D, glu.anisotropyExtension.TEXTURE_MAX_ANISOTROPY_EXT, glu.anisotropyExtension.maxAnisotropyLevel);
+},
 
 
 
-glu.createTexture = function(image)
+createTexture : function(image)
 {
     var texId = gl.createTexture();
     gl.activeTexture(gl.TEXTURE0);
@@ -176,9 +185,9 @@ glu.createTexture = function(image)
     glu.setMaxAnisotropy();
     
     return texId;
-}
+},
 
-glu.createTextureFromBytes = function(bytes)
+createTextureFromBytes : function(bytes)
 {
     var texId = gl.createTexture();
     gl.activeTexture(gl.TEXTURE0);
@@ -195,22 +204,22 @@ glu.createTextureFromBytes = function(bytes)
     
     return texId;
 
-}
+},
 
-glu.updateTexture = function(texture, image)
+updateTexture : function(texture, image)
 {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image); //load texture data
     gl.generateMipmap(gl.TEXTURE_2D);                                     // automatic mipmap generation
     glu.setMaxAnisotropy();
-}
+},
 
 
 
 // webGL has only limited support for textures whose width and height are not powers of two:
 // those may not use automatic mipmapping, and must use the warp mode CLAMP_TO_EDGE
-glu.createNpotTexture = function(image)
+createNpotTexture : function(image)
 {
     var texId = gl.createTexture();
     gl.activeTexture(gl.TEXTURE0);
@@ -224,3 +233,24 @@ glu.createNpotTexture = function(image)
     
     return texId;
 }
+
+};
+
+//export table for Google closure compiler
+
+window["glu"] = glu;    
+window["glu"]["compileShader"] = glu.compileShader;
+window["glu"]["init"] = glu.init;
+window["glu"]["createProgram"] = glu.createProgram;
+window["glu"]["enableVertexAttribArrays"] = glu.enableVertexAttribArrays;
+window["glu"]["disableVertexAttribArrays"] = glu.disableVertexAttribArrays;
+window["glu"]["createShader"] = glu.createShader;
+window["glu"]["createArrayBuffer"] = glu.createArrayBuffer;
+window["glu"]["lookAt"] = glu.lookAt;
+window["glu"]["init"] = glu.init;
+window["glu"]["setMaxAnisotropy"] = glu.setMaxAnisotropy;
+window["glu"]["createTexture"] = glu.createTexture;
+window["glu"]["createTextureFromBytes"] = glu.createTextureFromBytes;
+window["glu"]["updateTexture"] = glu.updateTexture;
+window["glu"]["createNpotTexture"] = glu.createNpotTexture;
+

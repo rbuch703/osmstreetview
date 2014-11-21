@@ -5,11 +5,6 @@
    (see the LICENSE file in the project root for details)
 */
 
-function getDayOfYear( date ) {
-    var year = new Date(date.getFullYear(), 0, 0);
-    var dt = date.valueOf() - year.valueOf();  //milliseconds since beginning of year
-    return dt/ (1000 * 24 * 60 * 60);
-}
 
 
 /**
@@ -247,12 +242,12 @@ Sun.prototype.render = function(modelViewMatrix, projectionMatrix) {
 	gl.useProgram( Shaders.flat );   //    Install the program as part of the current rendering state
 	glu.enableVertexAttribArrays(Shaders.flat);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vertices);   //select the vertex buffer as the currrently active ARRAY_BUFFER (for subsequent calls)
-	gl.vertexAttribPointer(Shaders.flat.locations.vertexPosition, 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
+	gl.vertexAttribPointer(Shaders.flat.locations["vertexPosition"], 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
     
     var mvpMatrix = mat4.create();
     mat4.mul(mvpMatrix, projectionMatrix, modelViewMatrix);
-	gl.uniformMatrix4fv(Shaders.flat.locations.modelViewProjectionMatrix, false, mvpMatrix);
-	gl.uniform4fv( Shaders.flat.locations.color, [1.0, 1.0, 0.90, 1.0]);
+	gl.uniformMatrix4fv(Shaders.flat.locations["modelViewProjectionMatrix"], false, mvpMatrix);
+	gl.uniform4fv( Shaders.flat.locations["color"], [1.0, 1.0, 0.90, 1.0]);
     
 	gl.drawArrays(gl.TRIANGLES, 0, this.numVertices);
 	
@@ -260,9 +255,9 @@ Sun.prototype.render = function(modelViewMatrix, projectionMatrix) {
     gl.useProgram(Shaders.flat);   //    Install the program as part of the current rendering state
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.orbitVertices);   //select the vertex buffer as the currrently active ARRAY_BUFFER (for subsequent calls)
-	gl.vertexAttribPointer(Shaders.flat.locations.vertexPosition, 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
-	gl.uniformMatrix4fv(Shaders.flat.locations.modelViewProjectionMatrix, false, mvpMatrix);
-	gl.uniform4fv( Shaders.flat.locations.color, [0.6, 0.2, 0.2, 1.0]);
+	gl.vertexAttribPointer(Shaders.flat.locations["vertexPosition"], 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
+	gl.uniformMatrix4fv(Shaders.flat.locations["modelViewProjectionMatrix"], false, mvpMatrix);
+	gl.uniform4fv( Shaders.flat.locations["color"], [0.6, 0.2, 0.2, 1.0]);
     gl.drawArrays(gl.LINES, 0, this.numOrbitVertices);
 
 	glu.disableVertexAttribArrays(Shaders.flat);

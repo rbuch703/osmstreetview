@@ -123,7 +123,7 @@ function getMipmapDistance(pixelLength /*in [m/px]*/, height /*in [m] */)
     {
         var midR = (minR + maxR) / 2.0;
  
-        var alpha = getViewAngle(height, midR, pixelLength);
+        alpha = getViewAngle(height, midR, pixelLength);
         
         if (alpha < anglePerPixel)
             maxR = midR;

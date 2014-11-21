@@ -38,3 +38,57 @@ var Helpers = {
     "yellowgreen":"#9acd32"}
 
 };
+
+var daysPerMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+function getDayString(dayOfYear)
+{
+    var day = ((dayOfYear % 366) | 0)+1;
+    var monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+    
+    for (var month = 0; day > daysPerMonth[month]; month++)
+        day -= daysPerMonth[month];
+        
+    return monthNames[month] + ", " + day;
+}
+
+/*
+function getDayOfYear(date)
+{
+    var month = date.getMonth();        //Note the JavaScript Date API is 0-based for the getMonth(),
+    var dayOfYear = date.getDate()-1;   //but 1-based for getDate()
+    
+    for (var i = 0; i < month; i++)
+        dayOfYear += daysPerMonth[i];
+
+    //for now, we just ignore leap years altogether        
+    //var year = date.getFullYear();
+    //var isLeapYear =  (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0));
+    
+    //in a leap year, every day after February 28th is one day further from the beginning of that year than normal
+    //if (isLeapYear && dayOfYear > daysPerMonth[0] + daysPerMonth[1])
+    //    dayOfYear += 1;
+        
+    return dayOfYear;
+}*/
+
+function getDayOfYear( date ) {
+    var year = new Date(date.getFullYear(), 0, 0);
+    var dt = date.valueOf() - year.valueOf();  //milliseconds since beginning of year
+    return dt/ (1000 * 24 * 60 * 60);
+}
+
+function toDictionary (queryString)
+{
+    var parts = queryString.split("&");
+    var res = {};
+    for (var i in parts)
+    {
+        var kv = parts[i].split("=");
+        if (kv.length == 2)
+        {
+            res[kv[0]] = parseFloat(kv[1]);
+        }
+    }
+    return res;
+}
