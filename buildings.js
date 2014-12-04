@@ -776,7 +776,10 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
         {
             numLevels = bldg.tags["building:levels"] | 0;
             if (bldg.tags["roof:levels"] != undefined)
-                numLevels += bldg.tags["roof:levels"];
+                numLevels += (bldg.tags["roof:levels"] | 0);
+                
+            if (bldg.tags["building:min_level"] != undefined)
+                numLevels -= (bldg.tags["building:min_level"] | 0);
         }
 
         if (bldg.nodes[0].dx != bldg.nodes[bldg.nodes.length-1].dx || bldg.nodes[0].dy != bldg.nodes[bldg.nodes.length-1].dy)
