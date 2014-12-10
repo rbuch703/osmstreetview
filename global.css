@@ -23,49 +23,55 @@ a {
     outline: none; /* do not draw a dotted rectangle around a focused anchor */
 }
 
-#contentDiv {
-    position:absolute; 
-    right:0px;
-    top:0px;
+.toolButton {
+    margin:  2px;
+    width:  48px;
+    height: 48px;
+    background-color:white;
 }
 
-#navDiv {
-    position:absolute; 
+.toolButton:hover {
+    margin: 0px;
+    border: 2px solid #CCC;
+}
+
+.toolButtonClicked {
+    margin:  0px;
+    border:  2px solid #C55;
+    width:  48px;
+    height: 48px;
+    background-color:white;
+}
+
+#canvasContainer {
+    position:fixed; 
+    right:0px; 
+    bottom: 0px;
+}
+
+.toolWindow {
+    position:fixed; 
+    top:72px; 
+    z-index:1;
+    background-color:white;    
+}
+
+.toolOverlay {
+    left:10px; 
+    width:400px;
+/*    max-height:400px; */
+}
+
+.toolSide {
     left:0px; 
+    max-width:40%;
+    height:100%;
     bottom:0px;
-    overflow:auto;
 }
 
-@media all and (orientation: landscape) {
-    #contentDiv {
-        width:70%; 
-        bottom:0px
-    }
 
-    #navDiv {
-        width:30%;
-        top:0px;
-    }
+.toolTop {
+    left:0px; 
+    right:0px;
+    width:100%;
 }
-
-@media all and (orientation: portrait) {
-    #contentDiv {
-        height:50%; 
-        left:0px
-    }
-
-    #navDiv {
-        height:50%;
-        right:20px;
-    }
-}
-
-@media all and (min-height: 800px) and (orientation: landscape) {
-    #hBaseInfo, #hFurtherInfo {display: inherit;}
-    
-}
-
-@media all and (max-height: 799px), (orientation: portrait) {
-    #hBaseInfo, #hFurtherInfo {display: none;}
-}
-

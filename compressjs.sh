@@ -9,7 +9,7 @@ java -jar ~/Downloads/ClosureCompiler/compiler.jar --js_output_file combined.js 
 --jscomp_warning=checkTypes  \
 --formatting        pretty_print \
 buildings.js controller.js glu.js helpers.js \
-main.js mapLayer.js math.js shaders.js shadows.js skydome.js sun.js tile.js vicinityMap.js
+main.js mapLayer.js math.js shaders.js shadows.js skydome.js sun.js tile.js vicinityMap.js uiElements.js
 
 
 #--formatting        pretty_print \

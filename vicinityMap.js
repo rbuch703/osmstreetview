@@ -9,18 +9,20 @@ var VicinityMap = {
     
     init: function(div, lat, lng)
     {
-        //console.log(lat, lng);
-        VicinityMap.map = L.map(div, {keyboard:false} );
-        VicinityMap.map.on("click", VicinityMap.onMapClick);
-        VicinityMap.map.on("touchstart", VicinityMap.onMapClick);
-        VicinityMap.map.on("zoomend", VicinityMap.renderFrustum);
+        if (!VicinityMap.map)
+        {
+            VicinityMap.map = L.map(div, {keyboard:false} );
+            VicinityMap.map.on("click", VicinityMap.onMapClick);
+            VicinityMap.map.on("touchstart", VicinityMap.onMapClick);
+            VicinityMap.map.on("zoomend", VicinityMap.renderFrustum);
 
-        L.tileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: 'OpenStreetMap',
-            maxZoom: 19, minZoom:0
-        }).addTo(VicinityMap.map);
+            L.tileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: 'OpenStreetMap',
+                maxZoom: 19, minZoom:0
+            }).addTo(VicinityMap.map);
 
-        L.control.scale({imperial:false, position:"topright"}).addTo(VicinityMap.map);
+            L.control.scale({imperial:false, position:"topright"}).addTo(VicinityMap.map);
+        }
     },
     
     resetView: function( latlng)
@@ -71,7 +73,10 @@ var VicinityMap = {
 	    //console.log ("local aspect ratio at %s is %s", position.lat, localAspect );
 	    
 	    //console.log( webGlCanvas.height, webGlCanvas.width, fieldOfView / webGlCanvas.height * webGlCanvas.width);
-	    var phi = (0.5 * fieldOfView / webGlCanvas.height * webGlCanvas.width ) / 180 * Math.PI;
+	    var phi = (0.5 * fieldOfView / webGlCanvas.height * webGlCanvas.width );
+	    if (phi > 60) phi = 60; // wider FOV frustums look irritating
+	    phi = phi / 180 * Math.PI;
+	    
 	    var leftDir = [ Math.cos(phi) * lookDir[0]  - Math.sin(phi) * lookDir[1], 
 	                    Math.sin(phi) * lookDir[0]  + Math.cos(phi) * lookDir[1] ];
 	    var rightDir =[ Math.cos(-phi) * lookDir[0] - Math.sin(-phi) * lookDir[1], 
@@ -92,7 +97,13 @@ var VicinityMap = {
     onMapClick: function(e)
     {
         resetPosition(e["latlng"]);
-    }   
+    },
+
+    onChangeSize: function()
+    {
+        if (VicinityMap.map)
+            VicinityMap.map.invalidateSize(false);
+    }
 
 
 }

@@ -28,100 +28,87 @@
 	<script type="text/javascript" src="math.js" ></script> 
     <script type="text/javascript" src="main.js"></script> 
     <script type="text/javascript" src="helpers.js"></script>
+    <script type="text/javascript" src="uiElements.js"></script>
     <!-- <script type="text/javascript" src="combined.js"></script>  -->
 
     <title>OSM Street View</title>
 </head>
 
-<body overflow="hidden"> <!-- style ="padding: 0px; margin: 0px;" -->
+<body > <!-- style ="padding: 0px; margin: 0px;" -->
 
-<div id="glErrorDiv" style="display:none; max-width:800px">
-    <h2 style="">OSM Street View</h2>
-
-    <p style="font-weight:bold; color:#F00">
-    Unfortunately, your web browser does not support 3D web graphics ("WebGL"). This feature is required for this web page to work.</p>
-    <p>
-    This page should work on all laptop and desktop computers with up-to-date web browsers (e.g. Internet Explorer since version 11, Firefox, Chrome). For the Safari browser older than version 8.0 some <a target="_blank" href="https://discussions.apple.com/thread/3300585?start=0">tweaks</a> are necessary.</p>
-    <p>
-    For mobile devices (tablets and smartphones), most recent Android devices with Android 4.4 (e.g. by Samsung, LG, HTC, Asus, Google, or Huawei) and Apple's iPhones und iPads with iOS 8 shoudl support 3D web graphics.
-    </p>
-    </p>
-</div>
-
-<div id="navDiv" style="">
-    <div id="divNavContainer" style="padding-left:10px;padding-right: 10px">
+<div id="dummy" style="background-color:white" >
+    <div id="canvasContainer" >
+        <canvas id="webGlCanvas" style="left:0px; right:0px; top:0px; bottom: 0px; width:100%; height:100%; background:black" ></canvas>
     
-    <h3>OSM Street View</h3>
-    <p>Click on any location on the map to see a 3D view of the world as seen from that position. 
-       Then click and drag the 3D view with your mouse to look around.</p>
-    <p>Here are some location suggestions: 
-        <select id="sampleLocations">
-          <option value="dummy">-- select one --</option>
-          <option value='{"lat":51.4979,   "lng":-0.1203,   "yaw":303, "pitch":7 }'>London (House of Parliament)</option>
-          <option value='{"lat":40.7683,   "lng":-73.9794,  "yaw":261, "pitch":14}'>New York City (Central Park)</option>
-          <option value='{"lat":38.9001,   "lng":-77.0364,  "yaw":187, "pitch":0 }'>Washington DC(The White House)</option>
-          <option value='{"lat":36.1132,   "lng":-115.1727, "yaw":284, "pitch":12}'>Las Vegas (The Bellagio)</option>
-          <option value='{"lat":52.509344, "lng":13.375242, "yaw":299, "pitch":15}'>Berlin (Potsdamer Platz)</option>
-          <option value='{"lat":52.5184,   "lng":13.3725,   "yaw":104, "pitch":10}'>Berlin (Bundestag, Brandenburger Tor)</option>
-          <option value='{"lat":51.3429,   "lng":12.3820,   "yaw":343, "pitch":11}'>Leipzig (Main Station)</option>
-          <option value='{"lat":52.1394,   "lng":11.6396,   "yaw":203, "pitch":17}'>Magdeburg (Universitätsplatz)</option>
-        </select> 
-    </p>
-    <p>Buildings missing or inaccurate? <a href="howToEdit.html" target="_blank">Add them yourself</a>!</p>    
-    <div id="mapDiv" style="width:100%; height:400px;"> </div>
-
-        <h3>Eye Height</h3>
-        <div id="slider-height" style="width:95%" > </div>
-        <!--
-        <div id="divUsageNotes" style="display:none">
-	        <ul>
-	            <li>Bewegen sie sich durch die 3D-Ansicht mit den Pfeiltasten ihrer Tastatur, oder durch Ziehen der Ansicht auf ihrem Touchscreen.</li>
-	            <li>Schauen sie sich um durch Klicken und Ziehen der Ansicht mit der Maus.</li>
-	            <li>Springen sie zu einer beliebigen Stelle in der Wohnung durch Klicken auf die entsprechende Stelle im Wohnungsgrundriss.</li>
-	        </ul>
-        </div>!-->
-
-        <h3>Map Layer</h3>
-        <select id="tileSetSelection">
-          <!--<option value="dummy">-- select one --</option>-->
-          <option value="MapLayer.TileSets.OSM">OSM default style</option>
-          <option value="MapLayer.TileSets.MapQuestOpen"   >MapQuest Open Map</option>
-          <option value="MapLayer.TileSets.MapQuestOpenSatUS">MapQuest Open Aerial (US only)</option>
-<!--          <option value="MapLayer.TileSets.OsmBrightMagdeburg">OSM Bright (Magdeburg only)</option>-->
-
-
-        </select> 
-
-
-        <div id="divSunPos" style="display:none">
-            <h3>Sun Position </h3>
-            <p>
-            Day: <span id="lblDay" ></span>
-            <div id="slider-day" style="width:100%"></div></p>
-            <p>
-            Time: <span id="lblTime" ></span>
-            <div id="slider-time" style="width:100%"></div>   
-            </p>
-        </div>
-
     </div>
-</div>
 
+    <div id="toolbarDiv" style="position:fixed; left:10px; top:10px; z-index:1; height:52px">
+        <img id="btnFullScreen" src="" alt="fullscreen mode">
+        &nbsp;
+    </div>
 
-<div id="contentDiv" >
-    <!-- <div id="nav" style="background-color:#EEE; position:fixed; width:75%; top:50px; bottom:0px; right: 0px; overflow-y:scroll">-->
-		<canvas id="webGlCanvas" style="width:100%; background:black" ></canvas>
-        <div id="divDisclaimer" style="font-size:80%; font-style:italic">
-The map and building geometry are &copy;OpenStreetMap contributors and are <a target="_blank" href="http://www.openstreetmap.org/copyright">licensed</a> under the Creative Commons BY-SA (map) and Open Database License (buildings) licenses.<br> For administrative questions on this page please contact the <a href="mailto:rbuch703@gmail.com">webmaster</a>.
+    <div id="mapDiv" class="toolWindow" style=""> </div>
+
+<!--<div id="divSunPos" class="toolWindow" style="display:none; overflow-y:auto">
+        <div style="padding-left:20px; padding-right:20px">
+            <h3>Sonnenposition</h3>
+            Verschieben sie die Regler, um die Position der Sonne und damit den Schattenfall anzupassen.<br><br>
+                Tag: <span id="lblDay" ></span>
+                <div  id="slider-day" style="width:100%; margin-bottom:20px"></div>
+
+                Zeit: <span id="lblTime" ></span>
+                <div id="slider-time" style="width:100%; margin-bottom:20px"></div>   
         </div>
+    </div> -->
+
+    <div id="divUsageNotes" style="">
+        <div style="padding-left:20px;padding-right: 20px">
         
-        <span id="errorLog" style="color:#F00"></span>
-<!--        <span id="yawLog" style="color:#FF0000">YAW</span><br>
-        <span id="posLog" style="color:#0000FF">LAT LNG</span><br><br>
-        <span id="addressLog" style="color:#777">Address</span><br> -->
+        <h3>OSM Street View</h3>
+        <p>Click on any location on the map to see a 3D view of the world as seen from that position. 
+           Then click and drag the 3D view with your mouse to look around.</p>
+        <p>Here are some location suggestions: 
+            <select id="sampleLocations">
+              <option value="dummy">-- select one --</option>
+              <option value='{"lat":51.4979,   "lng":-0.1203,   "yaw":303, "pitch":7 }'>London (House of Parliament)</option>
+              <option value='{"lat":40.7683,   "lng":-73.9794,  "yaw":261, "pitch":14}'>New York City (Central Park)</option>
+              <option value='{"lat":38.9001,   "lng":-77.0364,  "yaw":187, "pitch":0 }'>Washington DC(The White House)</option>
+              <option value='{"lat":36.1132,   "lng":-115.1727, "yaw":284, "pitch":12}'>Las Vegas (The Bellagio)</option>
+              <option value='{"lat":52.509344, "lng":13.375242, "yaw":299, "pitch":15}'>Berlin (Potsdamer Platz)</option>
+              <option value='{"lat":52.5184,   "lng":13.3725,   "yaw":104, "pitch":10}'>Berlin (Bundestag)</option>
+              <option value='{"lat":51.3429,   "lng":12.3820,   "yaw":343, "pitch":11}'>Leipzig (Main Station)</option>
+              <option value='{"lat":52.1394,   "lng":11.6396,   "yaw":203, "pitch":17}'>Magdeburg (Universitätsplatz)</option>
+            </select> 
+        </p>
+        <p>Buildings missing or inaccurate? <a href="howToEdit.html" target="_blank">Add them yourself</a>!</p>    
+        </div>
+    </div>
+
+    <div id="divSettings" style=""> 
+        <div style="padding-left:20px; padding-right:20px; padding-bottom:20px">
+            <h3>Settings</h3>
+            <h4>Map Style</h4>
+            <select id="tileSetSelection">
+              <!--<option value="dummy"> == select one == </option>-->
+              <option value="MapLayer.TileSets.OSM">OSM default style</option>
+              <option value="MapLayer.TileSets.MapQuestOpen"   >MapQuest Open Map</option>
+              <option value="MapLayer.TileSets.MapQuestOpenSatUS">MapQuest Open Aerial (US only)</option>
+    <!--          <option value="MapLayer.TileSets.OsmBrightMagdeburg">OSM Bright (Magdeburg only)</option>-->
+            </select> 
+        
+            <h4>Eye Height</h4>
+            <div id="slider-height" style="width:95%" > </div>
+        </div>
+    </div>
+
+    <div id="divDisclaimer" style="position:fixed; bottom:10px; font-size:80%; font-style:italic">
+    The map and building geometry are &copy;OpenStreetMap contributors and are <a href="http://www.openstreetmap.org/copyright">licensed</a> under the Creative Commons BY-SA (map) and Open Database License (buildings) licenses. For administrative questions on this page please contact the <a href="mailto:rbuch703@gmail.com">webmaster</a>. </div>
 </div>
 
-<!-- </div> -->
+    
+<span id="errorLog" style="color:#F00"></span>
+
+
 
 
 </body>

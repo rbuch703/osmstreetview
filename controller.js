@@ -293,8 +293,9 @@ var Controller = {
 
         //errorLog.textContent = "Touch move with down=" + Controller.down + ", delta =(" + dx + ", " + dy + ")";
 
-        Controller.move(0,        -dy / 100.0);
-        Controller.turn(dx / 5.0, 0       );
+        //Controller.move(0,        -dy / 100.0);
+        //Controller.turn(dx / 5.0, 0       );
+        Controller.turn(dx / 5.0, -dy/5.0 );
 
         Controller.updateHistoryState();
         if (Controller.onRequestFrameRender)

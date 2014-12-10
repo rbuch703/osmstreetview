@@ -9,12 +9,13 @@
 var mapPlane;
 var mapBuildings;
 var mapSkyDome;
-var mapSun;
-
+//var mapSun;
+var myToolbar;
 var gl;
 var fieldOfView = 90/16*9;
 
-var mqSaveSpace = window.matchMedia( "(max-height: 799px), (orientation: portrait)" );
+var mqSaveSpace = window.matchMedia( "(max-width: 799px), (max-height: 799px)" );
+var mqLandscape = window.matchMedia( "(orientation: landscape)" );
 
 function initEventHandler()
 {
@@ -55,11 +56,11 @@ function resetPosition(pos )
     Controller.updateHistoryState();
 
     VicinityMap.resetView(pos);
-    if (glu.performShadowMapping)
-        mapSun = new Sun( Controller.position );
+//    if (glu.performShadowMapping)
+//        mapSun = new Sun( Controller.position );
         
     //initialize mapSun date/time
-    onSunPositionChanged( jQuery( "#slider-day" ).slider( "value"), jQuery( "#slider-time" ).slider( "value"));
+//    onSunPositionChanged( jQuery( "#slider-day" ).slider( "value"), jQuery( "#slider-time" ).slider( "value"));
 
     if (!mapBuildings)
     {
@@ -89,7 +90,7 @@ function resetPosition(pos )
     scheduleFrameRendering();
 
 }    
-
+/*
 function onSunPositionChanged(day, time)
 {
     if (!mapSun)
@@ -122,7 +123,7 @@ function onSunPositionChanged(day, time)
 
     
     scheduleFrameRendering();
-}
+}*/
     
 function onNewEyeHeight(newHeight)
 {
@@ -191,6 +192,7 @@ function init()
    
     Shaders.init(errorLog);
 
+/*
     var date = new Date(Date.now());
     
     jQuery( "#slider-day" ).slider({
@@ -209,7 +211,7 @@ function init()
         step:0.01,
         stop:  function( event, ui ) { onSunPositionChanged(mapSun.dayOfYear, ui.value); },
         slide: function( event, ui ) { onSunPositionChanged(mapSun.dayOfYear, ui.value); }
-        });
+        });*/
 
     //console.log("Local height is %s", Controller.localPosition.z);
     jQuery( "#slider-height" ).slider({
@@ -224,25 +226,32 @@ function init()
 
     //disallow slider manipulation via keyboard, as keyboard input is alredy used for movement inside the scene
     jQuery("#slider-height .ui-slider-handle")["unbind"]('keydown');    
-    jQuery("#slider-day .ui-slider-handle")["unbind"]('keydown');    
-    jQuery("#slider-time .ui-slider-handle")["unbind"]('keydown');    
+    //jQuery("#slider-day .ui-slider-handle")["unbind"]('keydown');    
+    //jQuery("#slider-time .ui-slider-handle")["unbind"]('keydown');    
 
     VicinityMap.init("mapDiv", Controller.position.lat, Controller.position.lng);
     resetPosition(Controller.position)
 
-    mqSaveSpace.addListener(onLayoutChange);
-    onLayoutChange();
+	var tmp = new FullScreenButton( btnFullScreen, 
+	    {target:dummy, 
+	    icon:       "images/ic_action_full_screen.png",
+	    returnIcon: "images/ic_action_return_from_full_screen.png"});
+
+    var toolbarEntries = [
+        {icon: "images/ic_action_place.png", target:mapDiv, onShow:function(){VicinityMap.onChangeSize(); }},
+        {icon: "images/ic_action_settings.png", target: divSettings},
+        {icon: "images/ic_action_help.png", target: divUsageNotes}
+    ];
+              
+
+    myToolbar = new WindowToolBar( toolbarDiv, { windows: toolbarEntries });
+    
+    mqSaveSpace.addListener(onResize);
+    mqLandscape.addListener(onResize);
+    onResize();
+
+
 }   
-
-function onLayoutChange()
-{
-    /*if (mqSaveSpace.matches)
-    {
-    } else
-    {
-    }*/
-}
-
 
 var frameRenderingScheduled = false;
 function scheduleFrameRendering()
@@ -321,20 +330,104 @@ function initGl()
 
 function onResize()
 {
-    /*Note: 
-     *   - Canvas.style.height sets the size of the object on screen, but is a CSS property (may also be something like "100%")
-     *   - Canvas.clientHeight is the read-only value of the consequence of Canvas.style.height 
-     *     in pixels (even if style.height is given in percent, etc.)
-     *   - Canvas.height sets the logical size of the drawing buffer is pixels (its content is later scaled to fit the object on screen)
-     */	    
-    if (window.matchMedia( "(orientation: landscape)" ).matches )
-        webGlCanvas.style.height = webGlCanvas.clientWidth / 16 * 9 + "px";
-    else 
-        webGlCanvas.style.height = "100%";
-    webGlCanvas.height = webGlCanvas.clientHeight;// / 2;
-    webGlCanvas.width  = webGlCanvas.clientWidth;// / 2;
 
+    /* Layouting algorithm:
+     *   - if there is enough space (> 800x800px) or no tool window is shown -> display the tool window as a 400x400 overlay (smaller if the tool window requires less space), and let the GL canvas cover the whole screen
+     *   - if there is not enough space and a tool window is shown:
+     *      - if the screen is in landscape mode --> display the tool window as
+     *        a side pane covering the left 400px (less if it needs less space) 
+     *        of the screen at full height, and the GL canvas to cover the 
+     *        remaining space
+     *      - if the screen is in portrait mode --> display the tool window as
+     *        a top pane covering the top 400px (less if it needs less space)
+     *        of the screen at full width, and the GL canvas to cover the
+     *        remaining space
+     *
+     * A tool window needs less than the alotted space, if:
+     *  - for a div with html content: if its content fits into less than the
+     *    alotted space (as determined by the browser's layout engine)
+     *  - for the layout div: it will determine its space needs using its own
+     *    algorithm base on the layout image aspect ratio
+     *  - for the map div: it will always cover all of the available space
+    */
 
+    var wnd = myToolbar ? myToolbar.getActiveWindow() : undefined;
+    var anyToolbarVisible = (wnd && wnd.target);
+    var activeDiv = anyToolbarVisible;
+    //dummy element so that the existence of activeDiv is guaranteed for the following code 
+    if (!activeDiv)
+        activeDiv = {style:{offsetTop:"72px;", offsetHeight:"0px"}};
+        
+    var mode = "overlay";
+
+    if (mqSaveSpace.matches && anyToolbarVisible)
+        mode = (mqLandscape.matches) ? "side" : "top";
+        
+    switch ( mode )
+    {
+        case "overlay":
+            canvasContainer.style.left = "0px";
+            canvasContainer.style.top = "0px";
+            activeDiv.className = "toolWindow toolOverlay";
+            activeDiv.style.maxHeight = ""
+
+            if (activeDiv == mapDiv)
+            {                
+                mapDiv.className = "toolWindow toolOverlay leaflet-container leaflet-fade-anim";
+                mapDiv.style.width =  (window.innerWidth /2) + "px";
+                mapDiv.style.height = Math.min(600, window.innerHeight - 72) + "px";
+            }
+                
+        break;
+        case "side":
+            canvasContainer.style.top  = "0px";
+            activeDiv.style.maxHeight = ""
+            
+            activeDiv.className = "toolWindow toolSide";
+            if (activeDiv == mapDiv)
+            {
+                mapDiv.className = "toolWindow toolSide leaflet-container leaflet-fade-anim";
+                mapDiv.style.width = "400px";
+                mapDiv.style.height = ""; 
+            }
+
+            canvasContainer.style.left = (activeDiv.offsetLeft + activeDiv.offsetWidth) + "px";
+        break;
+            
+        case "top":
+            canvasContainer.style.left = "0px";
+            activeDiv.className = "toolWindow toolTop";
+            activeDiv.style.height = ""
+            activeDiv.style.width = "";
+            activeDiv.style.maxHeight = "400px"
+            
+            if (activeDiv == mapDiv)
+            {
+                mapDiv.className = "toolWindow toolTop leaflet-container leaflet-fade-anim";
+                mapDiv.style.width = "";
+                mapDiv.style.height= "400px";
+            }
+
+            canvasContainer.style.top  = activeDiv.offsetTop + activeDiv.offsetHeight + "px";
+
+        break;
+    }
+    
+    divDisclaimer.style.left = canvasContainer.style.left;
+
+    var aspect = webGlCanvas.clientWidth / webGlCanvas.clientHeight;
+
+    /* Render the 3D view at half the device's native pixel count.
+       This is a compromise between having a high resolution 3D view (even for
+       devices with a high devicePixelRatio) and still being fast enough for smooth
+       interaction. 
+     */
+    
+    webGlCanvas.height = webGlCanvas.clientHeight * window.devicePixelRatio / Math.sqrt(2);
+    webGlCanvas.width  = webGlCanvas.clientWidth  * window.devicePixelRatio / Math.sqrt(2);
+   
+    VicinityMap.onChangeSize();
+    
     scheduleFrameRendering();
 }	
 
@@ -358,7 +451,7 @@ function renderScene()
 
     gl.enable(gl.CULL_FACE);
 
-    var renderItems = [mapPlane, mapBuildings, mapSkyDome, mapSun];
+    var renderItems = [mapPlane, mapBuildings, mapSkyDome];
     for (var i in renderItems)
         if (renderItems[i])
             renderItems[i].render(modelViewMatrix, projectionMatrix);
