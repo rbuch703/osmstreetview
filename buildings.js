@@ -487,7 +487,7 @@ Buildings.mergeMultiPolygonSegments = function(rel, setOfRelations) {
 
 //distributes the attributes that a relation may have, but its members may not, to these members
 Buildings.distributeAttributes = function(rel) {
-    var important_tags = ["building:levels", "roof:levels", "building:min_level", "height", "min_height", 
+    var important_tags = ["building:levels", "roof:levels", "building:min_level", "height", "min_height", "colour", "color",
                           "building:colour", "building:color", "roof:colour", "roof:color"];
 
 
@@ -708,7 +708,7 @@ Buildings.interpretColor = function(col, defaultColor)
     if (hexColor) 
         col = hexColor;
     
-    var re = new RegExp("^#([a-fA-F0-9]{6})$");   //a hash sign followed by exactly six hexadecimal characters
+    var re = new RegExp("^(?:#)?([a-fA-F0-9]{6})$");   //an optional hash sign followed by exactly six hexadecimal characters
     var m = col.match(re)
     if (m)
     {
@@ -789,6 +789,8 @@ Buildings.prototype.buildGlGeometry = function(outlines) {
         bldg.roofColor = [0.8, 0.8, 0.8];
         
         //use incorrect tag name first, overwrite with correct one if it exists
+        bldg.color = Buildings.interpretColor(bldg.tags["color"], bldg.color);  //not an official color tag, but still used sometimes
+        bldg.color = Buildings.interpretColor(bldg.tags["colour"], bldg.color); //not an official color tag, but still used sometimes
         bldg.color = Buildings.interpretColor(bldg.tags["building:color"], bldg.color);
         bldg.color = Buildings.interpretColor(bldg.tags["building:colour"], bldg.color);    
 
