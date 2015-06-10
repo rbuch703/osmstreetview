@@ -520,15 +520,15 @@ Buildings.sanitizeTags = function(tags, src) {
     //console.log("%o", tags);
     if ("building:height" in tags && !("height" in tags))
     {
-        console.log("[INFO] depricated tag 'building:height' in %s %s", src.type, src.id);
+        console.log("[INFO] deprecated tag 'building:height' in %s %s", src.type, src.id);
         tags.height = tags["building:height"];
         delete tags["building:height"];
     }
     
     if ("building:min_height" in tags && !("min_height" in tags))
     {
-        console.log("[INFO] depricated tag 'building:min_height' in %s %s", src.type, src.id);
-        tags.height = tags["building:min_height"];
+        console.log("[INFO] deprecated tag 'building:min_height' in %s %s", src.type, src.id);
+        tags.min_height = tags["building:min_height"];
         delete tags["building:min_height"];
     }    
 }
