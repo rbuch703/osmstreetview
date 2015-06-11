@@ -176,14 +176,8 @@ createTexture : function(image)
             
     gl.bindTexture(gl.TEXTURE_2D, texId);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image); //load texture data
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);                  //set zoom-in filter to linear interpolation
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);    //set zoom-out filter to linear interpolation between pixels and between mipmap levels
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); // texCords are clamped 
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); // to range [0..1]
-    gl.generateMipmap(gl.TEXTURE_2D);                                     // automatic mipmap generation
-    
-    glu.setMaxAnisotropy();
-    
+    glu.setupTextureParameters( image.width, image.height);
+   
     return texId;
 },
 
@@ -198,6 +192,29 @@ isPowerOfTwo: function(x)
     return (x == 1);
 },
 
+setupTextureParameters : function(width, height)
+{
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); // texCords are clamped 
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); // to range [0..1]
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);    // set zoom-in filter to linear interpolation
+    
+    if (glu.isPowerOfTwo(width) && glu.isPowerOfTwo(height))
+    {   
+        //set zoom-out filter to linear interpolation between pixels and between mipmap levels
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);    
+        // automatic mipmap generation
+        gl.generateMipmap(gl.TEXTURE_2D); 
+        glu.setMaxAnisotropy();
+    } else
+    {
+        // webGL has only limited support for textures whose width and height are not powers of two:
+        // those may not use automatic mipmapping, and must use the warp mode CLAMP_TO_EDGE
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);    //set zoom-out filter to linear interpolation between pixels and between mipmap levels
+    }
+
+
+},
+
 createTextureFromBytes : function(bytes, width, height)
 {
     if (!width)
@@ -210,25 +227,8 @@ createTextureFromBytes : function(bytes, width, height)
             
     gl.bindTexture(gl.TEXTURE_2D, texId);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, width, height, 0, gl.RGB, gl.UNSIGNED_BYTE, bytes); //load texture data
-
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); // texCords are clamped 
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); // to range [0..1]
-    
-    if (glu.isPowerOfTwo(width) && glu.isPowerOfTwo(height))
-    {   // webgl does not allow these for NPOT textures
-    
-        //set zoom-in filter to linear interpolation
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); 
-        //set zoom-out filter to linear interpolation between pixels and between mipmap levels
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);    
-        // automatic mipmap generation
-        gl.generateMipmap(gl.TEXTURE_2D); 
-        glu.setMaxAnisotropy();
-    } else
-    {
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);    //set zoom-out filter to linear interpolation between pixels and between mipmap levels
-    }
-    
+    glu.setupTextureParameters(width, height);
+  
     return texId;
 
 },
@@ -238,38 +238,9 @@ updateTexture : function(texture, image)
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image); //load texture data
-    gl.generateMipmap(gl.TEXTURE_2D);                                     // automatic mipmap generation
-    glu.setMaxAnisotropy();
+    glu.setupTextureParameters( image.width, image.height);
 },
 
-updateNpotTexture : function(texture, image)
-{
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image); //load texture data
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);    //
-},
-
-
-
-// webGL has only limited support for textures whose width and height are not powers of two:
-// those may not use automatic mipmapping, and must use the warp mode CLAMP_TO_EDGE
-createNpotTexture : function(image)
-{
-    var texId = gl.createTexture();
-    gl.activeTexture(gl.TEXTURE0);
-            
-    gl.bindTexture(gl.TEXTURE_2D, texId);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image); //load texture data
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);                  //set zoom-in filter to linear interpolation
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);    //set zoom-out filter to linear interpolation between pixels and mipmap levels
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); // texCords are clamped 
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); // to range [0..1]
-    
-    return texId;
-}
 
 };
 

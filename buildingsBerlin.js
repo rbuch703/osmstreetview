@@ -16,8 +16,22 @@ function BerlinBuilding(x, y, mapCenter, textureStorage)
     var tmp = this;
     oReq.onload = function() { tmp.onDataLoaded(oReq, textureStorage); }
     oReq.overrideMimeType("text/plain");
-    oReq.open("get", "json2/" + x + "_" + y + ".json", true);
+    oReq.open("get", "json2/" + x + "_" + y + ".json.tmp", true);
     oReq.send();
+    
+    
+    this.texture = glu.createTextureFromBytes(
+        new Uint8Array([  0,   0, 0, // black
+                        255,   0, 0, // red
+                          0,   0,    // 4 byte boundary alignment bytes
+                          0, 255, 0, // green
+                        255, 255, 0] // yellow
+                       ), 2, 2);
+
+    var image = new Image();
+    image.onload = createTextureLoadHandler( this.texture, image);
+    image.src = "atlas/"+x+"_"+y+".jpg";
+    
 }
 
 function createTextureLoadHandler( texture, image)
@@ -25,8 +39,8 @@ function createTextureLoadHandler( texture, image)
     return function()
     {
         //console.log("+1");
-        //console.log("updating texture %s", part.texName);
-        glu.updateNpotTexture( texture, image);
+        console.log("updating texture %o", image);
+        glu.updateTexture( texture, image);
         
         if (Controller.onRequestFrameRender)
             Controller.onRequestFrameRender();
@@ -139,7 +153,7 @@ BerlinBuilding.prototype.render = function(modelViewMatrix, projectionMatrix)
 
     gl.activeTexture(gl.TEXTURE0);  //successive commands (here 'gl.bindTexture()') apply to texture unit 0
     //console.log(this.textureStorage[part.texName]);
-    gl.bindTexture(gl.TEXTURE_2D, window.berlinBuildingsTexture);
+    gl.bindTexture(gl.TEXTURE_2D, this.texture);
         //this.textureStorage[part.texUri]); //render geometry using texture "tex" in texture unit 0
     gl.drawArrays(gl.TRIANGLES, 0, this.numVertices);
 
@@ -214,9 +228,9 @@ function Buildings(gl, position)
     this.buildings = [];
     this.textureStorage = {};
     var GEO_TILE_ZOOM_LEVEL = 17;
-    var RADIUS = 4;
-    var xCenter = Math.floor(long2tile( position.lng, GEO_TILE_ZOOM_LEVEL));
-    var yCenter = Math.floor(lat2tile(  position.lat, GEO_TILE_ZOOM_LEVEL));
+    var RADIUS = 0;
+    var xCenter = 70415;//Math.floor(long2tile( position.lng, GEO_TILE_ZOOM_LEVEL));
+    var yCenter = 42974;//Math.floor(lat2tile(  position.lat, GEO_TILE_ZOOM_LEVEL));
     console.log(xCenter, yCenter);
     //for (var i = 1; i < 200; i++)
     for (var x = xCenter - RADIUS; x <= xCenter + RADIUS; x++)
@@ -254,7 +268,7 @@ Buildings.prototype.shiftGeometry = function(newPosition)
         this.verticesRaw[i+1] += dy;
     }
     
-    if (this.vertices) 
+    if (this.vertices)
         gl.deleteBuffer(this.vertices);
         
     this.vertices = glu.createArrayBuffer(this.verticesRaw);

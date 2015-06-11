@@ -1,6 +1,11 @@
 
 *~
-tiles/*
+
+tiles
+appearance
+atlas
+json
+json2
+
 leaflet-src.js
 combined.js
-geometry.json
