@@ -34,6 +34,15 @@ function createTextureLoadHandler( texture, image)
 
 BerlinBuilding.prototype.onDataLoaded = function(req)
 {
+    if (req.readyState != 4) // != "DONE"
+        return;
+    
+    if (req.status >= 400)  //request error or server-side error
+    {
+        console.log("Request %o failed", req);
+        return;
+    }
+        
     var data = JSON.parse(req.responseText);
     var suffix = ".quarter";
     if (this.lod == 1)
@@ -53,15 +62,13 @@ BerlinBuilding.prototype.onDataLoaded = function(req)
             var poly = polygons[i];
             var outer = poly.outer;
             
-            //FIXME: hard-coded base height
-            var BASE_HEIGHT = 47.7700004577637;
             for (var j in outer)
             {
                 var latlng = {lat: outer[j][0], lng: outer[j][1]};
                 var localPos = convertToLocalCoordinates(latlng,  this.mapCenter);
                 outer[j][0] = localPos[0];
                 outer[j][1] = localPos[1];
-                outer[j][2] -= BASE_HEIGHT;
+                //outer[j][2];
             }
             
             //FIXME: We triangulate each polygon as a fan, which will fail for most concave ones
@@ -90,7 +97,7 @@ BerlinBuilding.prototype.onDataLoaded = function(req)
             numVertices: (coords.length / 3)|0,
         }
 
-        var blue = Math.random(256);
+        var blue = Math.random()* 256;
         geometry.texture = glu.createTextureFromBytes(
             new Uint8Array([  0,   0, blue,
                             255,   0, blue,
@@ -98,11 +105,13 @@ BerlinBuilding.prototype.onDataLoaded = function(req)
                               0, 255, blue,
                             255, 255, blue]
                            ), 2, 2);
-
-        var image = new Image();
-        image.onload = createTextureLoadHandler( geometry.texture, image);
-        image.src = atlasUri + suffix;
-
+        
+        if (atlasUri)
+        {
+            var image = new Image();
+            image.onload = createTextureLoadHandler( geometry.texture, image);
+            image.src = atlasUri + suffix;
+        }
         
         this.geometries.push(geometry);
 
@@ -159,7 +168,7 @@ function Buildings(gl, position)
 function vec(a) { return [a.dx, a.dy];}
 
 Buildings.prototype.GEO_TILE_ZOOM_LEVEL = 17;
-Buildings.prototype.RADIUS = 1;
+Buildings.prototype.RADIUS = 2;
 
 Buildings.prototype.loadGeometry = function(location)
 {
@@ -175,8 +184,7 @@ Buildings.prototype.loadGeometry = function(location)
 
     var xCenter = Math.floor(long2tile( location.lng, this.GEO_TILE_ZOOM_LEVEL));
     var yCenter = Math.floor(lat2tile(  location.lat, this.GEO_TILE_ZOOM_LEVEL));
-    console.log(xCenter, yCenter);
-    //for (var i = 1; i < 200; i++)
+    //console.log(xCenter, yCenter);
     for (var x = xCenter - this.RADIUS; x <= xCenter + this.RADIUS; x++)
         for (var y = yCenter - this.RADIUS; y <= yCenter + this.RADIUS; y++)
         {
