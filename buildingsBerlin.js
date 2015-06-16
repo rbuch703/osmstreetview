@@ -106,7 +106,7 @@ BerlinBuilding.prototype.onDataLoaded = function(req)
                             255, 255, blue]
                            ), 2, 2);
         
-        if (atlasUri)
+        if (atlasUri != null && atlasUri !== "null")
         {
             var image = new Image();
             image.onload = createTextureLoadHandler( geometry.texture, image);
@@ -149,6 +149,43 @@ BerlinBuilding.prototype.render = function(modelViewMatrix, projectionMatrix)
     }   
 
     glu.disableVertexAttribArrays(Shaders.textured); //cleanup
+}
+
+BerlinBuilding.prototype.renderDepth = function(modelViewMatrix, projectionMatrix) {
+    if (!Shaders.ready)
+        return;
+        
+
+    gl.enable(gl.CULL_FACE);
+    //HACK: A building casts the same shadow regardless of whether its front of back faces are used in the shadow computation.
+    //      The only exception is the building the camera is located in: using front faces would prevent light to be casted on
+    //      anything inside the building walls, i.e. no light would fall on anything inside the apartment (since its windows
+    //      have to corresponding holes in the buiding geometry. Using only the front faces effectively ignores just the
+    //      building the camera is in for the shadow computation, which gives the desired effect to shading the apartment
+    gl.cullFace(gl.FRONT);
+
+	gl.useProgram(Shaders.depth);   //    Install the program as part of the current rendering state
+	glu.enableVertexAttribArrays(Shaders.depth);
+
+    var mvpMatrix = mat4.create();
+    mat4.mul(mvpMatrix, projectionMatrix, modelViewMatrix);
+
+    //gl.activeTexture(gl.TEXTURE0);  //successive commands (here 'gl.bindTexture()') apply to texture unit 0
+    //gl.bindTexture(gl.TEXTURE_2D, null); //render geometry without texture
+    
+    for (var i in this.geometries)
+    {
+        var geometry = this.geometries[i];
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, geometry.vertices);   //select the vertex buffer as the currrently active ARRAY_BUFFER (for subsequent calls)
+        gl.vertexAttribPointer(Shaders.depth.locations["vertexPos"], 3, gl.FLOAT, false, 0, 0);  //assigns array "vertices" bound above as the vertex attribute "vertexPosition"
+    	gl.uniformMatrix4fv(Shaders.depth.locations["modelViewProjectionMatrix"], false, mvpMatrix);
+
+        gl.drawArrays(gl.TRIANGLES, 0, geometry.numVertices);
+    }   
+
+    gl.cullFace(gl.BACK);   //reset to normal behavior
+    glu.disableVertexAttribArrays(Shaders.depth);
 }
 
 
@@ -269,6 +306,12 @@ Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
     for (var i in this.buildings)
         this.buildings[i].render(modelViewMatrix, projectionMatrix);
 }
+
+Buildings.prototype.renderDepth = function(modelViewMatrix, projectionMatrix) {
+    for (var i in this.buildings)
+        this.buildings[i].renderDepth(modelViewMatrix, projectionMatrix);
+}
+
 
 
 /* converts 'buildings' global coordinates (lat/lon) to local distances (in m) from mapCenter*/
