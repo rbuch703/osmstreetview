@@ -27,7 +27,13 @@ function sub3(a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2] ]; }
 function add3(a, b) { return [a[0] + b[0], a[1] + b[1], a[2] + b[2] ]; }
 function mul3scalar(a, s) { return [a[0]*s, a[1]*s, a[2]*s]; }
 function neg3(a) { return [-a[0], -a[1], -a[2]]; }
-
+function equals3(a,b) {return a[0] == b[0] && a[1] == b[1] && a[2] == b[2];}
+function dot3(a, b) { return a[0]*b[0] + a[1]*b[1] + a[2]*b[2];}
+function cross3(a, b) {
+    return [a[1]*b[2] - a[2]*b[1],
+            a[2]*b[0] - a[0]*b[2],
+            a[0]*b[1] - a[1]*b[0]];
+}
 
 
 function sub2(a, b) { return [a[0] - b[0], a[1] - b[1] ]; }

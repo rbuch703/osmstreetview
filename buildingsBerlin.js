@@ -11,7 +11,6 @@ function BerlinBuilding(x, y, mapCenter, lod)
     this.geometries = [];
     this.lod = lod;
     
-    //var bldgs = this;
     var oReq = new XMLHttpRequest();
     var tmp = this;
     oReq.onload = function() { tmp.onDataLoaded(oReq); }
@@ -32,6 +31,185 @@ function createTextureLoadHandler( texture, image)
     };
 }
 
+/* Fallback triangulation to generate at least some geometry, 
+ * if the normal triangulation fails.
+ * Approach: ignore any inner rings that might be present, triangulate the outer ring
+ *           as a fan. (this always works, even for degenerated geometry) */
+function triangulateFallback( outerRing, coordsRef, texCoordsRef)
+{
+    //first and last vertex are identical --> skip last entry
+    for (var j = 1; j+1 < outerRing.length-1; j++)
+    {
+        coordsRef.push( outerRing[0  ][0], outerRing[0  ][1], outerRing[0  ][2]);
+        coordsRef.push( outerRing[j  ][0], outerRing[j  ][1], outerRing[j  ][2]);
+        coordsRef.push( outerRing[j+1][0], outerRing[j+1][1], outerRing[j+1][2]);
+        
+        texCoordsRef.push( outerRing[0  ][3], outerRing[0  ][4]);
+        texCoordsRef.push( outerRing[j  ][3], outerRing[j  ][4]);
+        texCoordsRef.push( outerRing[j+1][3], outerRing[j+1][4]);
+    }
+}
+
+function createBase(outerRing)
+{
+    var p0 = outerRing[0];
+    var i = 1;
+    while ( i < outerRing.length && equals3(p0, outerRing[i]))
+        i += 1;
+        
+    if (i == outerRing.length)
+    {   
+        console.log("[ERROR] cannot find non-identical vertices in polygon");
+        return null;
+    }
+    
+    var dir1 = norm3(sub3(outerRing[i], p0));
+    var dir2 = dir1;
+    var dotMin = Infinity;
+    for (; i < outerRing.length; i++)
+    {
+        var d2Tmp = norm3(sub3(outerRing[i], p0));
+        var dot = Math.abs(dot3(dir1, d2Tmp));
+        if ( dot < dotMin)
+        {
+            dotMin = dot;
+            dir2 = d2Tmp;
+        }
+    }
+
+    if (dotMin > 0.95)
+    {
+        //console.log(dotMin);
+        //console.log("[WARN] numerical accuracy too low for base transformation; using fallback triangulation");
+        return null;
+    }
+
+    var normal = cross3( dir1, dir2);
+    dir2 = cross3( normal, dir1);
+
+    return [p0, dir1, dir2];
+}
+
+function triangulate( outerRing, innerRings, coordsRef, texCoordsRef)
+{
+    if (! equals3( outerRing[0], outerRing[outerRing.length-1]))
+    {
+        console.log("[ERR] outer ring is not closed. Skipping polygon");
+        return;
+    }
+    
+    for (var i in innerRings)
+        if (! equals3( innerRings[i][0], innerRings[i][ innerRings[i].length-1]))
+        {
+            console.log("[ERR] inner ring is not closed. Skipping polygon");
+            return;
+        }
+
+    //console.log("triangulate_beep");
+    //is a triangle (first==last) --> trivial triangulation
+    if (outerRing.length == 4 && innerRings.length == 0)  
+        return triangulateFallback(outerRing, coordsRef, texCoordsRef);
+
+    var base = createBase(outerRing);
+    if (base === null)
+        return triangulateFallback( outerRing, coordsRef, texCoordsRef)
+
+    var p0 = base[0];
+    var dir0 = base[1];
+    var dir1 = base[2];
+
+    var originalCoords = {};
+    var points = [];
+    //console.log("polygon has %s vertices", outline.length-1);
+    
+    
+    var prevX = null;
+    var prevY = null;
+    for (var i = 0; i < outerRing.length - 1; i++) 
+    {
+        var dir = sub3(outerRing[i], p0);
+        var x = dot3( dir, dir0);
+        var y = dot3( dir, dir1);
+        originalCoords[ [x,y] ] = outerRing[i];
+        
+        //if (x !== prevX && y !== prevY)
+        {
+            points.push(new poly2tri.Point( x, y));
+        }
+        
+        prevX = x;
+        prevY = y;
+    }
+
+    /* triangulation might fail:
+     * - when an inner ring touches an outer ring
+     * - when edges intersect
+     * - when rings are not closed
+     * - ...
+     * So we wrap triangulation in a try/catch block to handle these invalid cases
+     */
+    
+    try {
+
+        var ctx = new poly2tri.SweepContext(points);
+        
+        for (var i in innerRings)
+        {
+            var ring = [];
+            var inner = innerRings[i];
+            
+            for (var j = 0; j < inner.length - 1; j++)
+            {
+                var dir = sub3(inner[j], p0);
+                var x = dot3( dir, dir0);
+                var y = dot3( dir, dir1);
+                originalCoords[ [x,y] ] = inner[j];
+                ring.push(new poly2tri.Point( x, y));
+            }
+            ctx.addHole(ring);
+        }
+    
+        poly2tri.triangulate(ctx);
+    }
+    catch(err)
+    {
+        console.log("triangulation failed: %o", err);
+        return triangulateFallback( outerRing, coordsRef, texCoordsRef);
+    }
+    
+    var triangles = ctx.getTriangles();
+    
+    var coordsTriangulated = [];
+    var texCoordsTriangulated = [];
+    
+    var vertexData = [];
+    for (var i in triangles)
+    {
+        var tri = triangles[i]["points_"];
+        var p0 = [tri[0].x, tri[0].y];
+        var p1 = [tri[1].x, tri[1].y];
+        var p2 = [tri[2].x, tri[2].y];
+        if ( ! ( p0 in originalCoords && p1 in originalCoords && p2 in originalCoords))
+        {
+            console.log("invalid vertex in triangulation result");
+            return triangulateFallback( outerRing, coordsRef, texCoordsRef);
+        }
+        // map back from 2D triangulation results to 3D vertices (plus texCoords)
+        p0 = originalCoords[p0];
+        p1 = originalCoords[p1];
+        p2 = originalCoords[p2];
+        coordsTriangulated.push( p0[0], p0[1], p0[2]);
+        coordsTriangulated.push( p1[0], p1[1], p1[2]);
+        coordsTriangulated.push( p2[0], p2[1], p2[2]);
+        
+        texCoordsTriangulated.push( p0[3], p0[4]);
+        texCoordsTriangulated.push( p1[3], p1[4]);
+        texCoordsTriangulated.push( p2[3], p2[4]);
+    }
+    [].push.apply(coordsRef, coordsTriangulated);
+    [].push.apply(texCoordsRef, texCoordsTriangulated);
+}
+
 BerlinBuilding.prototype.onDataLoaded = function(req)
 {
     if (req.readyState != 4) // != "DONE"
@@ -39,7 +217,7 @@ BerlinBuilding.prototype.onDataLoaded = function(req)
     
     if (req.status >= 400)  //request error or server-side error
     {
-        console.log("Request %o failed", req);
+        //console.log("Request %s failed (%s)", req.responseURL, req.status);
         return;
     }
         
@@ -60,31 +238,13 @@ BerlinBuilding.prototype.onDataLoaded = function(req)
         for (var i in polygons)
         {
             var poly = polygons[i];
-            var outer = poly.outer;
+            //var outer = poly.outer;
             
-            for (var j in outer)
-            {
-                var latlng = {lat: outer[j][0], lng: outer[j][1]};
-                var localPos = convertToLocalCoordinates(latlng,  this.mapCenter);
-                outer[j][0] = localPos[0];
-                outer[j][1] = localPos[1];
-                //outer[j][2];
-            }
+            toLocal(poly.outer, this.mapCenter);
+            for (var j in poly.inner)
+                toLocal(poly.inner[j], this.mapCenter);
             
-            //FIXME: We triangulate each polygon as a fan, which will fail for most concave ones
-            //TODO:  Change this to perform an actual triangulation (including holes)
-            
-            //if (outer.length <= 5 && poly.inner.length == 0)
-            for (var j = 1; j+1 < outer.length; j++)
-            {
-                [].push.apply( coords, [outer[0  ][0], outer[0  ][1], outer[0  ][2]]);
-                [].push.apply( coords, [outer[j  ][0], outer[j  ][1], outer[j  ][2]]);
-                [].push.apply( coords, [outer[j+1][0], outer[j+1][1], outer[j+1][2]]);
-                
-                [].push.apply( texCoords, [outer[0  ][3], outer[0  ][4]]);
-                [].push.apply( texCoords, [outer[j  ][3], outer[j  ][4]]);
-                [].push.apply( texCoords, [outer[j+1][3], outer[j+1][4]]);
-            }
+            triangulate(poly.outer, poly.inner, coords, texCoords);
             //console.log(coords[0], coords[1]);
         }
 
@@ -234,9 +394,9 @@ Buildings.prototype.loadGeometry = function(location)
 Buildings.prototype.shiftGeometry = function(newPosition)
 {
     //console.log("shift")
-    var dLat = newPosition.lat - this.mapCenter.lat;
+    /*var dLat = newPosition.lat - this.mapCenter.lat;
     var dLng = newPosition.lng - this.mapCenter.lng;
-    var avgLat = (newPosition.lat + this.mapCenter.lat) / 2.0;
+    var avgLat = (newPosition.lat + this.mapCenter.lat) / 2.0;*/
     this.mapCenter = newPosition;
     this.loadGeometry( this.mapCenter);
     /*if (dLat > 1 || dLng > 1)   //distance too far for the old geometry to still be visible --> just don't display anything
@@ -270,38 +430,6 @@ Buildings.prototype.requestGeometry = function (newPosition)
     
 }
 
-function triangulate(outline)
-{
-    //console.log("triangulating outline %o", outline);
-    var points = [];
-    //console.log("polygon has %s vertices", outline.length-1);
-    if ((outline[0].dx != outline[outline.length-1].dx) ||
-        (outline[0].dy != outline[outline.length-1].dy))
-        console.log("[ERR] Non-closed polygon in outline.");
-    
-    for (var i = 0; i < outline.length - 1; i++) 
-    {
-        points.push(new poly2tri.Point( outline[i].dx, outline[i].dy));
-    }
-    
-    var ctx = new poly2tri.SweepContext(points);
-    poly2tri.triangulate(ctx);
-    var triangles = ctx.getTriangles();
-    var vertexData = [];
-    for (var i in triangles)
-    {
-        var tri = triangles[i];
-        //console.log(tri);
-        vertexData.push( tri["points_"][0].x, tri["points_"][0].y);
-        vertexData.push( tri["points_"][1].x, tri["points_"][1].y);
-        vertexData.push( tri["points_"][2].x, tri["points_"][2].y);
-    }
-    return vertexData;
-    //console.log(vertexData);
-    
-}
-
-
 Buildings.prototype.render = function(modelViewMatrix, projectionMatrix) {
     for (var i in this.buildings)
         this.buildings[i].render(modelViewMatrix, projectionMatrix);
@@ -315,17 +443,27 @@ Buildings.prototype.renderDepth = function(modelViewMatrix, projectionMatrix) {
 
 
 /* converts 'buildings' global coordinates (lat/lon) to local distances (in m) from mapCenter*/
-function convertToLocalCoordinates(latlng,  mapCenter)
+/*function convertToLocalCoordinates(latlng,  mapCenter)
+{
+    
+}*/
+
+function toLocal(ring, localCenter)
 {
     var circumference  = Helpers.getEarthCircumference();
-    var lngScale = Math.cos( mapCenter.lat / 180 * Math.PI);
-    
-    var dLat = latlng.lat - mapCenter.lat;
-    var dLng = latlng.lng - mapCenter.lng;
+    var lngScale = Math.cos( localCenter.lat / 180 * Math.PI);
 
-    var dx = dLng / 360 * circumference * lngScale;
-    var dy = -dLat / 360 * circumference;
-    return [dx, dy];
+    for (var j in ring)
+    {
+        var latlng = {lat: ring[j][0], lng: ring[j][1]};
+        var dLat = ring[j][0] - localCenter.lat;
+        var dLng = ring[j][1] - localCenter.lng;
+
+        var dx = dLng / 360 * circumference * lngScale;
+        var dy = -dLat / 360 * circumference;
+        ring[j][0] = dx;
+        ring[j][1] = dy;
+    }
 }
 
 
