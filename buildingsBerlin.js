@@ -282,6 +282,9 @@ BerlinBuilding.prototype.render = function(modelViewMatrix, projectionMatrix)
 {
     if (!Shaders.ready)
         return;
+
+	//cannot use backface culling for now, as the data set contains incorrectly oriented faces
+    gl.disable(gl.CULL_FACE);
     
     gl.useProgram(Shaders.textured);   //    Install the program as part of the current rendering state
     glu.enableVertexAttribArrays(Shaders.textured);
@@ -309,6 +312,7 @@ BerlinBuilding.prototype.render = function(modelViewMatrix, projectionMatrix)
     }   
 
     glu.disableVertexAttribArrays(Shaders.textured); //cleanup
+    gl.enable(gl.CULL_FACE);
 }
 
 BerlinBuilding.prototype.renderDepth = function(modelViewMatrix, projectionMatrix) {

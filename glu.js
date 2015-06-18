@@ -1,6 +1,6 @@
 "use strict"    
 
-/* Copyright (c) 2014, Robert Buchholz <rbuch703@gmail.com> 
+/* Copyright (c) 2015, Robert Buchholz <rbuch703@gmail.com> 
    The contents of this file are licensed under the GNU General Public License version 3
    (see the LICENSE file in the project root for details)
 */

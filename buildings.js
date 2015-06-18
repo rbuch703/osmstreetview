@@ -25,6 +25,8 @@ function Buildings(gl, position)
     image.onload = function() 
     {
         glu.updateTexture( bldgs.windowTexture, image);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
         
         if (Controller.onRequestFrameRender)
             Controller.onRequestFrameRender();
@@ -428,6 +430,13 @@ Buildings.mergeMultiPolygonSegments = function(rel, setOfRelations) {
 
         var way = rel["members"][j];
         delete rel["members"][j];
+        
+        /* error handling: was a way reference that never got resolved to an actual way
+         *                 (usually because the server response did not include the way. */
+        if (typeof way.ref === "number")
+            continue;
+            
+        //console.log(way);
         /* if we currently have an open outline segment, then this next ways must be connectable
          * to that outline. If not then we have to fallback to close that open outline segment with a
          * straight line (which is usually not the intended result), store it, and continue with the next one
