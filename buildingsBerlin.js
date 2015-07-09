@@ -9,13 +9,20 @@ function BerlinBuilding(x, y, mapCenter, lod)
     this.num = [x, y];
     this.mapCenter = mapCenter;
     this.geometries = [];
-    this.lod = lod;
+    //this.lod = lod;
+
+    var suffix = "_quarter";
+    if (lod == 1) suffix = "_half";
+    if (lod == 0) suffix = "_full";
+    
+    var filename = "atlas/" + x + "/" + y + suffix + ".json";
+    //console.log(filename);
     
     var oReq = new XMLHttpRequest();
     var tmp = this;
     oReq.onload = function() { tmp.onDataLoaded(oReq); }
     oReq.overrideMimeType("text/plain");
-    oReq.open("get", "atlas/" + x + "_" + y + ".json", true);
+    oReq.open("get", filename, true);
     oReq.send();
         
 }
@@ -158,13 +165,23 @@ function triangulate( outerRing, innerRings, coordsRef, texCoordsRef)
             var ring = [];
             var inner = innerRings[i];
             
+            var prevX = Infinity;
+            var prevY = Infinity;
             for (var j = 0; j < inner.length - 1; j++)
             {
                 var dir = sub3(inner[j], p0);
                 var x = dot3( dir, dir0);
                 var y = dot3( dir, dir1);
+
+                if (x == prevX && y == prevY)
+                    continue;
+
                 originalCoords[ [x,y] ] = inner[j];
+                
                 ring.push(new poly2tri.Point( x, y));
+                
+                prevX = x;
+                prevY = y;
             }
             ctx.addHole(ring);
         }
@@ -222,11 +239,6 @@ BerlinBuilding.prototype.onDataLoaded = function(req)
     }
         
     var data = JSON.parse(req.responseText);
-    var suffix = ".quarter";
-    if (this.lod == 1)
-        suffix = ".half";
-    else if (this.lod == 0)
-        suffix = "";
         
     for (var atlasUri in data)
     {
@@ -257,6 +269,7 @@ BerlinBuilding.prototype.onDataLoaded = function(req)
             numVertices: (coords.length / 3)|0,
         }
 
+        /*
         var blue = Math.random()* 256;
         geometry.texture = glu.createTextureFromBytes(
             new Uint8Array([  0,   0, blue,
@@ -265,12 +278,17 @@ BerlinBuilding.prototype.onDataLoaded = function(req)
                               0, 255, blue,
                             255, 255, blue]
                            ), 2, 2);
+        */
+        
+        var g = Math.random() * 256;
+        geometry.texture = glu.createTextureFromBytes(
+            new Uint8Array([g,g,g,g,g,g,g,g,g,g,g,g,g,g]),2,2);
         
         if (atlasUri != null && atlasUri !== "null")
         {
             var image = new Image();
             image.onload = createTextureLoadHandler( geometry.texture, image);
-            image.src = atlasUri + suffix;
+            image.src = atlasUri;
         }
         
         this.geometries.push(geometry);
@@ -284,7 +302,7 @@ BerlinBuilding.prototype.render = function(modelViewMatrix, projectionMatrix)
         return;
 
 	//cannot use backface culling for now, as the data set contains incorrectly oriented faces
-    gl.disable(gl.CULL_FACE);
+    //gl.disable(gl.CULL_FACE);
     
     gl.useProgram(Shaders.textured);   //    Install the program as part of the current rendering state
     glu.enableVertexAttribArrays(Shaders.textured);
@@ -386,12 +404,22 @@ Buildings.prototype.loadGeometry = function(location)
     var xCenter = Math.floor(long2tile( location.lng, this.GEO_TILE_ZOOM_LEVEL));
     var yCenter = Math.floor(lat2tile(  location.lat, this.GEO_TILE_ZOOM_LEVEL));
     //console.log(xCenter, yCenter);
+    var tiles = [];
     for (var x = xCenter - this.RADIUS; x <= xCenter + this.RADIUS; x++)
         for (var y = yCenter - this.RADIUS; y <= yCenter + this.RADIUS; y++)
         {
             var lod = Math.max( Math.abs(xCenter - x), Math.abs(yCenter - y));
-            this.buildings[ [x, y] ] = new BerlinBuilding(x, y, location, lod );
+            tiles.push( [x, y, lod] );
         }
+
+    tiles.sort( function(a,b) { return a[2] > b[2];} );
+    //console.log(tiles);
+    for (var i in tiles)
+    {
+        var x = tiles[i][0];
+        var y = tiles[i][1];
+        this.buildings[ [x, y] ] = new BerlinBuilding(x, y, location, tiles[i][2] );
+    }
 
 }
 

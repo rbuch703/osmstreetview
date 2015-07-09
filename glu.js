@@ -17,6 +17,7 @@ compileShader: function (src_str, type)
         //console.log("Couldn't compile the shader: " + gl.getShaderInfoLog(shader) );
         //    Clean up
         var errorMsg = gl.getShaderInfoLog(shader);
+//        console.log(errorMsg);
         gl.deleteShader(shader);
         return [false, "Couldn't compile the shader: " + errorMsg + "\nSource is: " + src_str];
     }
@@ -205,11 +206,13 @@ setupTextureParameters : function(width, height)
         // automatic mipmap generation
         gl.generateMipmap(gl.TEXTURE_2D); 
         glu.setMaxAnisotropy();
+        //console.log("POT texture %sx%s", width, height);
     } else
     {
         // webGL has only limited support for textures whose width and height are not powers of two:
-        // those may not use automatic mipmapping, and must use the warp mode CLAMP_TO_EDGE
+        // those may not use automatic mipmapping, and must use the wrap mode CLAMP_TO_EDGE
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);    //set zoom-out filter to linear interpolation between pixels and between mipmap levels
+        //console.log("NPOT texture %sx%s", width, height);
     }
 
 
