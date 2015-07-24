@@ -9,10 +9,10 @@
     <title>OSM Street View - Editing</title>
 </head>
 
-<body onload="init()"  > <!-- style ="padding: 0px; margin: 0px;" -->
+<body> <!-- style ="padding: 0px; margin: 0px;" -->
 <h2 style="">OSM Street View - Editing the Map</h2>
 
-<div id="explanation" style="width:800px">
+<div id="explanation" style="max-width:800px">
 <p>For OSM Street <emph>View</emph>, we directly use data from <emph>OpenStreetMap</emph>, for the ground texture as well as for the building geometry. Thus, any change to OpenStreetMap data made by any of its hundreds of thousands of contributors should be reflected in our 3D OSM Street View in a matter of minutes.</p>
 
 <p><a href="http://openstreetmap.org" target="_blank">OpenStreetMap</a> is a vast collection of geographical knowledge on our planet that can be edited and used by everybody free of charge. Is most well-know for its detailed world map, but its data is available to the public for any purpose.</p>
@@ -23,41 +23,41 @@
 <h3>Step 1: Find the Right Map Spot</h3>
 Head over to <a href="http://www.openstreetmap.org" target="_blank">www.openstreetmap.org</a> and navigate to the map position where you want to modify the map. You should zoom in to zoom level 18 or higher before editing the map (the current zoom level is shown in your browser address bar right after the text "/#map=").
 
-<p><img src="images/edit_osm1.png" border="1px"></p>
+<p><img src="images/edit_osm1.png" style="max-width:98%;" border="1px"></p>
 
 <h3>Step 2: Login</h3>
 <p>Click the "Edit" button and login either using OpenID (for example with your Google account) by clicking the corresponding icon, or register a new OpenStreetMap account by clicking the corresponding link (if you already got an OpenStreetMap account, use that one instead).</p>
 
 <p>This should return you to the map view, which has now changed to show aerial imagery overlayed by the OpenStreetMap data.</p>
 
-<p><img src="images/edit_osm2.png" border="1px"></p>
+<p><img src="images/edit_osm2.png" style="max-width:98%;" border="1px"></p>
 
 <p>If you want to add a building to OpenStreetMap, read on. If the building aready exists and you just want to adjust its height, skip ahead to Step 4.</p>
 
 <h3>Step 3: Map the Building</h3>
 <p>To add a building to OpenStreetMap, first map its outline: Click the "Area" button at the top-left corner of the map view. 
 
-<p><img src="images/osm_edit3.png" border="1px"></p>
+<p><img src="images/osm_edit3.png" style="max-width:98%;" border="1px"></p>
 
 Then draw the building outline by clicking on the map to add outline points. Finish the outline by clicking on the first outline point you have drawn. 
 
-<p><img src="images/osm_edit4.png" border="1px"></p>
+<p><img src="images/osm_edit4.png" style="max-width:98%;" border="1px"></p>
 
 You can still alter the area shape by first clicking on it to select it, and then dragging the outline points you want to adjust. If your building consists mostly of edges that should be perpendicular to each other, you can additionally select "Square the corners" from the popup wheel menu to improve the building shape automatically.</p>
 
-<p><img src="images/osm_edit5a.png" border="1px"></p>
+<p><img src="images/osm_edit5a.png" style="max-width:98%;" border="1px"></p>
 
 <p>Now that you have marked an area, you have to tell OpenStreetMap that this area should represent a building: First, click on the area you have drawn to select it (it outline should now be highlighted). 
 
-<p><img src="images/osm_edit5.png" border="1px"></p>
+<p><img src="images/osm_edit5.png" style="max-width:98%;" border="1px"></p>
 
 The left sidebar should contain a list of possible feature types that your outline may represent (e.g. "Buildings", "Parks", etc.). Select the "Building" group of feature types, and from the expanded list of "Building" features select the one that most accurately corresponds to your building (or just select the generic "Building" entry for now). 
 
-<p><img src="images/osm_edit6.png" border="1px"></p>
+<p><img src="images/osm_edit6.png" style="max-width:98%;" border="1px"></p>
 
 Your building should now turn red on the map and the left sidebar should show a list of building properties.
 
-<p><img src="images/osm_edit7.png" border="1px"></p>
+<p><img src="images/osm_edit7.png" style="max-width:98%;" border="1px"></p>
 
 <h3>Step 4: Adjust the Building Height</h3>
 Now that you mapped your building (or found an existing one that you want to edit), you'll want to set its height. Click on the building to get a list of its properties on the left sidebar. Then scroll to the bottom of the left side bar and click on its entry "All tags" to expand the list of attributes of that building. Attributes are key/value pairs, where the left-hand side entry (the "key") gives the attribute name, and the right-hand side entry gives the value for that key.</p>
@@ -67,27 +67,27 @@ There are two ways to affect the height at which a building is rendered in OSM S
 <h4>Method 4a: Set the Building Height Directly</h4>
 <p>If you know the actual building height, you can enter it directly: The attribute list should at least contain an entry "building", and may contain many more. If it already contains an entry "height", you can edit that entry. Otherwise create a new entry by clicking on the plus sign below the attribute list and entering "height" in the left column of the new entry. 
 
-<p><img src="images/osm_edit8.png" border="1px"></p>
+<p><img src="images/osm_edit8.png" style="max-width:98%;" border="1px"></p>
 
 In the right column, enter the building height <emph>in meters</emph> (to convert other units of measurement to meters, you can use Google searches such as <a href="https://www.google.com/search?q=50+feet+in+meters" target="_blank">"50 feet in meters"</a>). The height value may have a fractional part (e.g. 10.7), but the decimal mark has to be a period/dot, not a comma.</p>
 
-<p><img src="images/osm_edit9.png" border="1px"></p>
+<p><img src="images/osm_edit9.png" style="max-width:98%;" border="1px"></p>
 
 
 <h4>Method 4b: Set the Number of Building Levels</h4>
 <p>If you don't know the actual building height, but know the number of building levels, you can have OpenStreetMap store that number, and OSM Street View will estimate the building height based on the number of building levels (currently by assuming a height of 3.5m per building level). In order to do so, find the attribute with the key "building:levels", or - if it does not exist yet - create an attribute with that name by clicking on the plus sign at the end of the attribute list and entering "building:levels" (without the quotes) into the left edit box. As its value (in the edit box to its right), enter the number of buildings levels that are <emph>completely above ground and not part of the roof</emph>. Additional roof building levels can be entered as values to the key "roof:levels".</p>
 
-<p><img src="images/osm_edit10.png" border="1px"></p>
+<p><img src="images/osm_edit10.png" style="max-width:98%;" border="1px"></p>
 
 
 <h3>Step 5: Save your changes</h3>
 <p>When you're done editing, save your changes by clicking the white "Save" button at the top of the map view. 
 
-<p><img src="images/osm_edit11.png" border="1px"></p>
+<p><img src="images/osm_edit11.png" style="max-width:98%;" border="1px"></p>
 
 On the left sidebar, enter a commit message describing your changes in the corresponding box, and click the blue "Save" button to finally save your changes. Then click the "OpenStreetMap" title in the upper left corner or the icon next to it to return to the main map.</p>
 
-<p><img src="images/osm_edit12.png" border="1px"></p>
+<p><img src="images/osm_edit12.png" style="max-width:98%;" border="1px"></p>
 
 Congratulations, you just made your first contribution to OpenStreetMap!
 
